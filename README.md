@@ -18,7 +18,9 @@ pre-commit install
 
 This will install the pre-commit hooks in your local repository. The hooks will run automatically when you commit changes to your repository.
 
-## Nix devenv
+## Nix
+
+### devenv
 To use the Nix development environment, you need to have Nix installed on your system. You can install Nix by following the instructions on the [Determinate Nix Installer page](https://github.com/DeterminateSystems/nix-installer).
 
 Once you have Nix installed, you need to install devenv. You can do this by running the following command:
@@ -45,4 +47,19 @@ Then, allow direnv to load the development environment by running the following 
 
 ```bash
 direnv allow
+```
+
+## Informe
+
+The informe.pdf file is generated using Org Mode that uses LaTeX to generate the PDF. To generate the PDF, you need to have some system dependencies which can be used from the Nix devenv or installed from your distribution.
+
+You need to have Emacs and Org Mode installed on your system. You can install Emacs by following the instructions on the [Emacs website](https://www.gnu.org/software/emacs/).
+
+Also you need to have LaTeX installed on your system. You can install LaTeX by following the instructions on the [LaTeX website](https://www.latex-project.org/get/).
+
+### Compiling the PDF
+To compile the PDF, you need to run the following command:
+
+```bash
+make
 ```
