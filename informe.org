@@ -47,7 +47,7 @@
     \begin{tabular}{ | l | l | l | }
       \hline
       Alumno & Padron & Email \\ \hline
-      A, Vicky & xxxxxx & xxxxxxxxx@fi.uba.ar \\ \hline
+      AVALOS, Vicky & 108434 & vavalos@fi.uba.ar \\ \hline
       CASTRO MARTINEZ, Jose Ignacio & 106957 & jcastrom@fi.uba.ar \\ \hline
       CIPRIANO, Victor & xxxxxx & xxxxxxxxx@fi.uba.ar \\ \hline
       DEALBERA, Pablo Andres & 106585 & pdealbera@fi.uba.ar \\ \hline
