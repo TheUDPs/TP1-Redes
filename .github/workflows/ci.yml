@@ -1,0 +1,17 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check-pep8:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ruff-action
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: "format --check --diff"
