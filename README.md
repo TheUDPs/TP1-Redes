@@ -63,3 +63,6 @@ To compile the PDF, you need to run the following command:
 ```bash
 make
 ```
+
+### Org Mode Syntax
+To learn more about Org Mode syntax, you can refer to this [Org Mode Cheat Sheet](https://emacsclub.github.io/html/org_tutorial.html).
