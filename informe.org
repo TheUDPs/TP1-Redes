@@ -1,0 +1,70 @@
+#+LANGUAGE: es
+#+OPTIONS: toc:nil title:nil
+
+#+LATEX_CLASS_OPTIONS: [titlepage,a4paper]
+#+LATEX_HEADER_EXTRA: \hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue,bookmarksopen=true}
+#+LATEX_HEADER_EXTRA: \usepackage{a4wide}
+#+LATEX_HEADER_EXTRA: \usepackage{bookmark}
+#+LATEX_HEADER_EXTRA: \usepackage{fancyhdr}
+#+LATEX_HEADER_EXTRA: \usepackage[spanish]{babel}
+#+LATEX_HEADER_EXTRA: \usepackage[utf8]{inputenc}
+#+LATEX_HEADER_EXTRA: \usepackage[T1]{fontenc}
+#+LATEX_HEADER_EXTRA: \usepackage{graphicx}
+#+LATEX_HEADER_EXTRA: \usepackage{float}
+#+LATEX_HEADER_EXTRA: \usepackage{minted}
+#+LATEX_HEADER_EXTRA: \usepackage{svg}
+#+LATEX_HEADER_EXTRA: \pagestyle{fancy}
+#+LATEX_HEADER_EXTRA: \fancyhf{}
+#+LATEX_HEADER_EXTRA: \fancyhead[L]{TP1 - Grupo 2}
+#+LATEX_HEADER_EXTRA: \fancyhead[R]{Redes - FIUBA}
+#+LATEX_HEADER_EXTRA: \renewcommand{\headrulewidth}{0.4pt}
+#+LATEX_HEADER_EXTRA: \fancyfoot[C]{\thepage}
+#+LATEX_HEADER_EXTRA: \renewcommand{\footrulewidth}{0.4pt}
+#+LATEX_HEADER_EXTRA: \usemintedstyle{stata-light}
+#+LATEX_HEADER_EXTRA: \newminted{c}{bgcolor={rgb}{0.95,0.95,0.95}}
+#+LATEX_HEADER_EXTRA: \usepackage{color}
+#+LATEX_HEADER_EXTRA: \usepackage[utf8]{inputenc}
+#+LATEX_HEADER_EXTRA: \usepackage{fancyvrb}
+#+LATEX_HEADER_EXTRA: \fvset{framesep=1mm,fontfamily=courier,fontsize=\scriptsize,numbers=left,framerule=.3mm,numbersep=1mm}
+#+LATEX_HEADER_EXTRA: \usepackage[nottoc]{tocbibind}
+
+#+NAME: setup
+#+BEGIN_SRC emacs-lisp :results silent :exports none
+  (setq org-latex-minted-options
+    '(("bgcolor" "bg")))
+#+END_SRC
+
+#+BEGIN_EXPORT latex
+\begin{titlepage}
+    \hfill\includegraphics[width=6cm]{assets/logofiuba.jpg}
+    \centering
+    \vfill
+    \Huge \textbf{Trabajo Práctico 1}
+    \vskip2cm
+    \Large [TA048] Redes \\
+    Primer cuatrimestre de 2025\\
+    \vfill
+    \begin{tabular}{ | l | l | l | }
+      \hline
+      Alumno & Padron & Email \\ \hline
+      A, Vicky & xxxxxx & xxxxxxxxx@fi.uba.ar \\ \hline
+      CASTRO MARTINEZ, Jose Ignacio & 106957 & jcastrom@fi.uba.ar \\ \hline
+      CIPRIANO, Victor & xxxxxx & xxxxxxxxx@fi.uba.ar \\ \hline
+      DEALBERA, Pablo Andres & 106585 & pdealbera@fi.uba.ar \\ \hline
+      DIEM, Gabriel & 105618 & wdiem@fi.uba.ar \\ \hline
+    \end{tabular}
+    \vfill
+\end{titlepage}
+\tableofcontents
+\newpage
+\definecolor{bg}{rgb}{0.95,0.95,0.95}
+#+END_EXPORT
+
+* Intruduccion
+* Hipotesis y Supuestos
+* Implementacion
+* Pruebas
+* Preguntas a Responder
+* Dificultades Encontradas
+* Conclusion
+* Anexo: Fragmentacion IPv4

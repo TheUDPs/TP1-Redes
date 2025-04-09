@@ -5,7 +5,24 @@
   env.GREET = "devenv";
 
   # https://devenv.sh/packages/
-  packages = [ pkgs.git ];
+  packages = with pkgs;
+  let
+    tex = (texlive.combine {
+      inherit (texlive) scheme-small
+        wrapfig amsmath ulem hyperref capt-of
+        newverbs tikzpagenodes ifoddpage
+        dvipng minted fvextra catchfile
+        xstring framed a4wide svg trimspaces
+        transparent tocbibind microtype stix
+        geometry
+        ;
+    });
+  in [
+    git
+    emacs
+    tex
+    pandoc
+  ];
 
   # https://devenv.sh/languages/
   languages.python = {
