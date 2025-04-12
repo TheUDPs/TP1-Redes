@@ -2,7 +2,8 @@
 from mininet.topo import Topo
 from mininet.net import Mininet
 
-class FragTopo(Topo):
+
+class LinearEndsTopo(Topo):
     def build(self, client_number=1):
         s1 = self.addSwitch("s1")
         s2 = self.addSwitch("s2")
@@ -38,4 +39,5 @@ class FragTopo(Topo):
                 f.write(f"    {node1.name} -- {node2.name};\n")
             f.write("}\n")
 
-topos = {"fragtopo": (lambda client_number=1: FragTopo(client_number))}
+
+topos = {"linends": (lambda client_number=1: LinearEndsTopo(client_number))}

@@ -37,7 +37,7 @@
 
 #+BEGIN_EXPORT latex
 \begin{titlepage}
-    \hfill\includegraphics[width=6cm]{assets/logofiuba.jpg}
+    \hfill\includegraphics[width=6cm]{docs/imgs/logofiuba.jpg}
     \centering
     \vfill
     \Huge \textbf{Trabajo Práctico 1}
