@@ -2,7 +2,6 @@
 from mininet.topo import Topo
 from mininet.net import Mininet
 
-
 class FragTopo(Topo):
     def build(self, client_number=1):
         s1 = self.addSwitch("s1")
@@ -38,6 +37,5 @@ class FragTopo(Topo):
                 node1, node2 = intf1.node, intf2.node
                 f.write(f"    {node1.name} -- {node2.name};\n")
             f.write("}\n")
-
 
 topos = {"fragtopo": (lambda client_number=1: FragTopo(client_number))}
