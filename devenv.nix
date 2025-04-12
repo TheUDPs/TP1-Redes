@@ -22,7 +22,9 @@
     emacs
     tex
     pandoc
-  ];
+  ] ++ (if stdenv.isLinux then [
+    mininet
+  ] else []);
 
   # https://devenv.sh/languages/
   languages.python = {
