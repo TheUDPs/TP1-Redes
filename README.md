@@ -1,5 +1,25 @@
 # TP1-Redes
 
+# mininet
+
+This repository contains a Mininet topology for testing the implementation of the transport protocols that we are going to implement.
+
+To launch the Mininet topology, you need to have Mininet installed on your system. You can install Mininet by following the instructions on the [Mininet website](http://mininet.org/download/).
+
+Then, you can launch the Mininet topology by running the following command:
+
+```bash
+sudo mn --custom ./mininet/fragtopo.py --topo fragtopo
+```
+
+This will create a topology with two hosts, one for the server and one for the client.
+
+If you want to have more client hosts, you can run the following command:
+
+```bash
+sudo mn --custom ./mininet/fragtopo.py --topo fragtopo,NUM_CLIENTS
+```
+
 # Contribute
 
 ## pre-commit
