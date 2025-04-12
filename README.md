@@ -69,6 +69,8 @@ To learn more about Org Mode syntax, you can refer to this [Org Mode Cheat Sheet
 
 ## Pre-commit
 
+Pre-commit hooks are run on every commit.
+
 To install pre-commit, run the following command:
 
 ```bash
@@ -79,6 +81,18 @@ Then, run the following command to install the pre-commit hooks:
 
 ```bash
 pre-commit install
+```
+
+To run all pre-commit hooks without making a commit run:
+
+```shell
+pre-commit run --all-files
+```
+
+To create a commit without running the pre-commit hooks run:
+
+```shell
+git commit --no-verify
 ```
 
 ## Nix
@@ -111,3 +125,7 @@ Then, allow direnv to load the development environment by running the following 
 ```bash
 direnv allow
 ```
+
+# References
+
+- [Spear Narmox: Mininet tpology graphing tool](http://demo.spear.narmox.com/app/?apiurl=demo#!/mininet)
