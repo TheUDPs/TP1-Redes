@@ -13,6 +13,7 @@
 #+LATEX_HEADER_EXTRA: \usepackage{float}
 #+LATEX_HEADER_EXTRA: \usepackage{minted}
 #+LATEX_HEADER_EXTRA: \usepackage{svg}
+#+LATEX_HEADER_EXTRA: \usepackage{xcolor}
 #+LATEX_HEADER_EXTRA: \pagestyle{fancy}
 #+LATEX_HEADER_EXTRA: \fancyhf{}
 #+LATEX_HEADER_EXTRA: \fancyhead[L]{TP1 - Grupo 2}
@@ -60,11 +61,44 @@
 \definecolor{bg}{rgb}{0.95,0.95,0.95}
 #+END_EXPORT
 
-* Intruduccion
-* Hipotesis y Supuestos
+* Introduccion
+
+\color{red}
+- La carga/descarga no va a conservar la metadata del archivo. Es decir, si yo descargo un archivo, ese archivo va a tener metadata como si yo hubiera creado el archivo desde cero usando `touch archivo`.
+- Si el cliente utiliza otro protocolo para comunicarse con el server, el server debe rechazar este pedido. (PROTOCOL_MISSMATCH). El header tendra un campo dedicado a esto.
+- El argumento de FILENAME sera opcional, en caso de no estar, se utiliza el nombre original del archivo.
+- Por simplicidad, vamos a guardar todos los archivos en DIRPATH sin ningun nivel de subdirectorios.
+\color{black}
+
 * Implementacion
 * Pruebas
 * Preguntas a Responder
+** Describa la arquitectura Cliente-Servidor.
+** ¿Cuál es la función de un protocolo de capa de aplicación?
+** Detalle el protocolo de aplicación desarrollado en este trabajo.
+** La capa de transporte del stack TCP/IP ofrece dos protocolos: TCP y UDP.
+*** ¿Qué servicios proveen dichos protocolos?
+*** ¿Cuáles son sus características?
+*** ¿Cuando es apropiado utilizar cada uno?
 * Dificultades Encontradas
 * Conclusion
 * Anexo: Fragmentacion IPv4
+** Enunciado :noexport:
+El siguiente ejercicio se plantea como objetivo la comprensión y la puesta en
+práctica de los conceptos y herramientas necesarias para la comprobación del
+proceso de fragmentación en IPv4. Para lograr este objetivo, se deberá crear
+una red virtual que contenga la topología propuesta y se deberá generar tráfico
+para poder analizar el comportamiento del protocolo IPv4:
+
+ - Utilizando mininet. se pide armar una topología lineal formada por dos hosts conectados a traves de 3 switches.
+ - Reducir el MTU de alguna interfaz del switch central. Configurar un packet loss en una interfaz del switch conectada
+ - al segundo host.
+ - Generar tráfico UDP/TCP utilizando iperf. Configurar el tamaño de los paquetes de manera tal que se produzca el
+ - proceso de fragmentación.
+ - Capturar el tráfico utilizando wireshark.
+ - Analizar el tráfico generado en la topología y comprobar empíricamente los siguientes fenómenos:
+ - Proceso de fragmentación
+ - Funcionamiento de TCP ante la pérdida de un fragmento
+ - Funcionamiento de UDP ante la pérdida de un fragmento
+ - Aumento de tráfico al reducirse el MTU mínimo de la red.
+** Analisis
