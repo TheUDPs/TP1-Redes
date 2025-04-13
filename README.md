@@ -15,6 +15,7 @@
     1. [Nix](#Nix)
         1. [devenv](#devenv)
         1. [direnv](#direnv)
+1. [References](#References)
 
 # How to run
 
