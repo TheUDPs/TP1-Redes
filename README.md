@@ -24,8 +24,18 @@ sudo mn --custom ./mininet/linear_ends.py --topo linends,n,p_loss --link tc
 ```
 
 Where:
-- `n`: is the number of clients
-- `p_loss`: is the packet loss percentage integer (between `1` and `100`)
+- `n`: is the number of clients, by default is `1`
+- `p_loss`: is the packet loss probability as a percentage (integer between `0` and `100`), by default is `0`.
+
+  This works by halving the value and applying each half to each side of the link. So 100% probability means 50% per side (averaging 75% probability overall), and 200% probability would be 100% per side, this does not mean no packet can pass, it is a probability.
+
+If you simply run:
+
+```bash
+sudo mn --custom ./mininet/linear_ends.py --topo linends
+```
+
+It is assumed `n=1` and `p_loss=0`.
 
 More about LineadEnds in the next section.
 
