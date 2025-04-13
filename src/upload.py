@@ -19,14 +19,14 @@ def parse_arguments():
         "-v",
         "--verbose",
         action="store_true",
-        help="increase output verbosiry",
+        help="increase output verbosity",
     )
 
     verbosity_group.add_argument(
         "-q",
         "--quiet",
         action="store_true",
-        help="decrease output verbosiry",
+        help="decrease output verbosity",
     )
 
     parser.add_argument(
