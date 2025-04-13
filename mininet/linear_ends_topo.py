@@ -5,6 +5,9 @@ from mininet.net import Mininet
 DEFAULT_PACKET_LOSS_PERCENTAGE = 0
 DEFAULT_CLIENT_NUMBER = 1
 
+# because it applies twice the loss percentage (once per side)
+NORMALIZATION_FACTOR = 0.5
+
 
 class LinearEndsTopo(Topo):
     def build(
@@ -23,8 +26,10 @@ class LinearEndsTopo(Topo):
         self.addLink(s1, s2)
         self.addLink(s2, s3)
 
+        normalized_loss = packet_loss_percentage * NORMALIZATION_FACTOR
+
         # set link server-s1
-        self.addLink(h1_server, s1, loss=99)
+        self.addLink(h1_server, s1, loss=normalized_loss)
 
         # set links for each client and the s3
         # 1 is added because the server is taken into account

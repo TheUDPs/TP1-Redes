@@ -2,9 +2,10 @@
 
 ### Table of contents
 
+1. [How to run](#How-to-run)
 1. [Mininet](#Mininet)
     1. [LinearEnds topology](#LinearEnds-topology)
-    1. [Launch](#Launch)
+    1. [Launch parameters](#Launch-parameters)
 1. [Informe](#Informe)
     1. [Compiling the PDF](#Compiling-the-PDF)
     1. [Org Mode Syntax](#Org-Mode-Syntax)
@@ -13,6 +14,20 @@
     1. [Nix](#Nix)
         1. [devenv](#devenv)
         1. [direnv](#direnv)
+
+# How to run
+
+Run mininet with the following command:
+
+```bash
+sudo mn --custom ./mininet/linear_ends.py --topo linends,n,p_loss --link tc
+```
+
+Where:
+- `n`: is the number of clients
+- `p_loss`: is the packet loss percentage integer (between `1` and `100`)
+
+More about LineadEnds in the next section.
 
 # Mininet
 
@@ -31,7 +46,7 @@ There is one customization parameter for adding more hosts to the right end, a.k
 </p>
 
 
-## Launch
+## Launch parameters
 
 To launch Mininet with the LinearEnds topology execute the next command:
 
@@ -44,6 +59,14 @@ To have more Client hosts, let's say `n` total client hosts, execute the next co
 ```bash
 sudo mn --custom ./mininet/linear_ends.py --topo linends,n
 ```
+
+To add a certain packet loss percentage, let's say `p_loss` (expressed as an integer between `1` and `100`), in the link between the server (h1) and its switch (s1) you have to execute the next command:
+
+```bash
+sudo mn --custom ./mininet/linear_ends.py --topo linends,n,p_loss --link tc
+```
+
+Where `--link tc` is to setup the link type as TrafficControl to be able to modify the packet loss.
 
 If you don't have Mininet run in Linux the script `scripts/install_deps.sh` or you can install visit: [Mininet website: downloads](http://mininet.org/download/).
 
