@@ -35,7 +35,7 @@ If you simply run:
 sudo mn --custom ./mininet/linear_ends.py --topo linends
 ```
 
-It is assumed `n=1` and `p_loss=0`.
+It is assumed `n=1` and `p_loss=0`, given there is no loss `--link tc` is no longer necessary.
 
 More about LineadEnds in the next section.
 
