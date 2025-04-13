@@ -6,6 +6,7 @@
 1. [Mininet](#Mininet)
     1. [LinearEnds topology](#LinearEnds-topology)
     1. [Launch parameters](#Launch-parameters)
+    1. [Visualize packet loss](#Visualize-packet-loss)
 1. [Informe](#Informe)
     1. [Compiling the PDF](#Compiling-the-PDF)
     1. [Org Mode Syntax](#Org-Mode-Syntax)
@@ -20,7 +21,7 @@
 Run mininet with the following command:
 
 ```bash
-sudo mn --custom ./mininet/linear_ends.py --topo linends,n,p_loss --link tc
+sudo mn --mac --custom ./mininet/linear_ends_topo.py --topo linends,n,p_loss --link tc
 ```
 
 Where:
@@ -32,7 +33,7 @@ Where:
 If you simply run:
 
 ```bash
-sudo mn --custom ./mininet/linear_ends.py --topo linends
+sudo mn --mac --custom ./mininet/linear_ends_topo.py --topo linends
 ```
 
 It is assumed `n=1` and `p_loss=0`, given there is no loss `--link tc` is no longer necessary.
@@ -61,19 +62,21 @@ There is one customization parameter for adding more hosts to the right end, a.k
 To launch Mininet with the LinearEnds topology execute the next command:
 
 ```bash
-sudo mn --custom ./mininet/linear_ends.py --topo linends
+sudo mn --mac --custom ./mininet/linear_ends_topo.py --topo linends
 ```
+
+The `--mac` argument is to simplify the MAC addresses of the hosts making the more semantic.
 
 To have more Client hosts, let's say `n` total client hosts, execute the next command:
 
 ```bash
-sudo mn --custom ./mininet/linear_ends.py --topo linends,n
+sudo mn --mac --custom ./mininet/linear_ends_topo.py --topo linends,n
 ```
 
 To add a certain packet loss percentage, let's say `p_loss` (expressed as an integer between `1` and `100`), in the link between the server (h1) and its switch (s1) you have to execute the next command:
 
 ```bash
-sudo mn --custom ./mininet/linear_ends.py --topo linends,n,p_loss --link tc
+sudo mn --mac --custom ./mininet/linear_ends_topo.py --topo linends,n,p_loss --link tc
 ```
 
 Where `--link tc` is to setup the link type as TrafficControl to be able to modify the packet loss.
@@ -84,6 +87,33 @@ Where `--link tc` is to setup the link type as TrafficControl to be able to modi
 
 If you don't have Mininet run in Linux the script `scripts/install_deps.sh` or you can install visit: [Mininet website: downloads](http://mininet.org/download/).
 
+## Visualize packet loss
+
+Once mininet is up with a certain packet loss setup:
+
+```bash
+sudo mn --mac --custom ./mininet/linear_ends_topo.py --topo linends,n,p_loss --link tc
+```
+
+Open xterm terminals in 2 hosts, let's say h1 and h2:
+
+```bash
+mininet> xterm h1 h2
+```
+
+To run a simple HTTP over TCP server on h1 run:
+
+```bash
+python3 -m http.server 8080
+```
+
+Then establish the connection from h2 with:
+
+```bash
+curl 10.0.0.1:8080
+```
+
+If Wireshark is tapping into a switch the packets will be visualized.
 
 # Informe
 
