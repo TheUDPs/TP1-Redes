@@ -1,54 +1,81 @@
 #!/usr/bin/env python3
+
 import argparse
+from lib.constants import (
+    DEFAULT_PORT,
+    GO_BACK_N_PROTOCOL_TYPE,
+    STOP_AND_WAIT_PROTOCOL_TYPE,
+    IPV4_LOCALHOST,
+)
 
 
-def main():
+def parse_arguments():
     parser = argparse.ArgumentParser(
-        description="Script to start a file upload server with configurable storage and protocol."
+        description="Serve side application to upload and download files from"
+    )
+
+    verbosity_group = parser.add_mutually_exclusive_group(required=False)
+
+    verbosity_group.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="increase output verbosity",
+    )
+
+    verbosity_group.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="decrease output verbosity",
     )
 
     parser.add_argument(
         "-H",
         "--host",
-        default="0.0.0.0",
+        required=False,
+        type=str,
+        default=IPV4_LOCALHOST,
         metavar="ADDR",
-        help="The address the server will bind to (default: 0.0.0.0).",
+        help="service IP address",
     )
 
     parser.add_argument(
         "-p",
         "--port",
+        required=False,
+        default=DEFAULT_PORT,
         type=int,
-        default=7001,
         metavar="PORT",
-        help="The port the server will listen on (default: 7001).",
+        help="service port",
     )
 
     parser.add_argument(
         "-s",
         "--storage",
-        required=True,
+        required=False,
+        type=str,
         metavar="DIRPATH",
-        help="Path to the directory where uploaded files will be stored.",
+        help="storage dir path",
     )
 
     parser.add_argument(
-        "-t",
+        "-r",
         "--protocol",
-        choices=["stop-and-wait", "gbn"],
+        required=False,
+        choices=[STOP_AND_WAIT_PROTOCOL_TYPE, GO_BACK_N_PROTOCOL_TYPE],
+        default=GO_BACK_N_PROTOCOL_TYPE,
         metavar="PROTOCOL",
-        help="Protocol to use for receiving files. Allowed values: 'stop-and-wait' or 'gbn'.",
+        help="error recovery protocol",
     )
 
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    print("Starting server with the following configuration:")
-    print(f"  Host:     {args.host}")
-    print(f"  Port:     {args.port}")
-    print(f"  Storage:  {args.storage}")
-    print(f"  Protocol: {args.protocol}")
 
-    print("Server is now running...")
+def main():
+    args = parse_arguments()
+    print(f"Server running on {args.host}:{args.port}")
+    print("Shutdown")
 
 
 if __name__ == "__main__":
