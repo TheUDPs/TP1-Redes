@@ -1,89 +1,88 @@
 #!/usr/bin/env python3
+
 import argparse
-import sys
+from lib.constants import (
+    DEFAULT_PORT,
+    GO_BACK_N_PROTOCOL_TYPE,
+    STOP_AND_WAIT_PROTOCOL_TYPE,
+)
 
 
-def main():
+def parse_arguments():
     parser = argparse.ArgumentParser(
-        description="Script to download a file from a server using a specified transfer protocol."
+        description="Client side application to download files from the server side"
     )
 
-    # Verbose and quiet flags
-    parser.add_argument(
+    verbosity_group = parser.add_mutually_exclusive_group(required=False)
+
+    verbosity_group.add_argument(
         "-v",
+        "--verbose",
         action="store_true",
-        help="Enable verbose mode (print extra information during download).",
+        help="increase output verbosiry",
     )
-    parser.add_argument(
-        "-q", action="store_true", help="Enable quiet mode (print minimal output)."
+
+    verbosity_group.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="decrease output verbosiry",
     )
 
     parser.add_argument(
         "-H",
         "--host",
-        default="127.0.0.1",
+        required=True,
+        type=str,
         metavar="ADDR",
-        help="Server's IP address or hostname to download the file from (default: 127.0.0.1).",
-    )
-    parser.add_argument(
-        "-p",
-        "--port",
-        type=int,
-        default=7001,
-        metavar="PORT",
-        help="Port on the server to connect to (default: 7001).",
+        help="server IP address",
     )
 
     parser.add_argument(
-        "-n",
-        "--filename",
-        required=True,
-        metavar="FILENAME",
-        help="Name of the remote file to be downloaded.",
+        "-p",
+        "--port",
+        required=False,
+        default=DEFAULT_PORT,
+        type=int,
+        metavar="PORT",
+        help="server port",
     )
 
     parser.add_argument(
         "-d",
-        "--destination",
-        metavar="DEST",
-        help="Local path (directory or full file path) to save the downloaded file. Defaults to the current directory.",
+        "--dst",
+        required=True,
+        type=str,
+        metavar="FILEPATH",
+        help="destination file path",
     )
 
     parser.add_argument(
-        "-t",
-        "--protocol",
-        choices=["stop-and-wait", "gbn"],
-        metavar="PROTOCOL",
-        help="Protocol to use for file transfer. Allowed values: 'stop-and-wait' or 'gbn'.",
+        "-n",
+        "--name",
+        required=True,
+        type=str,
+        metavar="FILENAME",
+        help="file name",
     )
 
-    args = parser.parse_args()
+    parser.add_argument(
+        "-r",
+        "--protocol",
+        required=False,
+        choices=[STOP_AND_WAIT_PROTOCOL_TYPE, GO_BACK_N_PROTOCOL_TYPE],
+        default=GO_BACK_N_PROTOCOL_TYPE,
+        metavar="PROTOCOL",
+        help="error recovery protocol",
+    )
 
-    if args.v and args.q:
-        print(
-            "Error: You cannot use both -v (verbose) and -q (quiet) at the same time.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    return parser.parse_args()
 
-    if args.v:
-        print("Arguments received:")
-        print(f"  Verbose Mode: {args.v}")
-        print(f"  Quiet Mode:   {args.q}")
-        print(f"  Host:         {args.host}")
-        print(f"  Port:         {args.port}")
-        print(f"  Remote File:  {args.filename}")
-        print(f"  Destination:  {args.destination}")
-        print(f"  Protocol:     {args.protocol}")
 
-    if not args.q:
-        print("Download script is ready to retrieve the file from the server.")
-
-        dest_str = args.destination if args.destination else "current directory"
-        print(
-            f"Preparing to download {args.filename} from {args.host}:{args.port} "
-            f"and save it to {dest_str} using {args.protocol} protocol."
-        )
+def main():
+    args = parse_arguments()
+    print("Args received:")
+    print(args)
 
 
 if __name__ == "__main__":
