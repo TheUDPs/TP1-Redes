@@ -2,26 +2,33 @@
 from mininet.topo import Topo
 from mininet.net import Mininet
 
+DEFAULT_PACKET_LOSS_PERCENTAGE = 0
+DEFAULT_CLIENT_NUMBER = 1
+
 
 class LinearEndsTopo(Topo):
-    def build(self, client_number=1):
+    def build(
+        self,
+        client_number=DEFAULT_CLIENT_NUMBER,
+        packet_loss_percentage=DEFAULT_PACKET_LOSS_PERCENTAGE,
+    ):
+        # add switches
         s1 = self.addSwitch("s1")
         s2 = self.addSwitch("s2")
         s3 = self.addSwitch("s3")
 
         h1_server = self.addHost("h1")
 
-        # links between switches
+        # set links between switches
         self.addLink(s1, s2)
         self.addLink(s2, s3)
 
-        # link server-s1
-        self.addLink(
-            h1_server,
-            s1,
-        )
+        # set link server-s1
+        self.addLink(h1_server, s1, loss=99)
 
-        for i in range(client_number + 1):
+        # set links for each client and the s3
+        # 1 is added because the server is taken into account
+        for i in range(1, client_number + 1):
             host_client_i = self.addHost(f"h{i + 1}")
             self.addLink(host_client_i, s3)
 
@@ -40,4 +47,11 @@ class LinearEndsTopo(Topo):
             f.write("}\n")
 
 
-topos = {"linends": (lambda client_number=1: LinearEndsTopo(client_number))}
+topos = {
+    "linends": (
+        lambda client_number=DEFAULT_CLIENT_NUMBER,
+        packet_loss_percentage=DEFAULT_PACKET_LOSS_PERCENTAGE: LinearEndsTopo(
+            client_number, packet_loss_percentage
+        )
+    )
+}

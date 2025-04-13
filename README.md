@@ -45,7 +45,8 @@ To have more Client hosts, let's say `n` total client hosts, execute the next co
 sudo mn --custom ./mininet/linear_ends.py --topo linends,n
 ```
 
-If you don't have Mininet you can install visit: [Mininet website: downloads](http://mininet.org/download/).
+If you don't have Mininet run in Linux the script `scripts/install_deps.sh` or you can install visit: [Mininet website: downloads](http://mininet.org/download/).
+
 
 # Informe
 
