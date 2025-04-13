@@ -46,13 +46,13 @@ More about LineadEnds in the next section.
 The LineadEnds topology is a custom topology that by default has 1 host at one end, let's call it Server, and 1 host at the other end, let's call it Client, with 3 switches as intermediaries.
 
 <p align="center">
-  <img src="./docs/imgs/linear_ends_1_client.png">
+  <img src="./docs/imgs/linear_ends_1_client.png" height="130px">
 </p>
 
 There is one customization parameter for adding more hosts to the right end, a.k.a. adding more Clients.
 
 <p align="center">
-  <img src="./docs/imgs/linear_ends_multiple_clients.png">
+  <img src="./docs/imgs/linear_ends_multiple_clients.png" height="180px">
 </p>
 
 
@@ -77,6 +77,10 @@ sudo mn --custom ./mininet/linear_ends.py --topo linends,n,p_loss --link tc
 ```
 
 Where `--link tc` is to setup the link type as TrafficControl to be able to modify the packet loss.
+
+<p align="center">
+  <img src="./docs/imgs/linear_ends_multiple_clients_with_loss.png" height="180px">
+</p>
 
 If you don't have Mininet run in Linux the script `scripts/install_deps.sh` or you can install visit: [Mininet website: downloads](http://mininet.org/download/).
 
