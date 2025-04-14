@@ -1,9 +1,10 @@
 import socket
 import threading
 import struct
-
-HOST = '127.0.0.1'
-PORT = 65432
+from lib.constants import (
+    DEFAULT_PORT,
+    IPV4_LOCALHOST,
+)
 
 def handle_message(data, address, server_sock):
     protocol = struct.unpack('!H', data)
@@ -12,8 +13,8 @@ def handle_message(data, address, server_sock):
 
 def start_udp_server():
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as server_sock:
-        server_sock.bind((HOST, PORT))
-        print(f"[*] UDP server listening on {HOST}:{PORT}")
+        server_sock.bind((IPV4_LOCALHOST, DEFAULT_PORT))
+        print(f"[*] UDP server listening on {IPV4_LOCALHOST}:{DEFAULT_PORT}")
         while True:
             data, addr = server_sock.recvfrom(1024)
             thread = threading.Thread(target=handle_message, args=(data, addr, server_sock), daemon=True)
