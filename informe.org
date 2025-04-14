@@ -76,6 +76,48 @@ Dos clientes cargando y descargando el mismo archivo al mismo tiempo.
 \color{black}
 
 * Implementacion
+** Topología
+
+#+BEGIN_SRC dot :file docs/imgs/topology.png :exports results
+graph mininet {
+    rankdir=TB;
+
+    { rank=source; h1 }
+    { rank=same; s1 }
+    { rank=same; s2 }
+    { rank=same; s3 }
+    { rank=sink; h2; h3; h4 }
+
+    h1 [shape=box];
+    h2 [shape=box];
+    h3 [shape=box];
+    h4 [shape=box];
+    s1 [shape=circle];
+    s2 [shape=circle];
+    s3 [shape=circle];
+
+    h1 -- s1;
+    s1 -- s2;
+    s2 -- s3;
+    h2 -- s3;
+    h3 -- s3;
+    h4 -- s3;
+}
+#+END_SRC
+
+#+RESULTS:
+#+ATTR_LATEX: :width 0.5\textwidth
+[[file:docs/imgs/topology.png]]
+
+#+ATTR_LATEX: :width 0.5\textwidth
+[[file:docs/imgs/linear_ends_1_client.png]]
+
+#+ATTR_LATEX: :width 0.5\textwidth
+[[file:docs/imgs/linear_ends_multiple_clients.png]]
+
+#+ATTR_LATEX: :width 0.5\textwidth
+[[file:docs/imgs/linear_ends_multiple_clients_with_loss.png]]
+
 * Pruebas
 * Preguntas a Responder
 ** Describa la arquitectura Cliente-Servidor.

@@ -17,9 +17,13 @@ all: $(TARGET)
 $(TARGET): $(SOURCE)
 	$(EMACS) $(EMACSFLAGS)
 
+# New target to execute all Org Babel blocks (e.g. generate images)
+execute-code-blocks:
+	$(EMACS) --batch -l scripts/process-org.el
+
 # Clean up generated files
 clean:
 	rm -f $(TARGET)
 
 # Phony targets
-.PHONY: all clean
+.PHONY: all clean execute-code-blocks

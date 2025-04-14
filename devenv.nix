@@ -22,6 +22,7 @@
     emacs
     tex
     pandoc
+    graphviz
   ] ++ (if stdenv.isLinux then [
     mininet
   ] else []);
