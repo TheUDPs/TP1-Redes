@@ -63,7 +63,7 @@ def parse_arguments():
         required=False,
         type=str,
         metavar="FILENAME",
-        help="file name",
+        help="file name on the server",
     )
 
     parser.add_argument(
