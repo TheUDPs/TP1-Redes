@@ -52,7 +52,7 @@
       CASTRO MARTINEZ, Jose Ignacio & 106957 & jcastrom@fi.uba.ar \\ \hline
       CIPRIANO, Victor & 106593 & vcipriano@fi.uba.ar \\ \hline
       DEALBERA, Pablo Andres & 106858 & pdealbera@fi.uba.ar \\ \hline
-      DIEM, Gabriel & 105618 & wdiem@fi.uba.ar \\ \hline
+      DIEM, Walter Gabriel & 105618 & wdiem@fi.uba.ar \\ \hline
     \end{tabular}
     \vfill
 \end{titlepage}
@@ -70,7 +70,7 @@
 - Por simplicidad, vamos a guardar todos los archivos en DIRPATH sin ningun nivel de subdirectorios.
 - Por simplicidad, vamos a tener un tamaño maximo de 2GB para la subida y descarga de archivos.
 - Los archivos en proceso de escritura se van a escribir en una ubicacion temporal para evitar que se corrompan en la ubicacion que el cliente pidio.
-
+- Usar seek y bufferear para leer el archivo. Leer con slices del buffer.
 Caso borde:
 Dos clientes cargando y descargando el mismo archivo al mismo tiempo.
 \color{black}
@@ -117,6 +117,99 @@ graph mininet {
 
 #+ATTR_LATEX: :width 0.5\textwidth
 [[file:docs/imgs/linear_ends_multiple_clients_with_loss.png]]
+
+** Especificación del protocolo Stop-and-Wait
+
+*** General
+
+Tamaño máximo de payload de: 61440 Bytes (60kB).
+Este número se obtiene teniendo en cuenta que el header de UDP posee un tamaño máximo de payload de 65535 (64kB), dejando espacio para los headers.
+
+Se usa la nomenclatura S para mencionar al servidor y C para el cliente.
+
+*** Handshake
+
+La idea es usar este handshake para inicialización de recursos del servidor y check de protocolo. \\
+
+_Mensajes para caso Download y caso Upload_:
+
+1. C \rightarrow S: con flag SYN para declarar una solicitud de conexion y el protocolo
+
+*Flujo normal (mismo protocolo)*:
+
+2. [@2] S \rightarrow C: con flag de SYN y ACK para declarar que se acepta la conexión y el puerto donde se va a escuchar el resto.
+3. C \rightarrow S: con flag ACK al mismo welcoming socket.
+
+*Flujo de error (distinto protocolo)*:
+
+2. [@2] S \rightarrow C: con flag FIN para denegar la conexión por usar un protocolo distinto.
+
+Se hace una transferencia de puerto para que el welcoming socket se encargue solamente de establecer conexiones y el nuevo puerto maneje la transferencia de datos del archivo. El último ACK de parte del cliente asegura que se recibió el puerto donde se tiene que comunicar y es seguro hacer el cambio de socket.
+
+*** Etapa de configuración y Transferencia
+
+El cliente ya sabe que tiene que comunicarse con el nuevo puerto.
+
+Se envia primero la configuracion para saber si la operacion es valida y tener en cuenta casos de error, y luego se hace la transferencia. \\
+
+_Mensajes para caso Download y caso Upload_:
+
+1. C \rightarrow S: se declara la operacion (OP), que puede ser download (0) o upload (1)
+2. S \rightarrow C: ACK de la operacion (no falla)
+
+_Continuación de mensajes para caso Download_:
+
+3. [@3] Mensaje 3 C \rightarrow S: filename
+
+*Flujo Normal*:
+
+4. [@4] S \rightarrow C: ACK + comienzo de datos (piggybacked)
+5. C \rightarrow S: ACK
+6. S \rightarrow C: continuacion de datos
+
+*Flujo de error (no existe un archivo con ese nombre)*:
+
+4. [@4] S \rightarrow C: FIN, se termina la conexión
+
+_Continuación de mensajes para caso Upload_:
+
+3. [@3] C \rightarrow S: filename
+
+*Flujo de error (ya existe un archivo con ese nombre)*:
+
+4. [@4] S \rightarrow C: FIN, se termina la conexión
+
+*Flujo normal*:
+
+4. [@4] S \rightarrow C: ACK
+5. C \rightarrow S: filesize
+
+*Flujo de error (archivo es más grande que el tamaño máximo o [TODO] no hay más espacio en disco)*:
+
+6. [@6] S \rightarrow C: FIN, se termina la conexión
+
+*Flujo normal*:
+
+6. [@6] S \rightarrow C: ACK
+7. C \rightarrow S: comienzo de datos
+8. S \rightarrow C: ACK
+9. C \rightarrow S: continuacion de datos
+
+*** Cierre
+
+El flag FIN va piggybacked con la última data para que sea más eficiente. El receptor confirma con un ACK + FIN para que el emisor sepa que le llego la informacion, y por si este se pierde está el último ACK para confirmar el cierre de parte del emisor. \\
+
+_Mensajes para caso Download_:
+
+1. S \rightarrow C: ultima data, va piggybacked el flag FIN
+2. C \rightarrow S: ACK + FIN
+3. S \rightarrow C: ACK
+
+_Mensajes para caso Upload_:
+
+1. C \rightarrow S: ultima data, va piggybacked el flag FIN
+2. S \rightarrow C: ACK + FIN
+3. C \rightarrow S: ACK
 
 * Pruebas
 * Preguntas a Responder
