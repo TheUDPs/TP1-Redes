@@ -5,7 +5,6 @@ from mininet.node import Node
 
 DEFAULT_PACKET_LOSS_PERCENTAGE = 0
 DEFAULT_CLIENT_NUMBER = 1
-
 DO_NOT_MODIFY_MTU = -1
 
 # because it applies twice the loss percentage (once per side)
@@ -15,16 +14,15 @@ NORMALIZATION_FACTOR = 0.5
 class Router(Node):
     def config(self, **params):
         super(Router, self).config(**params)
+
         self.cmd("sysctl -w net.ipv4.ip_forward=1")
+        self.cmd(f"ifconfig {self.name}-eth0 10.0.0.254/24")
 
-        self.cmd("ifconfig r1-eth0 10.0.0.254/24")
-        self.cmd("ifconfig r1-eth0 10.0.1.254/24")
+        for i in range(1, params.get("client_number", DEFAULT_CLIENT_NUMBER) + 1):
+            self.cmd(f"ifconfig {self.name}-eth1 10.0.{i}.254/24")
 
-        # for i in range(0, client_number ):
-        #    self.cmd( f'ifconfig r1-eth0 10.0.{i}.254/24' )
-
-        # if mtu != DO_NOT_MODIFY_MTU:
-        self.cmd("ifconfig r1-eth0 mtu 600")
+        if params.get("mtu", DO_NOT_MODIFY_MTU) != DO_NOT_MODIFY_MTU:
+            self.cmd(f"ifconfig {self.name}-eth0 mtu {params.get('mtu')}")
 
     def terminate(self):
         self.cmd("sysctl -w net.ipv4.ip_forward=0")
@@ -34,6 +32,8 @@ class Router(Node):
 class Host(Node):
     def config(self, **params):
         super(Host, self).config(**params)
+
+        # Disable PMTU discovery on hosts to allow fragmentation
         self.cmd("sysctl -w net.ipv4.ip_no_pmtu_disc=1")
         self.cmd("ip route flush cache")
 
@@ -48,18 +48,18 @@ class LinearEndsTopo(Topo):
         packet_loss_percentage=DEFAULT_PACKET_LOSS_PERCENTAGE,
         mtu=DO_NOT_MODIFY_MTU,
     ):
-        # add switches
+        # add switches & router
         s1 = self.addSwitch("s1")
-        r1 = self.addHost("r1", cls=Router)
-        s2 = self.addSwitch("s2")
+        r2 = self.addNode("r2", cls=Router, client_number=client_number, mtu=mtu)
+        s3 = self.addSwitch("s3")
+
+        # set links between switches & router
+        self.addLink(s1, r2)
+        self.addLink(r2, s3)
 
         h1_server = self.addHost(
             "h1", ip="10.0.0.1/24", defaultRoute="via 10.0.0.254", cls=Host
         )
-
-        # set links between switches
-        self.addLink(s1, r1)
-        self.addLink(r1, s2)
 
         normalized_loss = packet_loss_percentage * NORMALIZATION_FACTOR
 
@@ -75,7 +75,7 @@ class LinearEndsTopo(Topo):
                 defaultRoute=f"via 10.0.{i}.254",
                 cls=Host,
             )
-            self.addLink(host_client_i, s2)
+            self.addLink(host_client_i, s3)
 
     def export(self, filename="topology.dot"):
         net = Mininet(topo=self)

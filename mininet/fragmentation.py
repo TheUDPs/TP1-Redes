@@ -3,10 +3,9 @@
 from mininet.net import Mininet
 from mininet.cli import CLI
 from mininet.log import setLogLevel, info
-from mininet.node import Node
-from mininet.topo import Topo
 from subprocess import call
 import time
+from linear_ends_topo import LinearEndsTopo
 
 PACKET_LOSS_PERCENTAGE = 10
 REDUCED_MTU = 800  # MTU to apply to a router interface
@@ -14,37 +13,6 @@ FRAG_MSS = REDUCED_MTU + 200  # MSS > Reduced MTU to cause fragmentation
 CAPTURE_DIR = "/tmp/captures"
 TEST_DURATION = 3
 WAIT_TIME = 1
-
-
-class RouterNode(Node):
-    """Node that functions as an IPv4 router with fragmentation capability"""
-
-    def config(self, **params):
-        super(RouterNode, self).config(**params)
-        self.cmd("sysctl -w net.ipv4.ip_forward=1")
-        return self
-
-    def terminate(self):
-        self.cmd("sysctl -w net.ipv4.ip_forward=0")
-        super(RouterNode, self).terminate()
-
-
-class FragmentationTopo(Topo):
-    """Topology with central router for fragmentation tests"""
-
-    def build(self):
-        s1 = self.addSwitch("s1")
-        s3 = self.addSwitch("s3")
-
-        h1 = self.addHost("h1", ip="10.0.0.1/24", defaultRoute="via 10.0.0.254")
-        h2 = self.addHost("h2", ip="10.0.1.1/24", defaultRoute="via 10.0.1.254")
-
-        self.addLink(h1, s1)
-        self.addLink(h2, s3)
-
-        r2 = self.addHost("r2")
-        self.addLink(s1, r2)
-        self.addLink(r2, s3)
 
 
 def run_tcpdump(node, interface, output_file):
@@ -106,10 +74,10 @@ def run_automated_test(protocol, h1, h2, r2):
 def fragmentation_test():
     """IPv4 fragmentation test using a central router"""
 
-    topo = FragmentationTopo()
+    topo = LinearEndsTopo(
+        client_number=1, packet_loss_percentage=PACKET_LOSS_PERCENTAGE, mtu=REDUCED_MTU
+    )
     net = Mininet(topo=topo)
-    r2 = net.getNodeByName("r2")
-    r2.__class__ = RouterNode
 
     net.start()
 
@@ -121,22 +89,10 @@ def fragmentation_test():
     # Make sure the router is configured as such
     r2.config()
 
-    r2.cmd("ifconfig r2-eth0 10.0.0.254/24")
-    r2.cmd("ifconfig r2-eth1 10.0.1.254/24")
-
     # Prepare directory for captures
     call("rm -rf /tmp/captures", shell=True)
     call("mkdir -p /tmp/captures", shell=True)
     call("chmod 777 /tmp/captures", shell=True)
-
-    # Reduce MTU on a router interface to force fragmentation
-    r2.cmd(f"ifconfig r2-eth0 mtu {REDUCED_MTU}")
-
-    # Disable PMTU discovery on hosts to allow fragmentation
-    info("\n*** Disabling PMTU discovery on hosts to allow fragmentation ***\n")
-    for host in (h1, h2):
-        host.cmd("sysctl -w net.ipv4.ip_no_pmtu_disc=1")
-        host.cmd("ip route flush cache")
 
     # Run automated tests
     info("\n*** IPv4 FRAGMENTATION AUTOMATED TESTS ***\n")
