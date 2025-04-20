@@ -12,10 +12,9 @@ class Server:
         try:
             self.accepter.start()
             while True:
-                user_input = input()
+                user_input: str = input()
                 if user_input.strip().lower() == CLOSING_KEY:
                     break
-            self.accepter.kill()
             self.accepter.join()
             return 0
         except Exception as e:

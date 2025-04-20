@@ -12,13 +12,14 @@ class Accepter:
         self.socket.bind(self.host_direction)
 
     def run(self):
-        try:
-            while self.is_alive:
+        while self.is_alive:
+            try:
                 data, client_address = self.socket.recvfrom(4096)
                 time.sleep(1)
-        except OSError as e:
-            print("Se cerro el socket mientras esperaba")
-            print(e)
+            except socket.timeout:
+                continue
+            except OSError as e:
+                print(e)
 
     def accept(self):
         return 0
@@ -30,5 +31,10 @@ class Accepter:
         self.thread_context.start()
 
     def join(self):
-        self.socket.shutdown(socket.SHUT_RDWR)
-        self.thread_context.join()
+        try:
+            self.kill()
+            self.socket.shutdown(socket.SHUT_RDWR)
+        except Exception as e:
+            print(e)
+        finally:
+            self.thread_context.join()
