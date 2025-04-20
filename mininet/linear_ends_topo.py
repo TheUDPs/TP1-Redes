@@ -17,9 +17,7 @@ class Router(Node):
 
         self.cmd("sysctl -w net.ipv4.ip_forward=1")
         self.cmd(f"ifconfig {self.name}-eth0 10.0.0.254/24")
-
-        for i in range(1, params.get("client_number", DEFAULT_CLIENT_NUMBER) + 1):
-            self.cmd(f"ifconfig {self.name}-eth1 10.0.{i}.254/24")
+        self.cmd(f"ifconfig {self.name}-eth1 10.0.1.254/24")
 
         if params.get("mtu", DO_NOT_MODIFY_MTU) != DO_NOT_MODIFY_MTU:
             self.cmd(f"ifconfig {self.name}-eth0 mtu {params.get('mtu')}")
