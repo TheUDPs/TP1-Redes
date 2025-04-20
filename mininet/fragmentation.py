@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
-from mininet.net import Mininet
+from linear_ends_topo import LinearEndsTopo
 from mininet.cli import CLI
+from mininet.link import TCLink
 from mininet.log import setLogLevel, info
+from mininet.net import Mininet
 from subprocess import call
 import time
-from linear_ends_topo import LinearEndsTopo
 
-PACKET_LOSS_PERCENTAGE = 10
+PACKET_LOSS_PERCENTAGE = 20
 REDUCED_MTU = 800  # MTU to apply to a router interface
 FRAG_MSS = REDUCED_MTU + 200  # MSS > Reduced MTU to cause fragmentation
 CAPTURE_DIR = "/tmp/captures"
@@ -77,7 +78,7 @@ def fragmentation_test():
     topo = LinearEndsTopo(
         client_number=1, packet_loss_percentage=PACKET_LOSS_PERCENTAGE, mtu=REDUCED_MTU
     )
-    net = Mininet(topo=topo)
+    net = Mininet(topo=topo, link=TCLink)
 
     net.start()
 
