@@ -86,9 +86,6 @@ def fragmentation_test():
     h2 = net.get("h2")  # Client
     r2 = net.get("r2")  # Central router
 
-    # Make sure the router is configured as such
-    r2.config()
-
     # Prepare directory for captures
     call("rm -rf /tmp/captures", shell=True)
     call("mkdir -p /tmp/captures", shell=True)
