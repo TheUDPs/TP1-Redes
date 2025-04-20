@@ -10,13 +10,19 @@ class Accepter:
         self.thread_context: Thread = Thread(target=self.run)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.bind(self.host_direction)
+        self.clients = set()
 
     def run(self):
         while self.is_alive:
             try:
                 data, client_address = self.socket.recvfrom(4096)
+                print(data)
+                if client_address in self.clients:
+                    continue
+                self.clients.add(client_address)
                 time.sleep(1)
             except socket.timeout:
+                print("Here")
                 continue
             except OSError as e:
                 print(e)
