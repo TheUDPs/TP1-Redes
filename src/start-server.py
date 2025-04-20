@@ -8,7 +8,6 @@ from lib.constants import (
     IPV4_LOCALHOST,
 )
 
-
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description="Serve side application to upload and download files from"
@@ -74,6 +73,8 @@ def parse_arguments():
 
 def main():
     args = parse_arguments()
+    print(args)
+    print(type(args))
     print(f"Server running on {args.host}:{args.port}")
     print("Shutdown")
 
