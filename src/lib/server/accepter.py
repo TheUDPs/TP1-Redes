@@ -1,6 +1,5 @@
 from threading import Thread
 import socket
-import time
 
 
 class Accepter:
@@ -15,20 +14,25 @@ class Accepter:
     def run(self):
         while self.is_alive:
             try:
-                data, client_address = self.socket.recvfrom(4096)
-                print(data)
-                if client_address in self.clients:
-                    continue
-                self.clients.add(client_address)
-                time.sleep(1)
+                self.accept()
             except socket.timeout:
-                print("Here")
                 continue
             except OSError as e:
                 print(e)
 
     def accept(self):
-        return 0
+        data, client_address = self.socket.recvfrom(4096)
+
+        if not client_address:
+            return
+
+        if client_address in self.clients:
+            return
+
+        print(data.decode())
+
+        self.clients.add(client_address)
+        print(self.clients)
 
     def kill(self):
         self.is_alive = False
