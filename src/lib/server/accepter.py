@@ -37,8 +37,7 @@ class Accepter:
         if client_addr in self.clients:
             return
 
-        if protocol_id is not self.protocol_id:
-            self.reject_conection(client_addr)
+        if protocol_id != self.protocol_id:
             return
 
         ## To-do Agregar la logica de aceptar al cliente
