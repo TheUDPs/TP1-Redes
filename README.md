@@ -116,6 +116,68 @@ curl 10.0.0.1:8080
 
 If Wireshark is tapping into a switch the packets will be visualized.
 
+## Visualize MTU fragmentation
+
+Once mininet is up with a certain MTU defined:
+
+```bash
+sudo mn --mac --custom ./linear_ends_topo.py --topo linends,n,mtu --link tc
+```
+
+Open xterm terminals on hosts h1 and h2:
+
+```bash
+mininet> xterm h1 h2
+```
+
+Open Wireshark on s2:
+
+```bash
+mininet> s2 wireshark &
+```
+
+Inside Wireshark is recommended to select eth-0 on s2 and select a maximum number of packets to avoid filling up all your memory, e.g. 100.000 packets is OK.
+
+#### TCP Fragmentation
+
+By default iperf uses TCP.
+
+The iperf (works on both iperf and iperf3) server must run on h1's xterm:
+
+```bash
+iperf3 -s
+```
+
+Then run the client on h2's xterm:
+
+```bash
+iperf3 -c 10.0.0.1
+```
+
+#### UDP Fragmentation
+
+iperf3 auto starts listening both TCP and UDP so no need for flag for the server on h1's xterm:
+
+```bash
+iperf3 -s
+```
+
+For normal iperf:
+
+```bash
+iperf -s -u
+```
+
+Then run the client on h2's xterm with UDP flag:
+
+```bash
+iperf3 -c 10.0.0.1 -u
+```
+
+#### Disclaimer
+
+Given the node that can fragment is in the middle and the MTU is lowered on the link s2->s1 fragmentation will only occur for traffic that travels from h2 -> h1 (a.k.a. server in h1, client in h2), if traffic going h1 -> h2 needs to be fragmented it will end up being dropped by the switch s1, because it cannot fragment like s2 does.
+
 # Informe
 
 The informe.pdf file is generated using Org Mode that uses LaTeX to generate the PDF. To generate the PDF, you need to have some system dependencies which can be used from the Nix devenv or installed from your distribution.

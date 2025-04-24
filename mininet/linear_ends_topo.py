@@ -3,9 +3,14 @@ from mininet.node import Node
 from mininet.topo import Topo
 
 DEFAULT_CLIENT_NUMBER = 1
+DEFAULT_PACKET_LOSS_PERCENTAGE = 0
+
 DO_NOT_MODIFY_MTU = -1
 DEFAULT_GATEWAY_CLIENTS_SIDE = "10.0.1.254"
 DEFAULT_GATEWAY_SERVER_SIDE = "10.0.0.254"
+
+# because it applies twice the loss percentage (once per side)
+NORMALIZATION_FACTOR = 0.5
 
 
 class Router(Node):
@@ -48,6 +53,7 @@ class LinearEndsTopo(Topo):
     def build(
         self,
         client_number=DEFAULT_CLIENT_NUMBER,
+        packet_loss_percentage=DEFAULT_PACKET_LOSS_PERCENTAGE,
         mtu=DO_NOT_MODIFY_MTU,
     ):
         # add switches & router
@@ -72,8 +78,9 @@ class LinearEndsTopo(Topo):
             cls=Host,
         )
 
+        normalized_loss = packet_loss_percentage * NORMALIZATION_FACTOR
         # set link server-s1
-        self.addLink(h1_server, s1)
+        self.addLink(h1_server, s1, loss=normalized_loss)
 
         # set links for each client and the s3
         # 1 is added because the server is taken into account
@@ -90,6 +97,9 @@ class LinearEndsTopo(Topo):
 topos = {
     "linends": (
         lambda client_number=DEFAULT_CLIENT_NUMBER,
-        mtu=DO_NOT_MODIFY_MTU: LinearEndsTopo(client_number, mtu)
+        packet_loss_percentage=DEFAULT_PACKET_LOSS_PERCENTAGE,
+        mtu=DO_NOT_MODIFY_MTU: LinearEndsTopo(
+            client_number, packet_loss_percentage, mtu
+        )
     )
 }
