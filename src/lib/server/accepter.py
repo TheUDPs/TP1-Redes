@@ -29,10 +29,9 @@ class Accepter:
         if not client_address:
             return
 
+        decoded: str = data.decode()
+        self.register_client(client_address, decoded)
         print(data.decode())
-
-        self.clients.add(client_address)
-        print(self.clients)
 
     def register_client(self, client_addr: Tuple[str, int], protocol_id: str):
         if client_addr in self.clients:
@@ -43,11 +42,13 @@ class Accepter:
             return
 
         ## To-do Agregar la logica de aceptar al cliente
+        self.clients.add(client_addr)
+        print(self.clients)
 
         return
 
     def reject_conection(self, client_addr: Tuple[str, int]):
-        rejection_msj: str = "no"
+        rejection_msj: str = "no es el mismo protocolo pa"
         self.welcoming_skt.sendto(rejection_msj.encode(), client_addr)
         return 0
 
