@@ -46,7 +46,7 @@ class Accepter:
 
         return
 
-    def reject_conection(self, client_addr: Tuple[str, int]):
+    def reject_connection(self, client_addr: Tuple[str, int]):
         rejection_msj: str = "no es el mismo protocolo pa"
         self.welcoming_skt.sendto(rejection_msj.encode(), client_addr)
         return 0
