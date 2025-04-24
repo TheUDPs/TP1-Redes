@@ -4,7 +4,9 @@ CLOSING_KEY = "q"
 
 
 class Server:
-    def __init__(self):
+    def __init__(self, args, logger):
+        self.args = args
+        self.args = logger
         self.accepter: Accepter = Accepter(("127.0.0.1", 8080), "2")
         self.filesyste = None
 
@@ -20,9 +22,3 @@ class Server:
         except Exception as e:
             print(e)
             return -1
-
-
-if __name__ == "__main__":
-    server: Server = Server()
-    server.run()
-    print("Server finished.")

@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
-
+from lib.client.client import Client
 from lib.client.parser_upload import ClientUploadArgParser
+from lib.common.logger import Logger
 
 
 def upload():
     arg_parser = ClientUploadArgParser()
-    _args = arg_parser.parse()  # noqa: F841
+    args = arg_parser.parse()
+    logger = Logger(Logger.INFO_LOG_LEVEL)
 
-    print("Client started for upload")
-    print("Shutdown")
+    logger.info("Client started for upload")
+
+    client: Client = Client(args, logger)
+    client.run()
+
+    logger.info("Shutdown")
 
 
 if __name__ == "__main__":

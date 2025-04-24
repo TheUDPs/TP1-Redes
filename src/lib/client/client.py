@@ -2,7 +2,9 @@ import socket
 
 
 class Client:
-    def __init__(self):
+    def __init__(self, args, logger):
+        self.args = args
+        self.logger = logger
         self.some = None
 
     def run(self):
@@ -17,9 +19,3 @@ class Client:
 
         else:
             print(msj.decode())
-
-
-if __name__ == "__main__":
-    client: Client = Client()
-    client.run()
-    print("Client finished")
