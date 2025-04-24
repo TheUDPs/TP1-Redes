@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 from lib.server.parser import ServerArgParser
 
 
