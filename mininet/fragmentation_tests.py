@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from linear_ends_topo import LinearEndsTopo
-from mininet.cli import CLI
 from mininet.link import TCLink
 from mininet.log import setLogLevel, info
 from mininet.net import Mininet
@@ -85,7 +84,7 @@ def fragmentation_test():
     # References to hosts and router
     h1 = net.get("h1")  # Server
     h2 = net.get("h2")  # Client
-    r2 = net.get("r2")  # Central router
+    s2 = net.get("s2")  # Central router
 
     # Prepare directory for captures
     call("rm -rf /tmp/captures", shell=True)
@@ -95,8 +94,8 @@ def fragmentation_test():
     # Run automated tests
     info("\n*** IPv4 FRAGMENTATION AUTOMATED TESTS ***\n")
 
-    run_automated_test("TCP", h1, h2, r2)
-    run_automated_test("UDP", h1, h2, r2)
+    run_automated_test("TCP", h1, h2, s2)
+    run_automated_test("UDP", h1, h2, s2)
 
     # Summary of results
     info("\n*** TEST SUMMARY ***\n")
@@ -121,13 +120,13 @@ def fragmentation_test():
     info("Apply filter: ip.flags.mf == 1 or ip.frag_offset > 0\n")
     info("This will show fragmented packets in the captures\n\n")
 
-    info('Entering CLI mode. Type "exit", "quit", or "use Ctrl+D" to quit.\n')
-    CLI(net)
+    info("Tests completed. Exiting Mininet.\n\n")
     net.stop()
 
 
 if __name__ == "__main__":
     # Clean previous Mininet state
+    print("Cleaning Mininet previous state: \n")
     call("sudo mn -c", shell=True)
     setLogLevel("info")
     fragmentation_test()

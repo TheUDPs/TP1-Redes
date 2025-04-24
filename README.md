@@ -8,6 +8,8 @@
     1. [Launch parameters](#Launch-parameters)
     1. [Visualize packet loss](#Visualize-packet-loss)
     1. [Visualize MTU fragmentation](#Visualize-MTU-fragmentation)
+1. [Tests]
+    1. [Mininet IP Fragmentation tests](#Mininet-IP-Fragmentation-tests)
 1. [Informe](#Informe)
     1. [Compiling the PDF](#Compiling-the-PDF)
     1. [Org Mode Syntax](#Org-Mode-Syntax)
@@ -178,6 +180,16 @@ iperf3 -c 10.0.0.1 -u
 #### Disclaimer
 
 Given the node that can fragment is in the middle and the MTU is lowered on the link s2->s1 fragmentation will only occur for traffic that travels from h2 -> h1 (a.k.a. server in h1, client in h2), if traffic going h1 -> h2 needs to be fragmented it will end up being dropped by the switch s1, because it cannot fragment like s2 does.
+
+# Tests
+
+## Mininet IP Fragmentation tests
+
+To run IP fragmentation tests for the LinearEnds topology run the tests with the next command:
+
+```bash
+sudo python3 ./mininet/fragmentation_tests.py
+```
 
 # Informe
 
