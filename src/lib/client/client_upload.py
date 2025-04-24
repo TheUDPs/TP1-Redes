@@ -1,37 +1,38 @@
 import random
 import socket
 import sys
-import time
-import tty
-import termios
 import threading
 import struct
+from io import StringIO
+from multiprocessing import Value
+from ctypes import c_bool
 
 from lib.common.constants import (
     GO_BACK_N_PROTOCOL_TYPE,
 )
 
 QUIT_CHARACTER = "q"
-SOCKET_CONTROLLED_TIMEOUT = 1.0
+SOCKET_TIMEOUT = 3
 ZERO_BYTES = bytes([])
 BUFFER_SIZE = 4028
 
 
-def read_key():
-    stdin_fd = sys.stdin.fileno()
-    old_tty_settings = termios.tcgetattr(stdin_fd)
-    try:
-        tty.setraw(stdin_fd)
-        return sys.stdin.read(1)
-    finally:
-        termios.tcsetattr(stdin_fd, termios.TCSADRAIN, old_tty_settings)
+class ConnectionRefused(Exception):
+    def __init__(self, message="Connection refused from server"):
+        self.message = message
 
 
-def wait_for_quit(should_stop):
+class UnexpectedMessage(Exception):
+    def __init__(self, message="Received a message from an unexpected server"):
+        self.message = message
+
+
+def wait_for_quit(should_stop, quited):
     while not should_stop.is_set():
-        if read_key() == QUIT_CHARACTER:
+        key = sys.stdin.read(1)
+        if key == QUIT_CHARACTER:
+            quited.value = True
             should_stop.set()
-            break
 
 
 class ClientProtocol:
@@ -80,7 +81,7 @@ class ClientProtocol:
         pos -= 1
         flags |= is_fin << pos
 
-        print(f"{flags:016b}\n")
+        # print(f"{flags:016b}\n")
 
         port = random.randint(1, 10)
         payload_length = len(data)
@@ -89,12 +90,30 @@ class ClientProtocol:
 
         return header + data
 
-    def check_packet_origin(self, packet, server_address):
+    def parse_packet(self, packet):
+        pos = 16
+        pos -= 2
+        protocol = packet >> pos & 0b11
+
+        pos -= 1
+        sequence_number = packet >> pos & 0b1
+
+        pos -= 1
+        is_ack = packet >> pos & 0b1
+
+        pos -= 1
+        is_syn = packet >> pos & 0b1
+
+        pos -= 1
+        is_fin = packet >> pos & 0b1
+
+        # print(protocol, sequence_number, is_ack, is_syn, is_fin)
+
+    def validate_incomming_packet(self, packet, server_address):
         if server_address != self.server_host_with_port:
-            print(server_address)
-            print("No es de quien esperaba el mensaje")
+            raise UnexpectedMessage()
         else:
-            print(packet.decode())
+            return self.parse_packet(packet)
 
     def request_connection(self, sequence_number):
         self.logger.debug("Requesting connection")
@@ -108,8 +127,12 @@ class ClientProtocol:
         )
         self.socket.sendto(packet, self.server_host_with_port)
 
-        packet, server_address = self.socket.recvfrom(BUFFER_SIZE)
-        packet = self.check_packet_origin(packet, server_address)
+        try:
+            raw_packet, server_address = self.socket.recvfrom(BUFFER_SIZE)
+        except OSError:
+            raise ConnectionRefused()
+
+        packet = self.validate_incomming_packet(raw_packet, server_address)
 
 
 class ClientUpload:
@@ -122,9 +145,13 @@ class ClientUpload:
 
         self.server_host_with_port = (self.server_host, self.server_port)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.settimeout(SOCKET_TIMEOUT)
+
         self.protocol = ClientProtocol(
             self.logger, self.socket, self.server_host, self.server_port, protocol
         )
+
+        self.stopped = False
 
     def handshake(self):
         self.logger.debug("Starting handshake")
@@ -141,30 +168,39 @@ class ClientUpload:
         #     print(msj.decode())
 
     def worker(self, should_stop_event):
-        self.socket.settimeout(SOCKET_CONTROLLED_TIMEOUT)
-
         self.logger.debug("UDP socket ready")
 
         try:
-            while not should_stop_event.is_set():
-                try:
-                    self.handshake()
-                    time.sleep(SOCKET_CONTROLLED_TIMEOUT)
-                except socket.timeout:
-                    continue
-                except OSError as e:
-                    if should_stop_event.is_set():
-                        continue
-                    else:
-                        raise e
+            if not should_stop_event.is_set():
+                self.handshake()
+        except ConnectionRefused as e:
+            self.logger.error(e.message)
         finally:
-            self.logger.debug("Closing UDP socket")
-            self.socket.close()
+            should_stop_event.set()
 
-    def stop(self, worker):
-        worker.join()
+    def stop(self, worker, wait_for_quit_thread, quited):
+        if self.stopped:
+            return
 
-        self.logger.info("Client shutdown")
+        self.logger.info("Stopping")
+
+        try:
+            self.socket.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            try:
+                self.socket.close()
+            except OSError:
+                pass
+        finally:
+            worker.join()
+            if not quited.value:
+                sys.stdin = StringIO("q\n")
+                sys.stdin.flush()
+                self.logger.info("Press Enter to finish")
+
+            wait_for_quit_thread.join()
+            self.logger.info("Client shutdown")
+            self.stopped = True
 
     def run(self):
         self.logger.info("Client started for upload")
@@ -174,5 +210,13 @@ class ClientUpload:
         worker = threading.Thread(target=self.worker, args=(should_stop_event,))
         worker.start()
 
-        wait_for_quit(should_stop_event)
-        self.stop(worker)
+        quited = Value(c_bool, False)
+
+        wait_for_quit_thread = threading.Thread(
+            target=wait_for_quit, args=(should_stop_event, quited)
+        )
+        wait_for_quit_thread.start()
+
+        should_stop_event.wait()
+
+        self.stop(worker, wait_for_quit_thread, quited)
