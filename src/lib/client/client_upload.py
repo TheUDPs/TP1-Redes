@@ -9,6 +9,7 @@ from ctypes import c_bool
 
 from lib.common.constants import (
     GO_BACK_N_PROTOCOL_TYPE,
+    STOP_AND_WAIT_PROTOCOL_TYPE,
 )
 
 QUIT_CHARACTER = "q"
@@ -91,29 +92,57 @@ class ClientProtocol:
         return header + data
 
     def parse_packet(self, packet):
+        header = int.from_bytes(packet[0:2], byteorder="big")
+
         pos = 16
         pos -= 2
-        protocol = packet >> pos & 0b11
+        protocol = header >> pos & 0b11
 
         pos -= 1
-        sequence_number = packet >> pos & 0b1
+        sequence_number = header >> pos & 0b1
 
         pos -= 1
-        is_ack = packet >> pos & 0b1
+        is_ack = header >> pos & 0b1
+        is_ack = True if is_ack == 0b1 else False
 
         pos -= 1
-        is_syn = packet >> pos & 0b1
+        is_syn = header >> pos & 0b1
+        is_syn = True if is_syn == 0b1 else False
 
         pos -= 1
-        is_fin = packet >> pos & 0b1
+        is_fin = header >> pos & 0b1
+        is_fin = True if is_fin == 0b1 else False
 
-        # print(protocol, sequence_number, is_ack, is_syn, is_fin)
+        if protocol == 0b01:
+            protocol = GO_BACK_N_PROTOCOL_TYPE
+        else:
+            protocol = STOP_AND_WAIT_PROTOCOL_TYPE
+
+        port = int.from_bytes(packet[2:4], byteorder="big")
+        payload_length = int.from_bytes(packet[4:6], byteorder="big")
+        data = bytes(packet[6 : 6 + payload_length])
+
+        print(f"packet: {protocol}, {sequence_number}, {is_ack}, {is_syn}, {is_fin}")
+        print(f"port: {port}")
+        print(f"payload_length: {payload_length}")
+        print(f"data: {data}")
+
+        return (
+            protocol,
+            sequence_number,
+            is_ack,
+            is_syn,
+            is_fin,
+            port,
+            payload_length,
+            data,
+        )
 
     def validate_incomming_packet(self, packet, server_address):
-        if server_address != self.server_host_with_port:
-            raise UnexpectedMessage()
-        else:
-            return self.parse_packet(packet)
+        # if server_address != self.server_host_with_port:
+        #     raise UnexpectedMessage()
+        # else:
+        return self.parse_packet(packet)
 
     def request_connection(self, sequence_number):
         self.logger.debug("Requesting connection")
@@ -132,7 +161,16 @@ class ClientProtocol:
         except OSError:
             raise ConnectionRefused()
 
-        packet = self.validate_incomming_packet(raw_packet, server_address)
+        (
+            _protocol,
+            _sequence_number,
+            _is_ack,
+            _is_syn,
+            _is_fin,
+            _port,
+            _payload_length,
+            _data,
+        ) = self.validate_incomming_packet(raw_packet, server_address)
 
 
 class ClientUpload:
