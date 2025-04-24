@@ -5,7 +5,7 @@ CLOSING_KEY = "q"
 
 class Server:
     def __init__(self):
-        self.accepter: Accepter = Accepter(("127.0.0.1", 8080))
+        self.accepter: Accepter = Accepter(("127.0.0.1", 8080), "2")
         self.filesyste = None
 
     def run(self):
