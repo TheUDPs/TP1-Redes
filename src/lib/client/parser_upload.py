@@ -13,7 +13,7 @@ class ClientUploadArgParser:
             description="Client side application to upload files to the server side"
         )
 
-    def parse(self):
+    def parse(self) -> argparse.Namespace:
         verbosity_group = self.internal_parser.add_mutually_exclusive_group(
             required=False
         )

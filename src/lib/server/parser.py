@@ -14,7 +14,7 @@ class ServerArgParser:
             description="Serve side application to upload and download files from"
         )
 
-    def parse(self):
+    def parse(self) -> argparse.Namespace:
         verbosity_group = self.internal_parser.add_mutually_exclusive_group(
             required=False
         )

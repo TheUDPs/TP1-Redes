@@ -1,4 +1,14 @@
 from datetime import datetime
+from logging import Logger
+
+
+def get_logger(verbose, quiet) -> Logger:
+    if verbose:
+        return Logger(Logger.DEBUG_LOG_LEVEL)
+    elif quiet:
+        return Logger(Logger.QUIET_LOG_LEVEL)
+    else:
+        return Logger(Logger.DEBUG_LOG_LEVEL)
 
 
 class Logger:
@@ -32,7 +42,10 @@ class Logger:
     def _log(self, msg_level, message):
         if self.current_level >= msg_level:
             timestamp = datetime.now().strftime("%H:%M:%S")
-            print(f"[{timestamp}] [{self.PRINTABLE_LEVELS[msg_level]}] {message}")
+            print(
+                f"[{timestamp}] [{self.PRINTABLE_LEVELS[msg_level]}] {message}",
+                flush=True,
+            )
 
     def debug(self, message):
         self._log(self.DEBUG_LOG_LEVEL, message)

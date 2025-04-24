@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
-from lib.client.client import Client
+from lib.client.client_upload import ClientUpload
 from lib.client.parser_upload import ClientUploadArgParser
-from lib.common.logger import Logger
+from lib.common.logger import get_logger
 
 
 def upload():
     arg_parser = ClientUploadArgParser()
     args = arg_parser.parse()
-    logger = Logger(Logger.INFO_LOG_LEVEL)
 
-    logger.info("Client started for upload")
+    logger = get_logger(args.verbose, args.quiet)
 
-    client: Client = Client(args, logger)
+    args_dict = vars(args)
+    args_dict.pop("verbose")
+    args_dict.pop("quiet")
+
+    client: ClientUpload = ClientUpload(logger, **args_dict)
     client.run()
-
-    logger.info("Shutdown")
 
 
 if __name__ == "__main__":
