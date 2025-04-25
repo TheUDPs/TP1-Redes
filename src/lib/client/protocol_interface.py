@@ -29,7 +29,7 @@ class ClientProtocol:
         packet_to_send = Packet(
             protocol=self.protocol_version,
             is_ack=False,
-            is_syn=False,
+            is_syn=True,
             is_fin=False,
             port=get_random_port(),
             payload_length=0,

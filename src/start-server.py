@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from lib.common.logger import Logger
+from lib.common.logger import get_logger
 from lib.server.parser import ServerArgParser
 from lib.server.server import Server
 
@@ -7,14 +7,15 @@ from lib.server.server import Server
 def start_server():
     arg_parser = ServerArgParser()
     args = arg_parser.parse()
-    logger = Logger(Logger.INFO_LOG_LEVEL)
 
-    logger.info(f"Starting server at {args.host}:{args.port}")
+    logger = get_logger(args.verbose, args.quiet)
 
-    server: Server = Server(args, logger)
+    args_dict = vars(args)
+    args_dict.pop("verbose")
+    args_dict.pop("quiet")
+
+    server: Server = Server(logger, **args_dict)
     server.run()
-
-    logger.info("Server shutdown")
 
 
 if __name__ == "__main__":

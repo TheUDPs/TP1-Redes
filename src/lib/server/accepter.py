@@ -1,67 +1,101 @@
 from threading import Thread
 import socket
-from typing import Tuple
+
+from lib.common.address import Address
+from lib.common.logger import Logger
+from lib.common.packet import Packet
+from lib.server.client_manager import ClientManager
+from lib.server.exceptions.client_already_connected import ClientAlreadyConnected
+from lib.server.exceptions.protocol_mismatch import ProtocolMismatch
+from lib.server.protocol_interface import ServerProtocol, MissingClientAddress
+
+BUFFER_SIZE = 4028
+USE_ANY_AVAILABLE_PORT = 0
 
 
 class Accepter:
-    def __init__(self, server_direction: tuple[str, int], protocol_id: str):
-        self.host_direction: tuple[str, int] = server_direction
+    def __init__(self, adress: Address, protocol: str, logger):
+        self.host: str = adress.host
+        self.port: int = adress.port
+        self.adress: Address = adress
+        self.logger: Logger = logger
+
         self.is_alive: bool = True
         self.thread_context: Thread = Thread(target=self.run)
-        self.welcoming_skt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.welcoming_skt.bind(self.host_direction)
-        self.clients = set()
-        self.protocol_id: str = protocol_id
-        self.logger = None
 
-    def run(self):
+        self.welcoming_socket: socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.welcoming_socket.bind(self.adress.to_tuple())
+        self.protocol: ServerProtocol = ServerProtocol(
+            self.logger, self.welcoming_socket, self.adress, protocol
+        )
+
+        self.client_manager: ClientManager = ClientManager(self.logger, protocol)
+
+    def run(self) -> None:
         while self.is_alive:
             try:
                 self.accept()
             except socket.timeout:
+                self.logger.warning("Socket timed out")
                 continue
-            except OSError as e:
-                print(e)
 
-    def accept(self):
-        data, client_address = self.welcoming_skt.recvfrom(4096)
+    def accept(self) -> None:
+        client_address = None
 
-        if not client_address:
-            return
+        try:
+            self.logger.debug("Waiting for connection")
+            packet, client_address = self.protocol.accept_connection()
+            connection_socket, connection_address = self.handshake(
+                packet, client_address
+            )
+            self.client_manager.add_client(connection_socket, connection_address)
 
-        decoded: str = data.decode()
-        self.register_client(client_address, decoded)
-        print(data.decode())
+        except MissingClientAddress:
+            self.logger.debug("Client address not found, discarding message")
 
-    def register_client(self, client_addr: Tuple[str, int], protocol_id: str):
-        if client_addr in self.clients:
-            return
+        except ClientAlreadyConnected:
+            self.logger.debug(
+                "Client is already connect, should not be talking to the welcomming socket"
+            )
 
-        if protocol_id != self.protocol_id:
-            return
+        except ProtocolMismatch:
+            self.logger.info(
+                f"Rejecting client {client_address} due to protocol mismatch, expected {self.protocol}"
+            )
 
-        ## To-do Agregar la logica de aceptar al cliente
-        self.clients.add(client_addr)
-        print(self.clients)
+    def handshake(
+        self, packet: Packet, client_address: Address
+    ) -> tuple[socket, Address]:
+        if self.client_manager.is_client_connected(client_address):
+            raise ClientAlreadyConnected()
 
-        return
+        if packet.protocol != self.protocol.protocol_version:
+            self.protocol.reject_connection(packet, client_address)
+            raise ProtocolMismatch()
 
-    def reject_connection(self, client_addr: Tuple[str, int]):
-        rejection_msj: str = "no es el mismo protocolo pa"
-        self.welcoming_skt.sendto(rejection_msj.encode(), client_addr)
-        return 0
+        connection_socket: socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        connection_socket.bind((self.host, USE_ANY_AVAILABLE_PORT))
+        connection_sockname: tuple[str, int] = connection_socket.getsockname()
+        connection_address: Address = Address(
+            connection_sockname[0], connection_sockname[1]
+        )
 
-    def kill(self):
+        self.protocol.send_connection_accepted(
+            packet, client_address, connection_address
+        )
+        return connection_socket, connection_address
+
+    def stop(self) -> None:
         self.is_alive = False
 
-    def start(self):
+    def start(self) -> None:
         self.thread_context.start()
 
-    def join(self):
+    def join(self) -> None:
         try:
-            self.kill()
-            self.welcoming_skt.shutdown(socket.SHUT_RDWR)
-        except Exception as e:
-            print(e)
+            self.stop()
+            self.welcoming_socket.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
         finally:
             self.thread_context.join()

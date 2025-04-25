@@ -7,17 +7,9 @@ from ctypes import c_bool
 
 from lib.client.exceptions.connection_refused import ConnectionRefused
 from lib.client.protocol_interface import ClientProtocol
+from lib.common.wait_for_quit import wait_for_quit
 
-QUIT_CHARACTER = "q"
-SOCKET_TIMEOUT = 3
-
-
-def wait_for_quit(should_stop, quited):
-    while not should_stop.is_set():
-        key = sys.stdin.read(1)
-        if key == QUIT_CHARACTER:
-            quited.value = True
-            should_stop.set()
+SOCKET_TIMEOUT = 30
 
 
 class ClientUpload:

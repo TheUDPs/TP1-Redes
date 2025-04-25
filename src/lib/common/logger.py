@@ -8,7 +8,7 @@ def get_logger(verbose, quiet) -> Logger:
     elif quiet:
         return Logger(Logger.QUIET_LOG_LEVEL)
     else:
-        return Logger(Logger.DEBUG_LOG_LEVEL)
+        return Logger(Logger.INFO_LOG_LEVEL)
 
 
 class Logger:
