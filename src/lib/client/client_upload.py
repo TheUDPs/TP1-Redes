@@ -1,7 +1,6 @@
 from lib.client.abstract_client import Client
+from lib.common.constants import UPLOAD_OPERATION
 from lib.common.logger import Logger
-
-UPLOAD_OPERATION = 1
 
 
 class UploadClient(Client):

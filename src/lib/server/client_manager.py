@@ -13,10 +13,17 @@ class ClientManager:
         self.protocol: str = protocol
 
     def add_client(
-        self, connection_socket: socket, connection_address: Address
+        self,
+        connection_socket: socket,
+        connection_address: Address,
+        client_address: Address,
     ) -> None:
         new_connection: ClientConnection = ClientConnection(
-            connection_socket, connection_address, self.protocol, self.logger
+            connection_socket,
+            connection_address,
+            client_address,
+            self.protocol,
+            self.logger,
         )
         self.clients.add(key=connection_address.to_combined(), value=new_connection)
         new_connection.start()

@@ -1,11 +1,14 @@
 from socket import socket as Socket
 from lib.common.address import Address
+from lib.common.constants import UPLOAD_OPERATION, DOWNLOAD_OPERATION
 from lib.common.logger import Logger
 from lib.common.packet import Packet, PacketParser
 
 from lib.common.exceptions.bag_flags_for_handshake import BadFlagsForHandshake
 from lib.common.exceptions.socket_shutdown import SocketShutdown
+from lib.common.sequence_number import SequenceNumber
 from lib.server.client_pool import ClientPool
+from lib.server.exceptions.bad_operation import BadOperation
 from lib.server.exceptions.missing_client_address import MissingClientAddress
 
 ZERO_BYTES = bytes([])
@@ -99,3 +102,39 @@ class ServerProtocol:
             raise BadFlagsForHandshake()
 
         return packet, client_address
+
+    def receive_operation_intention(self) -> tuple[int, SequenceNumber]:
+        raw_packet, client_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
+
+        if len(raw_packet) == 0:
+            raise SocketShutdown()
+
+        if not client_address_tuple:
+            raise MissingClientAddress()
+
+        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
+        op_code: int = int.from_bytes(packet.data, "big")
+        if op_code != UPLOAD_OPERATION and op_code != DOWNLOAD_OPERATION:
+            raise BadOperation()
+
+        return op_code, SequenceNumber(packet.sequence_number)
+
+    def send_operation_confirmation(
+        self,
+        sequence_number: SequenceNumber,
+        client_address: Address,
+        connection_address: Address,
+    ) -> None:
+        packet_to_send: Packet = Packet(
+            protocol=self.protocol_version,
+            is_ack=True,
+            is_syn=False,
+            is_fin=False,
+            port=connection_address.port,
+            payload_length=0,
+            sequence_number=sequence_number.value,
+            data=ZERO_BYTES,
+        )
+
+        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
+        self.socket.sendto(packet_bin, client_address.to_tuple())

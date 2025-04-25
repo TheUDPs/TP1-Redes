@@ -2,7 +2,9 @@ from socket import socket, SHUT_RDWR
 from threading import Thread
 
 from lib.common.address import Address
+from lib.common.constants import UPLOAD_OPERATION, DOWNLOAD_OPERATION
 from lib.common.logger import Logger
+from lib.common.sequence_number import SequenceNumber
 from lib.server.client_pool import ClientPool
 
 from lib.server.protocol_interface import (
@@ -27,11 +29,13 @@ class ClientConnection:
         self,
         connection_socket: socket,
         connection_address: Address,
+        client_address: Address,
         protocol: str,
         logger: Logger,
     ):
         self.socket: socket = connection_socket
         self.address: Address = connection_address
+        self.client_address: Address = client_address
         self.logger: Logger = logger
         self.protocol: ServerProtocol = ServerProtocol(
             self.logger, self.socket, self.address, protocol, ClientPool()
@@ -51,8 +55,55 @@ class ClientConnection:
             self.state = ConnectionState.BAD_STATE
             raise e
 
+    def receive_operation_intention(self) -> tuple[int, SequenceNumber]:
+        self.logger.debug("[CONN] Waiting for operation intention")
+        try:
+            op_code, sequence_number = self.protocol.receive_operation_intention()
+
+            if op_code == UPLOAD_OPERATION:
+                self.state = ConnectionState.READY_TO_RECEIVE
+            elif op_code == DOWNLOAD_OPERATION:
+                self.state = ConnectionState.READY_TO_TRANSMIT
+            else:
+                self.state = ConnectionState.BAD_STATE
+                self.logger.debug("[CONN] Bad state")
+
+            return op_code, sequence_number
+
+        except SocketShutdown:
+            self.logger.debug("Client connection socket shutdowned")
+            raise SocketShutdown
+
+        except (MissingClientAddress, BadFlagsForHandshake) as e:
+            self.state = ConnectionState.BAD_STATE
+            raise e
+
+    def receive_file(self, sequence_number):
+        self.logger.debug(f"[CONN] Ready to receive from {self.client_address}")
+        self.protocol.send_operation_confirmation(
+            sequence_number, self.client_address, self.address
+        )
+        pass
+
+    def transmit_file(self, _sequence_number):
+        self.logger.debug("[CONN] Ready to transmit")
+        pass
+
     def run(self):
-        self.expect_handshake_completion()
+        try:
+            self.expect_handshake_completion()
+            op_code, sequence_number = self.receive_operation_intention()
+
+            if op_code == UPLOAD_OPERATION:
+                self.receive_file(sequence_number)
+            elif op_code == DOWNLOAD_OPERATION:
+                self.transmit_file(sequence_number)
+
+        except SocketShutdown:
+            pass
+        except Exception as e:
+            self.logger.error(f"[CONN] Fatal error: {e}")
+            self.kill()
 
     def start(self):
         self.run_thread.start()

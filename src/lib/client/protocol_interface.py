@@ -102,7 +102,7 @@ class ClientProtocol:
     def send_operation_intention(
         self, sequence_number: SequenceNumber, op_code: int
     ) -> None:
-        data = bytes(op_code)
+        data = op_code.to_bytes(1, byteorder="big")
 
         packet_to_send: Packet = Packet(
             protocol=self.protocol_version,
@@ -121,6 +121,7 @@ class ClientProtocol:
 
     def wait_for_operation_confirmation(self, sequence_number: SequenceNumber) -> None:
         try:
+            self.logger.debug("Waiting for operation confirmation")
             raw_packet, server_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
         except OSError:
             raise ConnectionRefused()
