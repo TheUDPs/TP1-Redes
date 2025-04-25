@@ -94,10 +94,7 @@ class ClientConnection:
     def is_filesize_valid(self, filesize: int) -> bool:
         return self.file_handler.can_file_fit(filesize)
 
-    def receive_file(self, sequence_number: SequenceNumber):
-        self.logger.debug("[CONN] Validating filename and filesize")
-        self.protocol.send_ack(sequence_number, self.client_address, self.address)
-
+    def receive_file_info(self, sequence_number: SequenceNumber) -> tuple[str, int]:
         sequence_number.flip()
         sequence_number, filename = self.protocol.receive_filename(sequence_number)
         if self.is_filename_valid(filename):
@@ -118,7 +115,37 @@ class ClientConnection:
             self.logger.error("[CONN] Filesize received invalid")
             raise SocketShutdown()
 
+        return filename, filesize
+
+    def receive_file(self, sequence_number: SequenceNumber):
+        self.logger.debug("[CONN] Validating filename and filesize")
+        self.protocol.send_ack(sequence_number, self.client_address, self.address)
+
+        filename, filesize = self.receive_file_info(sequence_number)
         self.logger.debug(f"[CONN] Ready to receive from {self.client_address}")
+
+        # chunk_number: int = 1
+        # total_chunks: int = self.get_number_of_chunks(self.file_stats.st_size)
+        # is_last_chunk: bool = False
+        #
+        # while chunk := self.file.read(CHUNK_SIZE):
+        #     self.sequence_number.flip()
+        #     chunk_len = len(chunk)
+        #     self.logger.debug(
+        #         f"Sending chunk {chunk_number}/{total_chunks} of size {self.bytes_to_kilobytes(chunk_len)} KB"
+        #     )
+        #
+        #     if chunk_number == total_chunks:
+        #         is_last_chunk = True
+        #
+        #     self.protocol.send_file_chunk(
+        #         self.sequence_number, chunk, chunk_len, is_last_chunk
+        #     )
+        #
+        #     self.logger.debug(
+        #         f"Waiting confirmation for chunk {chunk_number}/{total_chunks}"
+        #     )
+        #     self.protocol.wait_for_ack(self.sequence_number)
 
     def transmit_file(self, _sequence_number: SequenceNumber):
         self.logger.debug("[CONN] Ready to transmit")
