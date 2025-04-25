@@ -1,3 +1,4 @@
+from shutil import disk_usage
 from socket import socket, SHUT_RDWR
 from threading import Thread
 
@@ -78,16 +79,35 @@ class ClientConnection:
             self.state = ConnectionState.BAD_STATE
             raise e
 
+    def is_filename_valid(self, filename) -> bool:
+        pass
+
+    def is_filesize_valid(self, filesize) -> bool:
+        total, used, free = disk_usage("/home/gabriel/Uni/2025/Redes/TPs/TP1-Redes")
+        print(total, used, free)
+
     def receive_file(self, sequence_number):
         self.logger.debug(f"[CONN] Ready to receive from {self.client_address}")
-        self.protocol.send_operation_confirmation(
-            sequence_number, self.client_address, self.address
-        )
-        pass
+        self.protocol.send_ack(sequence_number, self.client_address, self.address)
+
+        sequence_number.flip()
+        sequence_number, filename = self.protocol.receive_filename(sequence_number)
+        if self.is_filename_valid(filename):
+            self.protocol.send_ack(sequence_number, self.client_address, self.address)
+        else:
+            self.protocol.send_fin(sequence_number, self.client_address, self.address)
+            raise SocketShutdown()
+
+        sequence_number.flip()
+        sequence_number, filesize = self.protocol.receive_filesize(sequence_number)
+        if self.is_filesize_valid(filesize):
+            self.protocol.send_ack(sequence_number, self.client_address, self.address)
+        else:
+            self.protocol.send_fin(sequence_number, self.client_address, self.address)
+            raise SocketShutdown()
 
     def transmit_file(self, _sequence_number):
         self.logger.debug("[CONN] Ready to transmit")
-        pass
 
     def run(self):
         try:

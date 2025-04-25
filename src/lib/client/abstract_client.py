@@ -21,14 +21,10 @@ USE_CURRENT_HOST = ""
 
 
 class Client:
-    def __init__(
-        self, logger: Logger, host: str, port: int, src: str, name: str, protocol: str
-    ):
+    def __init__(self, logger: Logger, host: str, port: int, protocol: str):
         self.logger: Logger = logger
         self.server_host: str = host
         self.server_port: int = port
-        self.src_filepath: str = src
-        self.final_filename: str = name
 
         self.server_address: Address = Address(self.server_host, self.server_port)
 

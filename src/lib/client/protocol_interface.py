@@ -4,6 +4,7 @@ from lib.client.exceptions.connection_refused import ConnectionRefused
 from lib.client.exceptions.operation_refused import OperationRefused
 from lib.client.exceptions.unexpected_message import UnexpectedMessage
 from lib.common.address import Address
+from lib.common.constants import STRING_ENCODING_FORMAT
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.logger import Logger
 from lib.common.packet import Packet, PacketParser
@@ -136,3 +137,75 @@ class ClientProtocol:
 
         if not packet.is_ack or packet.is_fin:
             raise OperationRefused()
+
+    def send_file_chunk(
+        self,
+        sequence_number: SequenceNumber,
+        chunk: bytes,
+        chunk_len: int,
+        is_last_chunk: bool,
+    ) -> None:
+        packet_to_send: Packet = Packet(
+            protocol=self.protocol_version,
+            is_ack=False,
+            is_syn=False,
+            is_fin=is_last_chunk,
+            port=self.my_address.port,
+            payload_length=chunk_len,
+            sequence_number=sequence_number.value,
+            data=chunk,
+        )
+
+        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
+        self.socket.sendto(packet_bin, self.server_address.to_tuple())
+
+    def wait_for_ack(self, sequence_number: SequenceNumber) -> None:
+        try:
+            raw_packet, server_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
+        except OSError:
+            raise ConnectionRefused()
+
+        if not server_address_tuple:
+            raise UnexpectedMessage()
+
+        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
+
+        if packet.sequence_number != sequence_number.value:
+            raise InvalidSequenceNumber()
+
+        if not packet.is_ack or packet.is_fin:
+            raise OperationRefused()
+
+    def inform_filename(self, sequence_number: SequenceNumber, filename: str) -> None:
+        data = filename.encode(STRING_ENCODING_FORMAT)
+
+        packet_to_send: Packet = Packet(
+            protocol=self.protocol_version,
+            is_ack=False,
+            is_syn=False,
+            is_fin=False,
+            port=self.my_address.port,
+            payload_length=len(data),
+            sequence_number=sequence_number.value,
+            data=data,
+        )
+
+        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
+        self.socket.sendto(packet_bin, self.server_address.to_tuple())
+
+    def inform_filesize(self, sequence_number: SequenceNumber, file_size: int) -> None:
+        data = file_size.to_bytes(2, byteorder="big")
+
+        packet_to_send: Packet = Packet(
+            protocol=self.protocol_version,
+            is_ack=False,
+            is_syn=False,
+            is_fin=False,
+            port=self.my_address.port,
+            payload_length=len(data),
+            sequence_number=sequence_number.value,
+            data=data,
+        )
+
+        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
+        self.socket.sendto(packet_bin, self.server_address.to_tuple())

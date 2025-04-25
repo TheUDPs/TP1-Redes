@@ -1,6 +1,11 @@
 from socket import socket as Socket
 from lib.common.address import Address
-from lib.common.constants import UPLOAD_OPERATION, DOWNLOAD_OPERATION
+from lib.common.constants import (
+    UPLOAD_OPERATION,
+    DOWNLOAD_OPERATION,
+    STRING_ENCODING_FORMAT,
+)
+from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.logger import Logger
 from lib.common.packet import Packet, PacketParser
 
@@ -119,7 +124,7 @@ class ServerProtocol:
 
         return op_code, SequenceNumber(packet.sequence_number)
 
-    def send_operation_confirmation(
+    def send_ack(
         self,
         sequence_number: SequenceNumber,
         client_address: Address,
@@ -138,3 +143,61 @@ class ServerProtocol:
 
         packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
         self.socket.sendto(packet_bin, client_address.to_tuple())
+
+    def send_fin(
+        self,
+        sequence_number: SequenceNumber,
+        client_address: Address,
+        connection_address: Address,
+    ) -> None:
+        packet_to_send: Packet = Packet(
+            protocol=self.protocol_version,
+            is_ack=False,
+            is_syn=False,
+            is_fin=True,
+            port=connection_address.port,
+            payload_length=0,
+            sequence_number=sequence_number.value,
+            data=ZERO_BYTES,
+        )
+
+        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
+        self.socket.sendto(packet_bin, client_address.to_tuple())
+
+    def receive_filename(
+        self, sequence_number: SequenceNumber
+    ) -> tuple[SequenceNumber, str]:
+        raw_packet, client_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
+
+        if len(raw_packet) == 0:
+            raise SocketShutdown()
+
+        if not client_address_tuple:
+            raise MissingClientAddress()
+
+        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
+        filename: str = packet.data.decode(STRING_ENCODING_FORMAT)
+
+        if sequence_number.value != packet.sequence_number:
+            raise InvalidSequenceNumber()
+
+        return SequenceNumber(packet.sequence_number), filename
+
+    def receive_filesize(
+        self, sequence_number: SequenceNumber
+    ) -> tuple[SequenceNumber, int]:
+        raw_packet, client_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
+
+        if len(raw_packet) == 0:
+            raise SocketShutdown()
+
+        if not client_address_tuple:
+            raise MissingClientAddress()
+
+        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
+        filesize: int = int.from_bytes(packet.data, "big")
+
+        if sequence_number.value != packet.sequence_number:
+            raise InvalidSequenceNumber()
+
+        return SequenceNumber(packet.sequence_number), filesize
