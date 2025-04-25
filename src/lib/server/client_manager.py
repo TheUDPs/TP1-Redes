@@ -17,8 +17,12 @@ class ClientManager:
         new_connection: ClientConnection = ClientConnection(
             connection_socket, connection_address, self.protocol, self.logger
         )
-        self.clients[connection_address](new_connection)
-        new_connection.expect_handshake_completion()
+        self.clients[connection_address.to_combined()] = new_connection
+        new_connection.start()
 
     def is_client_connected(self, client_address: Address) -> bool:
-        return client_address in self.clients
+        return client_address.to_combined() in self.clients
+
+    def kill_all(self):
+        for connection in self.clients.values():
+            connection.kill()

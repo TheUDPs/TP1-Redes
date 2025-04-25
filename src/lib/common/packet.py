@@ -103,10 +103,10 @@ class PacketParser:
         payload_length = int.from_bytes(packet[4:6], byteorder="big")
         data = bytes(packet[6 : 6 + payload_length])
 
-        print(f"packet: {protocol}, {sequence_number}, {is_ack}, {is_syn}, {is_fin}")
-        print(f"port: {port}")
-        print(f"payload_length: {payload_length}")
-        print(f"data: {data}")
+        # print(f"packet: {protocol}, {sequence_number}, {is_ack}, {is_syn}, {is_fin}")
+        # print(f"port: {port}")
+        # print(f"payload_length: {payload_length}")
+        # print(f"data: {data}")
 
         return Packet(
             protocol,

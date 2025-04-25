@@ -7,7 +7,11 @@ from lib.common.packet import Packet
 from lib.server.client_manager import ClientManager
 from lib.server.exceptions.client_already_connected import ClientAlreadyConnected
 from lib.server.exceptions.protocol_mismatch import ProtocolMismatch
-from lib.server.protocol_interface import ServerProtocol, MissingClientAddress
+from lib.server.protocol_interface import (
+    ServerProtocol,
+    MissingClientAddress,
+    SocketShutdown,
+)
 
 BUFFER_SIZE = 4028
 USE_ANY_AVAILABLE_PORT = 0
@@ -36,7 +40,7 @@ class Accepter:
             try:
                 self.accept()
             except socket.timeout:
-                self.logger.warning("Socket timed out")
+                self.logger.warn("Socket timed out")
                 continue
 
     def accept(self) -> None:
@@ -50,6 +54,9 @@ class Accepter:
             )
             self.client_manager.add_client(connection_socket, connection_address)
 
+        except SocketShutdown:
+            self.logger.debug("Accepter socket shutdowned")
+
         except MissingClientAddress:
             self.logger.debug("Client address not found, discarding message")
 
@@ -60,7 +67,7 @@ class Accepter:
 
         except ProtocolMismatch:
             self.logger.info(
-                f"Rejecting client {client_address} due to protocol mismatch, expected {self.protocol}"
+                f"Rejecting client {client_address} due to protocol mismatch, expected {self.protocol.protocol_version}"
             )
 
     def handshake(
@@ -80,6 +87,7 @@ class Accepter:
             connection_sockname[0], connection_sockname[1]
         )
 
+        self.logger.debug(f"Accepting connection for {connection_address}")
         self.protocol.send_connection_accepted(
             packet, client_address, connection_address
         )
@@ -94,6 +102,7 @@ class Accepter:
     def join(self) -> None:
         try:
             self.stop()
+            self.client_manager.kill_all()
             self.welcoming_socket.shutdown(socket.SHUT_RDWR)
         except OSError:
             pass

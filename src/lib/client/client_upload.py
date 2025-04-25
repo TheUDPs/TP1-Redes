@@ -1,50 +1,46 @@
 import socket
 import sys
-import threading
 from io import StringIO
 from multiprocessing import Value
 from ctypes import c_bool
+from threading import Event, Thread
 
 from lib.client.exceptions.connection_refused import ConnectionRefused
 from lib.client.protocol_interface import ClientProtocol
+from lib.common.address import Address
+from lib.common.logger import Logger
 from lib.common.wait_for_quit import wait_for_quit
 
 SOCKET_TIMEOUT = 30
 
 
 class ClientUpload:
-    def __init__(self, logger, host, port, src, name, protocol):
-        self.logger = logger
-        self.server_host = host
-        self.server_port = port
-        self.src_filepath = src
-        self.final_filename = name
+    def __init__(
+        self, logger: Logger, host: str, port: int, src: str, name: str, protocol: str
+    ):
+        self.logger: Logger = logger
+        self.server_host: str = host
+        self.server_port: int = port
+        self.src_filepath: str = src
+        self.final_filename: str = name
 
-        self.server_host_with_port = (self.server_host, self.server_port)
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.server_address: Address = Address(self.server_host, self.server_port)
+        self.socket: socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.settimeout(SOCKET_TIMEOUT)
 
         self.protocol = ClientProtocol(
-            self.logger, self.socket, self.server_host, self.server_port, protocol
+            self.logger, self.socket, self.server_address, protocol
         )
 
         self.stopped = False
 
-    def handshake(self):
+    def handshake(self) -> None:
         self.logger.debug("Starting handshake")
+        self.logger.debug("Requesting connection")
         sequence_number = 0
         self.protocol.request_connection(sequence_number)
 
-        # mensaje: bytes = "1".encode("utf-8")
-        # self.socket.sendto(mensaje, self.server_host_with_port)
-        # msj, server_address = self.socket.recvfrom(1048)
-        # if server_address != self.server_host_with_port:
-        #     print(server_address)
-        #     print("No es de quien esperaba el mensaje")
-        # else:
-        #     print(msj.decode())
-
-    def worker(self, should_stop_event):
+    def client_start(self, should_stop_event: Event) -> None:
         self.logger.debug("UDP socket ready")
 
         try:
@@ -55,7 +51,9 @@ class ClientUpload:
         finally:
             should_stop_event.set()
 
-    def stop(self, worker, wait_for_quit_thread, quited):
+    def stop(
+        self, client_start_thread: Thread, wait_for_quit_thread: Thread, quited: Value
+    ) -> None:
         if self.stopped:
             return
 
@@ -69,7 +67,7 @@ class ClientUpload:
             except OSError:
                 pass
         finally:
-            worker.join()
+            client_start_thread.join()
             if not quited.value:
                 sys.stdin = StringIO("q\n")
                 sys.stdin.flush()
@@ -79,21 +77,23 @@ class ClientUpload:
             self.logger.info("Client shutdown")
             self.stopped = True
 
-    def run(self):
+    def run(self) -> None:
         self.logger.info("Client started for upload")
         self.logger.debug(f"Protocol: {self.protocol.protocol_version}")
 
-        should_stop_event = threading.Event()
-        worker = threading.Thread(target=self.worker, args=(should_stop_event,))
-        worker.start()
+        should_stop_event: Event = Event()
+        client_start_thread: Thread = Thread(
+            target=self.client_start, args=(should_stop_event,)
+        )
+        client_start_thread.start()
 
-        quited = Value(c_bool, False)
+        quited: Value = Value(c_bool, False)
 
-        wait_for_quit_thread = threading.Thread(
+        wait_for_quit_thread = Thread(
             target=wait_for_quit, args=(should_stop_event, quited)
         )
         wait_for_quit_thread.start()
 
         should_stop_event.wait()
 
-        self.stop(worker, wait_for_quit_thread, quited)
+        self.stop(client_start_thread, wait_for_quit_thread, quited)

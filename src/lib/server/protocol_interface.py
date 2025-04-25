@@ -19,6 +19,11 @@ class BadFlagsForHandshake(Exception):
         self.message = message
 
 
+class SocketShutdown(Exception):
+    def __init__(self, message="Socket was shutdowned"):
+        self.message = message
+
+
 class ServerProtocol:
     def __init__(
         self, logger: Logger, socket_: socket, address: Address, protocol_version: str
@@ -32,6 +37,9 @@ class ServerProtocol:
 
     def accept_connection(self) -> tuple[Packet, Address]:
         raw_packet, client_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
+
+        if len(raw_packet) == 0:
+            raise SocketShutdown()
 
         if not client_address_tuple:
             raise MissingClientAddress()
@@ -80,6 +88,9 @@ class ServerProtocol:
 
     def expect_handshake_completion(self):
         raw_packet, client_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
+
+        if len(raw_packet) == 0:
+            raise SocketShutdown()
 
         if not client_address_tuple:
             raise MissingClientAddress()

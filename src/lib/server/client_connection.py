@@ -1,4 +1,6 @@
-from socket import socket
+from socket import socket, SHUT_RDWR
+from threading import Thread
+
 from lib.common.address import Address
 from lib.common.logger import Logger
 
@@ -6,6 +8,7 @@ from lib.server.protocol_interface import (
     ServerProtocol,
     MissingClientAddress,
     BadFlagsForHandshake,
+    SocketShutdown,
 )
 from enum import Enum
 
@@ -33,13 +36,33 @@ class ClientConnection:
             self.logger, self.socket, self.address, protocol
         )
         self.state: ConnectionState = ConnectionState.HANDHSAKE
+        self.run_thread = Thread(target=self.run)
 
     def expect_handshake_completion(self) -> None:
         self.logger.debug("Waiting for handshake completion")
         try:
             self.protocol.expect_handshake_completion()
             self.state = ConnectionState.HANDHSAKE_FINISHED
-
+            self.logger.debug("Handhsake completed")
+        except SocketShutdown:
+            self.logger.debug("Client connection socket shutdowned")
         except (MissingClientAddress, BadFlagsForHandshake) as e:
             self.state = ConnectionState.BAD_STATE
             raise e
+
+    def run(self):
+        self.expect_handshake_completion()
+
+    def start(self):
+        self.run_thread.start()
+
+    def kill(self):
+        try:
+            self.socket.shutdown(SHUT_RDWR)
+        except OSError:
+            try:
+                self.socket.close()
+            except OSError:
+                pass
+        finally:
+            self.run_thread.join()

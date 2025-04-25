@@ -1,5 +1,8 @@
+from socket import socket
 from lib.client.exceptions.connection_refused import ConnectionRefused
 from lib.client.exceptions.unexpected_message import UnexpectedMessage
+from lib.common.address import Address
+from lib.common.logger import Logger
 from lib.common.packet import Packet, PacketParser, get_random_port
 
 ZERO_BYTES = bytes([])
@@ -8,25 +11,27 @@ BUFFER_SIZE = 4028
 
 class ClientProtocol:
     def __init__(
-        self, logger, client_socket, server_host, server_port, protocol_version
+        self,
+        logger: Logger,
+        client_socket: socket,
+        server_address: Address,
+        protocol_version: str,
     ):
-        self.logger = logger
-        self.socket = client_socket
-        self.server_host = server_host
-        self.server_port = server_port
-        self.protocol_version = protocol_version
-        self.server_host_with_port = (self.server_host, self.server_port)
+        self.logger: Logger = logger
+        self.socket: socket = client_socket
+        self.server_host: str = server_address.host
+        self.server_port: int = server_address.port
+        self.server_address: Address = server_address
+        self.protocol_version: str = protocol_version
 
-    def validate_incomming_packet(self, packet, server_address) -> Packet:
-        if server_address != self.server_host_with_port:
+    def validate_incomming_packet(self, packet: bytes, server_address) -> Packet:
+        if server_address != self.server_address.to_tuple():
             raise UnexpectedMessage()
         else:
             return PacketParser.get_packet_from_bytes(packet)
 
-    def request_connection(self, sequence_number):
-        self.logger.debug("Requesting connection")
-
-        packet_to_send = Packet(
+    def request_connection(self, sequence_number: int) -> None:
+        packet_to_send: Packet = Packet(
             protocol=self.protocol_version,
             is_ack=False,
             is_syn=True,
@@ -38,7 +43,7 @@ class ClientProtocol:
         )
 
         packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
-        self.socket.sendto(packet_bin, self.server_host_with_port)
+        self.socket.sendto(packet_bin, self.server_address.to_tuple())
 
         try:
             raw_packet, server_address = self.socket.recvfrom(BUFFER_SIZE)
