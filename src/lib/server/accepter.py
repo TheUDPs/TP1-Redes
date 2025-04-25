@@ -12,6 +12,7 @@ from lib.server.client_manager import ClientManager
 from lib.server.client_pool import ClientPool
 from lib.server.exceptions.client_already_connected import ClientAlreadyConnected
 from lib.server.exceptions.protocol_mismatch import ProtocolMismatch
+from lib.server.file_handler import FileHandler
 from lib.server.protocol_interface import (
     ServerProtocol,
     MissingClientAddress,
@@ -22,11 +23,14 @@ BUFFER_SIZE = 4028
 
 
 class Accepter:
-    def __init__(self, adress: Address, protocol: str, logger):
+    def __init__(
+        self, adress: Address, protocol: str, logger, file_handler: FileHandler
+    ):
         self.host: str = adress.host
         self.port: int = adress.port
         self.adress: Address = adress
         self.logger: Logger = logger
+        self.file_handler: FileHandler = file_handler
 
         self.is_alive: bool = True
         self.thread_context: Thread = Thread(target=self.run)
@@ -61,7 +65,7 @@ class Accepter:
                 packet, client_address
             )
             self.client_manager.add_client(
-                connection_socket, connection_address, client_address
+                connection_socket, connection_address, client_address, self.file_handler
             )
 
         except SocketShutdown:

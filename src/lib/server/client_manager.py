@@ -4,6 +4,7 @@ from lib.common.address import Address
 from lib.common.logger import Logger
 from lib.server.client_connection import ClientConnection
 from lib.server.client_pool import ClientPool
+from lib.server.file_handler import FileHandler
 
 
 class ClientManager:
@@ -17,6 +18,7 @@ class ClientManager:
         connection_socket: socket,
         connection_address: Address,
         client_address: Address,
+        file_handler: FileHandler,
     ) -> None:
         new_connection: ClientConnection = ClientConnection(
             connection_socket,
@@ -24,6 +26,7 @@ class ClientManager:
             client_address,
             self.protocol,
             self.logger,
+            file_handler,
         )
         self.clients.add(key=connection_address.to_combined(), value=new_connection)
         new_connection.start()

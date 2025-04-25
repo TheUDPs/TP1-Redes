@@ -3,10 +3,14 @@ from math import ceil
 from sys import exit
 
 from lib.client.abstract_client import Client
-from lib.common.constants import UPLOAD_OPERATION, FOPEN_READ_MODE, FOPEN_BINARY_MODE
+from lib.common.constants import (
+    UPLOAD_OPERATION,
+    FOPEN_READ_MODE,
+    FOPEN_BINARY_MODE,
+    ERROR_EXIT_CODE,
+)
 from lib.common.logger import Logger
 
-ERROR_EXIT_CODE = 1
 CHUNK_SIZE = 61440
 
 
@@ -66,11 +70,17 @@ class UploadClient(Client):
 
     def inform_size_and_name(self) -> None:
         self.sequence_number.flip()
+        self.logger.debug(f"Informing filename: {self.final_filename}")
         self.protocol.inform_filename(self.sequence_number, self.final_filename)
+
+        self.logger.debug("Waiting for filename confirmation")
         self.protocol.wait_for_ack(self.sequence_number)
 
         self.sequence_number.flip()
+        self.logger.debug(f"Informing filesize: {self.file_stats.st_size} bytes")
         self.protocol.inform_filesize(self.sequence_number, self.file_stats.st_size)
+
+        self.logger.debug("Waiting for filesize confirmation")
         self.protocol.wait_for_ack(self.sequence_number)
 
     def send_file(self) -> None:

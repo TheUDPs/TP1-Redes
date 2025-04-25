@@ -1,4 +1,3 @@
-from shutil import disk_usage
 from socket import socket, SHUT_RDWR
 from threading import Thread
 
@@ -7,6 +6,8 @@ from lib.common.constants import UPLOAD_OPERATION, DOWNLOAD_OPERATION
 from lib.common.logger import Logger
 from lib.common.sequence_number import SequenceNumber
 from lib.server.client_pool import ClientPool
+from lib.server.exceptions.invalid_filename import InvalidFilename
+from lib.server.file_handler import FileHandler
 
 from lib.server.protocol_interface import (
     ServerProtocol,
@@ -33,16 +34,20 @@ class ClientConnection:
         client_address: Address,
         protocol: str,
         logger: Logger,
+        file_handler: FileHandler,
     ):
         self.socket: socket = connection_socket
         self.address: Address = connection_address
         self.client_address: Address = client_address
         self.logger: Logger = logger
+        self.file_handler: FileHandler = file_handler
+
         self.protocol: ServerProtocol = ServerProtocol(
             self.logger, self.socket, self.address, protocol, ClientPool()
         )
         self.state: ConnectionState = ConnectionState.HANDHSAKE
         self.run_thread = Thread(target=self.run)
+        self.file = None
 
     def expect_handshake_completion(self) -> None:
         self.logger.debug("Waiting for handshake completion")
@@ -79,34 +84,43 @@ class ClientConnection:
             self.state = ConnectionState.BAD_STATE
             raise e
 
-    def is_filename_valid(self, filename) -> bool:
-        pass
+    def is_filename_valid(self, filename: str) -> bool:
+        try:
+            self.file = self.file_handler.open_file(filename)
+            return True
+        except InvalidFilename:
+            return False
 
-    def is_filesize_valid(self, filesize) -> bool:
-        total, used, free = disk_usage("/home/gabriel/Uni/2025/Redes/TPs/TP1-Redes")
-        print(total, used, free)
+    def is_filesize_valid(self, filesize: int) -> bool:
+        return self.file_handler.can_file_fit(filesize)
 
-    def receive_file(self, sequence_number):
-        self.logger.debug(f"[CONN] Ready to receive from {self.client_address}")
+    def receive_file(self, sequence_number: SequenceNumber):
+        self.logger.debug("[CONN] Validating filename and filesize")
         self.protocol.send_ack(sequence_number, self.client_address, self.address)
 
         sequence_number.flip()
         sequence_number, filename = self.protocol.receive_filename(sequence_number)
         if self.is_filename_valid(filename):
             self.protocol.send_ack(sequence_number, self.client_address, self.address)
+            self.logger.debug("[CONN] Filename received valid")
         else:
             self.protocol.send_fin(sequence_number, self.client_address, self.address)
+            self.logger.error("[CONN] Filename received invalid")
             raise SocketShutdown()
 
         sequence_number.flip()
         sequence_number, filesize = self.protocol.receive_filesize(sequence_number)
         if self.is_filesize_valid(filesize):
             self.protocol.send_ack(sequence_number, self.client_address, self.address)
+            self.logger.debug("[CONN] Filesize received valid")
         else:
             self.protocol.send_fin(sequence_number, self.client_address, self.address)
+            self.logger.error("[CONN] Filesize received invalid")
             raise SocketShutdown()
 
-    def transmit_file(self, _sequence_number):
+        self.logger.debug(f"[CONN] Ready to receive from {self.client_address}")
+
+    def transmit_file(self, _sequence_number: SequenceNumber):
         self.logger.debug("[CONN] Ready to transmit")
 
     def run(self):

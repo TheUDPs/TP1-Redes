@@ -194,7 +194,7 @@ class ClientProtocol:
         self.socket.sendto(packet_bin, self.server_address.to_tuple())
 
     def inform_filesize(self, sequence_number: SequenceNumber, file_size: int) -> None:
-        data = file_size.to_bytes(2, byteorder="big")
+        data = file_size.to_bytes(4, byteorder="big")
 
         packet_to_send: Packet = Packet(
             protocol=self.protocol_version,
