@@ -1,12 +1,14 @@
 from socket import socket as Socket
 
 from lib.client.exceptions.connection_refused import ConnectionRefused
+from lib.client.exceptions.operation_refused import OperationRefused
 from lib.client.exceptions.unexpected_message import UnexpectedMessage
 from lib.common.address import Address
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.logger import Logger
 from lib.common.packet import Packet, PacketParser
 from lib.common.exceptions.bag_flags_for_handshake import BadFlagsForHandshake
+from lib.common.sequence_number import SequenceNumber
 
 ZERO_BYTES = bytes([])
 BUFFER_SIZE = 4028
@@ -38,7 +40,7 @@ class ClientProtocol:
     def update_server_address(self, server_address: Address):
         self.server_address = server_address
 
-    def request_connection(self, sequence_number: int) -> None:
+    def request_connection(self, sequence_number: SequenceNumber) -> None:
         packet_to_send: Packet = Packet(
             protocol=self.protocol_version,
             is_ack=False,
@@ -46,14 +48,16 @@ class ClientProtocol:
             is_fin=False,
             port=self.my_address.port,
             payload_length=0,
-            sequence_number=sequence_number,
+            sequence_number=sequence_number.value,
             data=ZERO_BYTES,
         )
         self.logger.debug(f"Requesting connection to {self.server_address}")
         packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
         self.socket.sendto(packet_bin, self.server_address.to_tuple())
 
-    def wait_for_connection_request_answer(self, sequence_number) -> Address:
+    def wait_for_connection_request_answer(
+        self, sequence_number: SequenceNumber
+    ) -> Address:
         try:
             raw_packet, server_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
         except OSError:
@@ -69,7 +73,7 @@ class ClientProtocol:
         self.logger.debug(f"Got connection accepted from {self.server_address}")
         packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
 
-        if packet.sequence_number != sequence_number:
+        if packet.sequence_number != sequence_number.value:
             raise InvalidSequenceNumber()
 
         if not packet.is_syn:
@@ -79,7 +83,7 @@ class ClientProtocol:
 
         return Address(server_address.host, packet.port)
 
-    def send_hanshake_completion(self, sequence_number) -> None:
+    def send_hanshake_completion(self, sequence_number: SequenceNumber) -> None:
         packet_to_send: Packet = Packet(
             protocol=self.protocol_version,
             is_ack=True,
@@ -87,10 +91,47 @@ class ClientProtocol:
             is_fin=False,
             port=self.my_address.port,
             payload_length=0,
-            sequence_number=sequence_number,
+            sequence_number=sequence_number.value,
             data=ZERO_BYTES,
         )
         self.logger.debug(f"Completing handshake with {self.server_address}")
 
         packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
         self.socket.sendto(packet_bin, self.server_address.to_tuple())
+
+    def send_operation_intention(
+        self, sequence_number: SequenceNumber, op_code: int
+    ) -> None:
+        data = bytes(op_code)
+
+        packet_to_send: Packet = Packet(
+            protocol=self.protocol_version,
+            is_ack=False,
+            is_syn=False,
+            is_fin=False,
+            port=self.my_address.port,
+            payload_length=len(data),
+            sequence_number=sequence_number.value,
+            data=data,
+        )
+        self.logger.debug("Sending operation intention")
+
+        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
+        self.socket.sendto(packet_bin, self.server_address.to_tuple())
+
+    def wait_for_operation_confirmation(self, sequence_number: SequenceNumber) -> None:
+        try:
+            raw_packet, server_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
+        except OSError:
+            raise ConnectionRefused()
+
+        if not server_address_tuple:
+            raise UnexpectedMessage()
+
+        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
+
+        if packet.sequence_number != sequence_number.value:
+            raise InvalidSequenceNumber()
+
+        if not packet.is_ack or packet.is_fin:
+            raise OperationRefused()

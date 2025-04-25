@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from lib.client.client_upload import ClientUpload
+from lib.client.client_upload import UploadClient
 from lib.client.parser_upload import ClientUploadArgParser
 from lib.common.logger import get_logger
 
@@ -14,7 +14,7 @@ def upload():
     args_dict.pop("verbose")
     args_dict.pop("quiet")
 
-    client: ClientUpload = ClientUpload(logger, **args_dict)
+    client: UploadClient = UploadClient(logger, **args_dict)
     client.run()
 
 
