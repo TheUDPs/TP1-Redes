@@ -1,4 +1,3 @@
-import random
 import struct
 
 from lib.common.constants import (
@@ -7,8 +6,8 @@ from lib.common.constants import (
 )
 
 
-def get_random_port() -> int:
-    return random.randint(1, 10)
+# def get_random_port() -> int:
+#     return random.randint(1, 10)
 
 
 class Packet:

@@ -1,39 +1,33 @@
-from socket import socket
+from socket import socket as Socket
 from lib.common.address import Address
 from lib.common.logger import Logger
 from lib.common.packet import Packet, PacketParser
+
+from lib.common.exceptions.bag_flags_for_handshake import BadFlagsForHandshake
+from lib.common.exceptions.socket_shutdown import SocketShutdown
+from lib.server.client_pool import ClientPool
+from lib.server.exceptions.missing_client_address import MissingClientAddress
 
 ZERO_BYTES = bytes([])
 BUFFER_SIZE = 4028
 
 
-class MissingClientAddress(Exception):
-    def __init__(self, message="Client address not found"):
-        self.message = message
-
-
-class BadFlagsForHandshake(Exception):
-    def __init__(
-        self, message="Flags in the packet for the handshake are in an unexpected state"
-    ):
-        self.message = message
-
-
-class SocketShutdown(Exception):
-    def __init__(self, message="Socket was shutdowned"):
-        self.message = message
-
-
 class ServerProtocol:
     def __init__(
-        self, logger: Logger, socket_: socket, address: Address, protocol_version: str
+        self,
+        logger: Logger,
+        socket: Socket,
+        address: Address,
+        protocol_version: str,
+        clients: ClientPool,
     ):
         self.logger: Logger = logger
-        self.socket: socket = socket_
+        self.socket: Socket = socket
         self.host: str = address.host
         self.port: int = address.port
         self.address: Address = address
         self.protocol_version: str = protocol_version
+        self.clients: ClientPool = clients
 
     def accept_connection(self) -> tuple[Packet, Address]:
         raw_packet, client_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
@@ -49,7 +43,7 @@ class ServerProtocol:
         )
         packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
 
-        if not packet.is_syn:
+        if not packet.is_syn and not self.clients.is_client_connected(client_address):
             raise BadFlagsForHandshake()
 
         return packet, client_address
@@ -86,7 +80,7 @@ class ServerProtocol:
         packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
         self.socket.sendto(packet_bin, client_address.to_tuple())
 
-    def expect_handshake_completion(self):
+    def expect_handshake_completion(self) -> tuple[Packet, Address]:
         raw_packet, client_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
 
         if len(raw_packet) == 0:
@@ -101,6 +95,7 @@ class ServerProtocol:
         packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
 
         if not packet.is_ack:
+            self.logger.error("Expected ACK packet")
             raise BadFlagsForHandshake()
 
         return packet, client_address

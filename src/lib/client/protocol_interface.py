@@ -1,9 +1,12 @@
-from socket import socket
+from socket import socket as Socket
+
 from lib.client.exceptions.connection_refused import ConnectionRefused
 from lib.client.exceptions.unexpected_message import UnexpectedMessage
 from lib.common.address import Address
+from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.logger import Logger
-from lib.common.packet import Packet, PacketParser, get_random_port
+from lib.common.packet import Packet, PacketParser
+from lib.common.exceptions.bag_flags_for_handshake import BadFlagsForHandshake
 
 ZERO_BYTES = bytes([])
 BUFFER_SIZE = 4028
@@ -13,22 +16,27 @@ class ClientProtocol:
     def __init__(
         self,
         logger: Logger,
-        client_socket: socket,
+        client_socket: Socket,
         server_address: Address,
+        my_address: Address,
         protocol_version: str,
     ):
         self.logger: Logger = logger
-        self.socket: socket = client_socket
+        self.socket: Socket = client_socket
         self.server_host: str = server_address.host
         self.server_port: int = server_address.port
         self.server_address: Address = server_address
+        self.my_address: Address = my_address
         self.protocol_version: str = protocol_version
 
-    def validate_incomming_packet(self, packet: bytes, server_address) -> Packet:
-        if server_address != self.server_address.to_tuple():
-            raise UnexpectedMessage()
-        else:
-            return PacketParser.get_packet_from_bytes(packet)
+    # def validate_incomming_packet(self, packet: bytes, server_address: tuple[str, int]) -> Packet:
+    #     if server_address != self.server_address.to_tuple():
+    #         raise UnexpectedMessage()
+    #     else:
+    #         return PacketParser.get_packet_from_bytes(packet)
+
+    def update_server_address(self, server_address: Address):
+        self.server_address = server_address
 
     def request_connection(self, sequence_number: int) -> None:
         packet_to_send: Packet = Packet(
@@ -36,18 +44,53 @@ class ClientProtocol:
             is_ack=False,
             is_syn=True,
             is_fin=False,
-            port=get_random_port(),
+            port=self.my_address.port,
             payload_length=0,
             sequence_number=sequence_number,
             data=ZERO_BYTES,
         )
-
+        self.logger.debug(f"Requesting connection to {self.server_address}")
         packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
         self.socket.sendto(packet_bin, self.server_address.to_tuple())
 
+    def wait_for_connection_request_answer(self, sequence_number) -> Address:
         try:
-            raw_packet, server_address = self.socket.recvfrom(BUFFER_SIZE)
+            raw_packet, server_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
         except OSError:
             raise ConnectionRefused()
 
-        _packet: Packet = self.validate_incomming_packet(raw_packet, server_address)
+        if not server_address_tuple:
+            raise UnexpectedMessage()
+
+        server_address: Address = Address(
+            server_address_tuple[0], server_address_tuple[1]
+        )
+
+        self.logger.debug(f"Got connection accepted from {self.server_address}")
+        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
+
+        if packet.sequence_number != sequence_number:
+            raise InvalidSequenceNumber()
+
+        if not packet.is_syn:
+            raise BadFlagsForHandshake()
+        if not packet.is_ack or packet.is_fin:
+            raise ConnectionRefused()
+
+        return Address(server_address.host, packet.port)
+
+    def send_hanshake_completion(self, sequence_number) -> None:
+        packet_to_send: Packet = Packet(
+            protocol=self.protocol_version,
+            is_ack=True,
+            is_syn=False,
+            is_fin=False,
+            port=self.my_address.port,
+            payload_length=0,
+            sequence_number=sequence_number,
+            data=ZERO_BYTES,
+        )
+        self.logger.debug(f"Completing handshake with {self.server_address}")
+
+        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
+        self.socket.sendto(packet_bin, self.server_address.to_tuple())

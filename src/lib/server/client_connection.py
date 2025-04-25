@@ -3,6 +3,7 @@ from threading import Thread
 
 from lib.common.address import Address
 from lib.common.logger import Logger
+from lib.server.client_pool import ClientPool
 
 from lib.server.protocol_interface import (
     ServerProtocol,
@@ -33,7 +34,7 @@ class ClientConnection:
         self.address: Address = connection_address
         self.logger: Logger = logger
         self.protocol: ServerProtocol = ServerProtocol(
-            self.logger, self.socket, self.address, protocol
+            self.logger, self.socket, self.address, protocol, ClientPool()
         )
         self.state: ConnectionState = ConnectionState.HANDHSAKE
         self.run_thread = Thread(target=self.run)

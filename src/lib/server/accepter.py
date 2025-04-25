@@ -1,10 +1,15 @@
 from threading import Thread
-import socket
+from socket import socket as Socket
+from socket import AF_INET, SOCK_DGRAM, SHUT_RDWR
+from socket import timeout as SocketTimeout
 
 from lib.common.address import Address
+from lib.common.constants import USE_ANY_AVAILABLE_PORT
+from lib.common.exceptions.bag_flags_for_handshake import BadFlagsForHandshake
 from lib.common.logger import Logger
 from lib.common.packet import Packet
 from lib.server.client_manager import ClientManager
+from lib.server.client_pool import ClientPool
 from lib.server.exceptions.client_already_connected import ClientAlreadyConnected
 from lib.server.exceptions.protocol_mismatch import ProtocolMismatch
 from lib.server.protocol_interface import (
@@ -14,7 +19,6 @@ from lib.server.protocol_interface import (
 )
 
 BUFFER_SIZE = 4028
-USE_ANY_AVAILABLE_PORT = 0
 
 
 class Accepter:
@@ -27,19 +31,22 @@ class Accepter:
         self.is_alive: bool = True
         self.thread_context: Thread = Thread(target=self.run)
 
-        self.welcoming_socket: socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.welcoming_socket.bind(self.adress.to_tuple())
-        self.protocol: ServerProtocol = ServerProtocol(
-            self.logger, self.welcoming_socket, self.adress, protocol
+        self.clients: ClientPool = ClientPool()
+        self.client_manager: ClientManager = ClientManager(
+            self.logger, protocol, self.clients
         )
 
-        self.client_manager: ClientManager = ClientManager(self.logger, protocol)
+        self.welcoming_socket: Socket = Socket(AF_INET, SOCK_DGRAM)
+        self.welcoming_socket.bind(self.adress.to_tuple())
+        self.protocol: ServerProtocol = ServerProtocol(
+            self.logger, self.welcoming_socket, self.adress, protocol, self.clients
+        )
 
     def run(self) -> None:
         while self.is_alive:
             try:
                 self.accept()
-            except socket.timeout:
+            except SocketTimeout:
                 self.logger.warn("Socket timed out")
                 continue
 
@@ -47,7 +54,8 @@ class Accepter:
         client_address = None
 
         try:
-            self.logger.debug("Waiting for connection")
+            self.logger.debug(f"Waiting for connection on {self.adress}")
+
             packet, client_address = self.protocol.accept_connection()
             connection_socket, connection_address = self.handshake(
                 packet, client_address
@@ -69,25 +77,29 @@ class Accepter:
             self.logger.info(
                 f"Rejecting client {client_address} due to protocol mismatch, expected {self.protocol.protocol_version}"
             )
+        except BadFlagsForHandshake:
+            self.logger.debug("Detected message with bad flags attempting handshake")
 
     def handshake(
         self, packet: Packet, client_address: Address
-    ) -> tuple[socket, Address]:
-        if self.client_manager.is_client_connected(client_address):
+    ) -> tuple[Socket, Address]:
+        if self.clients.is_client_connected(client_address):
             raise ClientAlreadyConnected()
 
         if packet.protocol != self.protocol.protocol_version:
             self.protocol.reject_connection(packet, client_address)
             raise ProtocolMismatch()
 
-        connection_socket: socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        connection_socket: Socket = Socket(AF_INET, SOCK_DGRAM)
         connection_socket.bind((self.host, USE_ANY_AVAILABLE_PORT))
         connection_sockname: tuple[str, int] = connection_socket.getsockname()
         connection_address: Address = Address(
             connection_sockname[0], connection_sockname[1]
         )
 
-        self.logger.debug(f"Accepting connection for {connection_address}")
+        self.logger.debug(
+            f"Accepting connection for {connection_address}. Transferred to {connection_address}"
+        )
         self.protocol.send_connection_accepted(
             packet, client_address, connection_address
         )
@@ -103,7 +115,7 @@ class Accepter:
         try:
             self.stop()
             self.client_manager.kill_all()
-            self.welcoming_socket.shutdown(socket.SHUT_RDWR)
+            self.welcoming_socket.shutdown(SHUT_RDWR)
         except OSError:
             pass
         finally:
