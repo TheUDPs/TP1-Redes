@@ -1,6 +1,7 @@
 from socket import socket as Socket
 
 from lib.client.exceptions.connection_refused import ConnectionRefused
+from lib.client.exceptions.invalid_message import InvalidMessage
 from lib.client.exceptions.operation_refused import OperationRefused
 from lib.client.exceptions.unexpected_message import UnexpectedMessage
 from lib.common.address import Address
@@ -171,7 +172,24 @@ class ClientProtocol:
             raise InvalidSequenceNumber()
 
         if not packet.is_ack or packet.is_fin:
-            raise OperationRefused()
+            raise InvalidMessage()
+
+    def wait_for_fin_ack(self, sequence_number: SequenceNumber) -> None:
+        try:
+            raw_packet, server_address_tuple = self.socket.recvfrom(COMMS_BUFFER_SIZE)
+        except OSError:
+            raise ConnectionRefused()
+
+        if not server_address_tuple:
+            raise UnexpectedMessage()
+
+        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
+
+        if packet.sequence_number != sequence_number.value:
+            raise InvalidSequenceNumber()
+
+        if not packet.is_ack or not packet.is_fin:
+            raise InvalidMessage()
 
     def inform_filename(self, sequence_number: SequenceNumber, filename: str) -> None:
         data = filename.encode(STRING_ENCODING_FORMAT)
@@ -202,6 +220,24 @@ class ClientProtocol:
             payload_length=len(data),
             sequence_number=sequence_number.value,
             data=data,
+        )
+
+        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
+        self.socket.sendto(packet_bin, self.server_address.to_tuple())
+
+    def send_ack(
+        self,
+        sequence_number: SequenceNumber,
+    ) -> None:
+        packet_to_send: Packet = Packet(
+            protocol=self.protocol_version,
+            is_ack=True,
+            is_syn=False,
+            is_fin=False,
+            port=self.my_address.port,
+            payload_length=0,
+            sequence_number=sequence_number.value,
+            data=ZERO_BYTES,
         )
 
         packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)

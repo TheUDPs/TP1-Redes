@@ -129,24 +129,46 @@ class ClientConnection:
         chunk_number: int = 1
 
         sequence_number.flip()
-        sequence_number, packet = self.protocol.receive_file_chunk(sequence_number)
-        self.protocol.send_ack(sequence_number, self.client_address, self.address)
+        sequence_number_return, packet = self.protocol.receive_file_chunk(
+            sequence_number
+        )
+        self.protocol.send_ack(
+            sequence_number_return, self.client_address, self.address
+        )
         self.logger.debug(f"[CONN] Received chunk {chunk_number}")
         self.file_handler.append_to_file(self.file, packet)
 
         while not packet.is_fin:
             chunk_number += 1
-            sequence_number.flip()
-            sequence_number, packet = self.protocol.receive_file_chunk(sequence_number)
-            self.protocol.send_ack(sequence_number, self.client_address, self.address)
+            sequence_number_return.flip()
+            sequence_number_return, packet = self.protocol.receive_file_chunk(
+                sequence_number_return
+            )
+
+            if packet.is_fin:
+                self.protocol.send_fin_ack(
+                    sequence_number_return, self.client_address, self.address
+                )
+            else:
+                self.protocol.send_ack(
+                    sequence_number_return, self.client_address, self.address
+                )
+
             self.file_handler.append_to_file(self.file, packet)
             self.logger.debug(f"[CONN] Received chunk {chunk_number}")
 
         self.logger.debug("[CONN] Finished receiving file")
         self.file.close()
 
+        return sequence_number_return
+
     def transmit_file(self, _sequence_number: SequenceNumber):
         self.logger.debug("[CONN] Ready to transmit")
+
+    def closing_handshake(self, sequence_number: SequenceNumber):
+        sequence_number.flip()
+        self.protocol.wait_for_ack(sequence_number)
+        self.logger.debug("[CONN] Connection closed")
 
     def run(self):
         try:
@@ -154,7 +176,8 @@ class ClientConnection:
             op_code, sequence_number = self.receive_operation_intention()
 
             if op_code == UPLOAD_OPERATION:
-                self.receive_file(sequence_number)
+                sequence_number = self.receive_file(sequence_number)
+                self.closing_handshake(sequence_number)
             elif op_code == DOWNLOAD_OPERATION:
                 self.transmit_file(sequence_number)
 

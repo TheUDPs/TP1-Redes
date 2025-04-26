@@ -1,4 +1,7 @@
 from socket import socket as Socket
+
+from lib.client.exceptions.invalid_message import InvalidMessage
+from lib.client.exceptions.unexpected_message import UnexpectedMessage
 from lib.common.address import Address
 from lib.common.constants import (
     UPLOAD_OPERATION,
@@ -164,6 +167,26 @@ class ServerProtocol:
         packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
         self.socket.sendto(packet_bin, client_address.to_tuple())
 
+    def send_fin_ack(
+        self,
+        sequence_number: SequenceNumber,
+        client_address: Address,
+        connection_address: Address,
+    ) -> None:
+        packet_to_send: Packet = Packet(
+            protocol=self.protocol_version,
+            is_ack=True,
+            is_syn=False,
+            is_fin=True,
+            port=connection_address.port,
+            payload_length=0,
+            sequence_number=sequence_number.value,
+            data=ZERO_BYTES,
+        )
+
+        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
+        self.socket.sendto(packet_bin, client_address.to_tuple())
+
     def receive_filename(
         self, sequence_number: SequenceNumber
     ) -> tuple[SequenceNumber, str]:
@@ -219,3 +242,20 @@ class ServerProtocol:
             raise InvalidSequenceNumber()
 
         return SequenceNumber(packet.sequence_number), packet
+
+    def wait_for_ack(self, sequence_number: SequenceNumber) -> None:
+        try:
+            raw_packet, client_address_tuple = self.socket.recvfrom(COMMS_BUFFER_SIZE)
+        except OSError:
+            raise InvalidMessage()
+
+        if not client_address_tuple:
+            raise UnexpectedMessage()
+
+        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
+
+        if packet.sequence_number != sequence_number.value:
+            raise InvalidSequenceNumber()
+
+        if not packet.is_ack or packet.is_fin:
+            raise InvalidMessage()

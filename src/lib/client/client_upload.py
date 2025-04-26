@@ -65,6 +65,7 @@ class UploadClient(Client):
                 f"Sending file {self.final_filename} of {self.bytes_to_megabytes(self.file_stats.st_size)} MB"
             )
             self.send_file()
+            self.closing_handshake()
         except Exception as e:
             self.logger.error(e)
 
@@ -105,7 +106,18 @@ class UploadClient(Client):
             self.logger.debug(
                 f"Waiting confirmation for chunk {chunk_number}/{total_chunks}"
             )
-            self.protocol.wait_for_ack(self.sequence_number)
+
+            if is_last_chunk:
+                self.protocol.wait_for_fin_ack(self.sequence_number)
+            else:
+                self.protocol.wait_for_ack(self.sequence_number)
+
             chunk_number += 1
 
+        self.logger.info("File transfer complete")
         self.file.close()
+
+    def closing_handshake(self) -> None:
+        self.sequence_number.flip()
+        self.protocol.send_ack(self.sequence_number)
+        self.logger.debug("Connection closed")

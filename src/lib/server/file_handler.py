@@ -36,7 +36,4 @@ class FileHandler:
         return (free_space - MINIMUM_FREE_GAP) > filesize
 
     def append_to_file(self, file, packet: Packet) -> None:
-        self.logger.debug(f"[CONN] Writing to file: {len(packet.data)} bytes")
         file.write(packet.data)
-        # file.flush()
-        # fsync(file.fileno())
