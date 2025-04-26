@@ -74,7 +74,10 @@ class Client:
             should_stop_event.set()
 
     def stop(
-        self, client_start_thread: Thread, wait_for_quit_thread: Thread, quited: Value
+        self,
+        client_start_thread: Thread,
+        wait_for_quit_thread: Thread,
+        quited: Value,  # type: ignore
     ) -> None:
         if self.stopped:
             return
@@ -113,7 +116,7 @@ class Client:
         )
         client_start_thread.start()
 
-        quited: Value = Value(c_bool, False)
+        quited: Value = Value(c_bool, False)  # type: ignore
 
         wait_for_quit_thread = Thread(
             target=wait_for_quit, args=(should_stop_event, quited)
