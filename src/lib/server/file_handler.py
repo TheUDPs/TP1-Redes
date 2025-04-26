@@ -33,6 +33,7 @@ class FileHandler:
 
     def open_file_absolute(self, abs_route: str):
         try:
+            self.logger.debug(f"Absolute path: {abs_route}")
             if path.isfile(abs_route):
                 self.logger.error("Invalid filename, already exists")
                 raise InvalidFilename()

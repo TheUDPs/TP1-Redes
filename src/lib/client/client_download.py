@@ -1,8 +1,9 @@
+from os import getcwd
 import sys
 from lib.client.abstract_client import Client
 from lib.common.logger import Logger
-from src.lib.common.constants import DOWNLOAD_OPERATION, ERROR_EXIT_CODE
-from src.lib.server.file_handler import FileHandler
+from lib.common.constants import DOWNLOAD_OPERATION, ERROR_EXIT_CODE
+from lib.server.file_handler import FileHandler
 
 
 class DownloadClient(Client):
@@ -11,10 +12,10 @@ class DownloadClient(Client):
     ):
         self.file = None
         try:
-            self.file_handler: FileHandler = FileHandler(self.logger, dst)
-            self.file = self.file_handler.open_file_absolute(name)
+            self.file_handler: FileHandler = FileHandler(getcwd(), logger)
+            self.file = self.file_handler.open_file_absolute(dst)
         except Exception as e:
-            self.logger.error(f"Error opening storage directory: {e}")
+            logger.error(f"Error opening storage directory: {e.message}")
             sys.exit(ERROR_EXIT_CODE)
         super().__init__(logger, host, port, protocol)
         self.file_destination: str = dst

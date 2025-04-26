@@ -177,7 +177,7 @@ class ClientConnection:
         try:
             sequence_number.flip()
             self.protocol.send_ack(sequence_number, self.client_address, self.address)
-            self.receive_file_name(sequence_number)
+            self.receive_file_name_transmit(sequence_number)
 
             self.logger.debug(
                 f"[CONN] Configuration is done, sending file chunks {self.client_address}"
@@ -213,14 +213,18 @@ class ClientConnection:
 
                 chunk_number += 1
 
+            self.protocol.send_ack(sequence_number, self.client_address, self.address)
+            self.logger.info("[CONN] File transfer complete")
+
         # to do: Agregar manejo de excepciones
         except Exception:
             pass
 
-    def receive_file_name(self, sequence_number: SequenceNumber):
+    def receive_file_name_transmit(self, sequence_number: SequenceNumber):
         try:
             sequence_number.flip()
             sequence_number, filename = self.protocol.receive_filename(sequence_number)
+
             self.file = self.file_handler.open_file(filename)
             self.protocol.send_ack(sequence_number, self.client_address, self.address)
 
