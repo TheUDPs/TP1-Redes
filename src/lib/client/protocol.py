@@ -5,12 +5,18 @@ from lib.client.exceptions.invalid_message import InvalidMessage
 from lib.client.exceptions.operation_refused import OperationRefused
 from lib.client.exceptions.unexpected_message import UnexpectedMessage
 from lib.common.address import Address
-from lib.common.constants import STRING_ENCODING_FORMAT, COMMS_BUFFER_SIZE, ZERO_BYTES
+from lib.common.constants import (
+    FULL_BUFFER_SIZE,
+    STRING_ENCODING_FORMAT,
+    COMMS_BUFFER_SIZE,
+    ZERO_BYTES,
+)
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.logger import Logger
 from lib.common.packet import Packet, PacketParser
 from lib.common.exceptions.bag_flags_for_handshake import BadFlagsForHandshake
 from lib.common.sequence_number import SequenceNumber
+from lib.common.exceptions.socket_shutdown import SocketShutdown
 
 
 class ClientProtocol:
@@ -238,5 +244,47 @@ class ClientProtocol:
             data=ZERO_BYTES,
         )
 
+        self.logger.debug(
+            f"Sending ack to {self.server_address}, of packet {sequence_number.value}"
+        )
         packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
         self.socket.sendto(packet_bin, self.server_address.to_tuple())
+
+    def send_fin_ack(
+        self,
+        sequence_number: SequenceNumber,
+    ) -> None:
+        packet_to_send: Packet = Packet(
+            protocol=self.protocol_version,
+            is_ack=True,
+            is_syn=False,
+            is_fin=True,
+            port=self.server_address.port,
+            payload_length=0,
+            sequence_number=sequence_number.value,
+            data=ZERO_BYTES,
+        )
+
+        self.logger.debug(
+            f"Sending ack to {self.server_address}, of packet {sequence_number.value}"
+        )
+        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
+        self.socket.sendto(packet_bin, self.server_address.to_tuple())
+
+    def receive_file_chunk(
+        self, sequence_number: SequenceNumber
+    ) -> tuple[SequenceNumber, Packet]:
+        raw_packet, server_address = self.socket_receive(FULL_BUFFER_SIZE)
+
+        if len(raw_packet) == 0:
+            raise SocketShutdown()
+
+        if not server_address:
+            raise UnexpectedMessage()
+
+        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
+
+        if sequence_number.value != packet.sequence_number:
+            raise InvalidSequenceNumber()
+
+        return SequenceNumber(packet.sequence_number), packet

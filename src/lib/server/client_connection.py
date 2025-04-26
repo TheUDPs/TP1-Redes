@@ -1,8 +1,9 @@
+from math import ceil
 from socket import socket, SHUT_RDWR
 from threading import Thread
 
 from lib.common.address import Address
-from lib.common.constants import UPLOAD_OPERATION, DOWNLOAD_OPERATION
+from lib.common.constants import FILE_CHUNK_SIZE, UPLOAD_OPERATION, DOWNLOAD_OPERATION
 from lib.common.logger import Logger
 from lib.common.sequence_number import SequenceNumber
 from lib.server.client_pool import ClientPool
@@ -177,34 +178,41 @@ class ClientConnection:
         try:
             sequence_number.flip()
             self.protocol.send_ack(sequence_number, self.client_address, self.address)
-            self.receive_file_name_transmit(sequence_number)
+            sequence_number = self.receive_file_name_transmit(sequence_number)
 
             self.logger.debug(
                 f"[CONN] Configuration is done, sending file chunks {self.client_address}"
             )
 
+            self.logger.debug(f"[CONN] sequence_number {sequence_number.value}")
             chunk_number: int = 1
-            total_chunks: int = self.file_handler.get_number_of_chunks(
-                self.file_handler.get_file_size(self.file)
-            )
             is_last_chunk: bool = False
-            while chunk := self.file.read(self.file_handler.FILE_CHUNK_SIZE):
+            while chunk := self.file.read(FILE_CHUNK_SIZE):
                 chunk_len = len(chunk)
                 self.logger.debug(
-                    f"[CONN] Sending chunk {chunk_number}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB"
+                    f"[CONN] Sending chunk {chunk_number} of size {self.bytes_to_kilobytes(chunk_len)} KB"
                 )
 
-                if chunk_number == total_chunks:
+                self.logger.debug(f"[CONN] sequence_number {sequence_number.value}")
+                if chunk_len < FILE_CHUNK_SIZE:
                     is_last_chunk = True
 
                 sequence_number.flip()
+
+                self.logger.debug("Sending file chunk")
                 self.protocol.send_file_chunk(
-                    sequence_number, chunk, chunk_len, is_last_chunk
+                    sequence_number,
+                    chunk,
+                    chunk_len,
+                    is_last_chunk,
+                    self.client_address,
                 )
 
                 self.logger.debug(
-                    f"[CONN] Waiting confirmation for chunk {chunk_number}/{total_chunks}"
+                    f"[CONN] Waiting confirmation for chunk {chunk_number}"
                 )
+
+                self.logger.debug("Is last chunk: " + str(is_last_chunk))
 
                 if is_last_chunk:
                     self.protocol.wait_for_fin_ack(sequence_number)
@@ -217,17 +225,19 @@ class ClientConnection:
             self.logger.info("[CONN] File transfer complete")
 
         # to do: Agregar manejo de excepciones
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
+            self.logger.error(f"[CONN] Error transmitting file: {e.message}")
 
     def receive_file_name_transmit(self, sequence_number: SequenceNumber):
         try:
+            self.logger.debug("[CONN] Waiting for filename")
             sequence_number.flip()
             sequence_number, filename = self.protocol.receive_filename(sequence_number)
-
-            self.file = self.file_handler.open_file(filename)
+            self.file = self.file_handler.open_file_read(filename)
+            self.logger.debug(f"[CONN] Filename received: {filename}, sending ACK")
             self.protocol.send_ack(sequence_number, self.client_address, self.address)
-
+            return sequence_number
         except InvalidFilename:
             self.logger.error("[CONN] Filename received invalid")
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
@@ -281,3 +291,14 @@ class ClientConnection:
             self.state == ConnectionState.DONE_READY_TO_DIE
             or self.state == ConnectionState.UNRECOVERABLE_BAD_STATE
         )
+
+    def bytes_to_megabytes(self, bytes: int) -> str:
+        megabytes = bytes / (1024 * 1024)
+        return "{0:.2f}".format(megabytes)
+
+    def bytes_to_kilobytes(self, bytes: int) -> str:
+        megabytes = bytes / (1024)
+        return "{0:.2f}".format(megabytes)
+
+    def get_number_of_chunks(self, file_size: int) -> int:
+        return ceil(file_size / FILE_CHUNK_SIZE)

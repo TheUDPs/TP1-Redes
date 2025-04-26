@@ -35,7 +35,6 @@ class DownloadClient(Client):
             self.logger.error(f"Error message: {err}")
 
     def send_operation_intention(self) -> None:
-        self.logger.debug("Sending operation intention")
         try:
             self.protocol.send_operation_intention(
                 self.sequence_number, DOWNLOAD_OPERATION
@@ -51,19 +50,15 @@ class DownloadClient(Client):
             self.logger.debug("Sending file name")
             self.protocol.inform_filename(self.sequence_number, self.file_name)
             self.logger.debug("Awaiting for file name confirmation")
-            self.protocol.wait_for_file_info_confirmation(self.sequence_number)
+            self.protocol.wait_for_ack(self.sequence_number)
             self.logger.debug("File name confirmed")
-        except Exception:
+        except Exception as e:
             # To do: Agregar manejo de excepciones
-            self.logger.error("Error sending file name")
+            self.logger.error(f"Error sending file name, {e}")
 
     def receive_file(self) -> None:
         self.logger.debug("Receiving file info")
         try:
-            self.protocol.send_ack(
-                self.sequence_number, self.client_address, self.address
-            )
-
             chunk_number: int = 1
 
             self.sequence_number.flip()
@@ -72,15 +67,13 @@ class DownloadClient(Client):
             )
 
             if packet.is_fin:
-                self.protocol.send_fin_ack(
-                    self.sequence_number, self.client_address, self.address
-                )
+                self.protocol.send_fin_ack(self.sequence_number)
+            else:
+                self.protocol.send_ack(self.sequence_number)
 
-            self.protocol.send_ack(
-                self.sequence_number, self.client_address, self.address
-            )
+            self.file_handler.append_to_file(self.file, packet)
 
-            self.logger.debug(f"Received chunk {chunk_number}")
+            self.logger.debug(f"Received chunk {chunk_number} info: {len(packet.data)}")
 
             while not packet.is_fin:
                 chunk_number += 1
@@ -90,13 +83,9 @@ class DownloadClient(Client):
                 )
 
                 if packet.is_fin:
-                    self.protocol.send_fin_ack(
-                        self.sequence_number, self.client_address, self.address
-                    )
+                    self.protocol.send_fin_ack(self.sequence_number)
                 else:
-                    self.protocol.send_ack(
-                        self.sequence_number, self.client_address, self.address
-                    )
+                    self.protocol.send_ack(self.sequence_number)
 
                 self.logger.debug(f"Received chunk {chunk_number}")
                 self.file_handler.append_to_file(self.file, packet)
@@ -104,8 +93,9 @@ class DownloadClient(Client):
             self.logger.debug("Finished receiving file")
             self.file.close()
 
-        except Exception:
+        except Exception as e:
             # To do: Agregar manejo de excepciones
+            self.logger.error(f"Error receiving file, {e}")
             pass
 
     def closing_handshake(self) -> None:

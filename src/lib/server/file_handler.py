@@ -1,7 +1,11 @@
 from os import path
 from shutil import disk_usage
 
-from lib.common.constants import FOPEN_BINARY_MODE, FOPEN_WRITE_TRUNCATE_MODE
+from lib.common.constants import (
+    FOPEN_BINARY_MODE,
+    FOPEN_READ_MODE,
+    FOPEN_WRITE_TRUNCATE_MODE,
+)
 from lib.common.logger import Logger
 from lib.common.packet import Packet
 from lib.server.exceptions.invalid_directory import InvalidDirectory
@@ -26,6 +30,19 @@ class FileHandler:
                 raise InvalidFilename()
 
             file = open(file_path, FOPEN_WRITE_TRUNCATE_MODE + FOPEN_BINARY_MODE)
+            return file
+        except IOError as e:
+            self.logger.error(f"I/O error occurred: {e}")
+            raise InvalidFilename()
+
+    def open_file_read(self, filename: str):
+        file_path = path.join(self.dirpath, filename)
+        try:
+            if not path.isfile(file_path):
+                self.logger.error("Invalid filename, does not exist")
+                raise InvalidFilename()
+
+            file = open(file_path, FOPEN_READ_MODE + FOPEN_BINARY_MODE)
             return file
         except IOError as e:
             self.logger.error(f"I/O error occurred: {e}")

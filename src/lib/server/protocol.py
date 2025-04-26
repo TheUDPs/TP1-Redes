@@ -21,6 +21,7 @@ from lib.common.sequence_number import SequenceNumber
 from lib.server.client_pool import ClientPool
 from lib.server.exceptions.bad_operation import BadOperation
 from lib.server.exceptions.missing_client_address import MissingClientAddress
+from lib.client.exceptions.connection_refused import ConnectionRefused
 
 
 class ServerProtocol:
@@ -262,4 +263,44 @@ class ServerProtocol:
             raise InvalidSequenceNumber()
 
         if not packet.is_ack or packet.is_fin:
+            raise InvalidMessage()
+
+    def send_file_chunk(
+        self,
+        sequence_number: SequenceNumber,
+        chunk: bytes,
+        chunk_len: int,
+        is_last_chunk: bool,
+        client_address: Address,
+    ) -> None:
+        packet_to_send: Packet = Packet(
+            protocol=self.protocol_version,
+            is_ack=False,
+            is_syn=False,
+            is_fin=is_last_chunk,
+            port=self.address.port,
+            payload_length=chunk_len,
+            sequence_number=sequence_number.value,
+            data=chunk,
+        )
+
+        self.logger.debug(f"Sending chunk of size {chunk_len}, to: {client_address}")
+        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
+        self.socket.sendto(packet_bin, client_address.to_tuple())
+
+    def wait_for_fin_ack(self, sequence_number: SequenceNumber) -> None:
+        try:
+            raw_packet, server_address_tuple = self.socket_receive(COMMS_BUFFER_SIZE)
+        except OSError:
+            raise ConnectionRefused()
+
+        if not server_address_tuple:
+            raise UnexpectedMessage()
+
+        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
+
+        if packet.sequence_number != sequence_number.value:
+            raise InvalidSequenceNumber()
+
+        if not packet.is_ack or not packet.is_fin:
             raise InvalidMessage()
