@@ -23,7 +23,8 @@ class ConnectionState(Enum):
     HANDHSAKE_FINISHED = 2
     READY_TO_TRANSMIT = 3
     READY_TO_RECEIVE = 4
-    BAD_STATE = 99
+    DONE_READY_TO_DIE = 5
+    UNRECOVERABLE_BAD_STATE = 99
 
 
 class ClientConnection:
@@ -48,6 +49,7 @@ class ClientConnection:
         self.state: ConnectionState = ConnectionState.HANDHSAKE
         self.run_thread = Thread(target=self.run)
         self.file = None
+        self.killed = False
 
     def expect_handshake_completion(self) -> None:
         self.logger.debug("Waiting for handshake completion")
@@ -58,7 +60,7 @@ class ClientConnection:
         except SocketShutdown:
             self.logger.debug("Client connection socket shutdowned")
         except (MissingClientAddress, BadFlagsForHandshake) as e:
-            self.state = ConnectionState.BAD_STATE
+            self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             raise e
 
     def receive_operation_intention(self) -> tuple[int, SequenceNumber]:
@@ -71,7 +73,7 @@ class ClientConnection:
             elif op_code == DOWNLOAD_OPERATION:
                 self.state = ConnectionState.READY_TO_TRANSMIT
             else:
-                self.state = ConnectionState.BAD_STATE
+                self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
                 self.logger.debug("[CONN] Bad state")
 
             return op_code, sequence_number
@@ -81,7 +83,7 @@ class ClientConnection:
             raise SocketShutdown
 
         except (MissingClientAddress, BadFlagsForHandshake) as e:
-            self.state = ConnectionState.BAD_STATE
+            self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             raise e
 
     def is_filename_valid(self, filename: str) -> bool:
@@ -105,6 +107,7 @@ class ClientConnection:
         else:
             self.protocol.send_fin(sequence_number, self.client_address, self.address)
             self.logger.error("[CONN] Filename received invalid")
+            self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             raise SocketShutdown()
 
         sequence_number.flip()
@@ -115,6 +118,7 @@ class ClientConnection:
         else:
             self.protocol.send_fin(sequence_number, self.client_address, self.address)
             self.logger.error("[CONN] Filesize received invalid")
+            self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             raise SocketShutdown()
 
         return filename, filesize, sequence_number
@@ -132,9 +136,15 @@ class ClientConnection:
         sequence_number_return, packet = self.protocol.receive_file_chunk(
             sequence_number
         )
-        self.protocol.send_ack(
-            sequence_number_return, self.client_address, self.address
-        )
+        if packet.is_fin:
+            self.protocol.send_fin_ack(
+                sequence_number_return, self.client_address, self.address
+            )
+        else:
+            self.protocol.send_ack(
+                sequence_number_return, self.client_address, self.address
+            )
+
         self.logger.debug(f"[CONN] Received chunk {chunk_number}")
         self.file_handler.append_to_file(self.file, packet)
 
@@ -169,6 +179,7 @@ class ClientConnection:
         sequence_number.flip()
         self.protocol.wait_for_ack(sequence_number)
         self.logger.debug("[CONN] Connection closed")
+        self.state = ConnectionState.DONE_READY_TO_DIE
 
     def run(self):
         try:
@@ -182,8 +193,10 @@ class ClientConnection:
                 self.transmit_file(sequence_number)
 
         except SocketShutdown:
+            self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             pass
         except Exception as e:
+            self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             self.logger.error(f"[CONN] Fatal error: {e}")
             self.kill()
 
@@ -191,6 +204,9 @@ class ClientConnection:
         self.run_thread.start()
 
     def kill(self):
+        if not self.killed:
+            return
+
         try:
             self.socket.shutdown(SHUT_RDWR)
         except OSError:
@@ -200,3 +216,10 @@ class ClientConnection:
                 pass
         finally:
             self.run_thread.join()
+            self.killed = True
+
+    def is_done_and_ready_to_die(self):
+        return (
+            self.state == ConnectionState.DONE_READY_TO_DIE
+            or self.state == ConnectionState.UNRECOVERABLE_BAD_STATE
+        )

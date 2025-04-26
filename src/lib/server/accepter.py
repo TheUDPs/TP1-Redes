@@ -102,7 +102,7 @@ class Accepter:
         )
 
         self.logger.debug(
-            f"Accepting connection for {connection_address}. Transferred to {connection_address}"
+            f"Accepting connection for {client_address}. Transferred to {connection_address}"
         )
         self.protocol.send_connection_accepted(
             packet, client_address, connection_address

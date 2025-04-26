@@ -15,7 +15,7 @@ from lib.common.logger import Logger
 from lib.common.sequence_number import SequenceNumber
 from lib.common.wait_for_quit import wait_for_quit
 
-SOCKET_TIMEOUT = 30
+SOCKET_TIMEOUT = 3
 
 USE_CURRENT_HOST = ""
 
@@ -52,6 +52,7 @@ class Client:
             self.sequence_number
         )
         self.logger.debug("Connection request accepted")
+
         # Update server address to update the server connection's port
         self.server_address: Address = server_address
         self.protocol.update_server_address(server_address)
