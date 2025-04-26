@@ -172,8 +172,62 @@ class ClientConnection:
 
         return sequence_number_return
 
-    def transmit_file(self, _sequence_number: SequenceNumber):
-        self.logger.debug("[CONN] Ready to transmit")
+    def transmit_file(self, sequence_number: SequenceNumber):
+        self.logger.debug("[CONN] transmitting file")
+        try:
+            sequence_number.flip()
+            self.protocol.send_ack(sequence_number, self.client_address, self.address)
+            self.receive_file_name(sequence_number)
+
+            self.logger.debug(
+                f"[CONN] Configuration is done, sending file chunks {self.client_address}"
+            )
+
+            chunk_number: int = 1
+            total_chunks: int = self.file_handler.get_number_of_chunks(
+                self.file_handler.get_file_size(self.file)
+            )
+            is_last_chunk: bool = False
+            while chunk := self.file.read(self.file_handler.FILE_CHUNK_SIZE):
+                chunk_len = len(chunk)
+                self.logger.debug(
+                    f"[CONN] Sending chunk {chunk_number}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB"
+                )
+
+                if chunk_number == total_chunks:
+                    is_last_chunk = True
+
+                sequence_number.flip()
+                self.protocol.send_file_chunk(
+                    sequence_number, chunk, chunk_len, is_last_chunk
+                )
+
+                self.logger.debug(
+                    f"[CONN] Waiting confirmation for chunk {chunk_number}/{total_chunks}"
+                )
+
+                if is_last_chunk:
+                    self.protocol.wait_for_fin_ack(sequence_number)
+                else:
+                    self.protocol.wait_for_ack(sequence_number)
+
+                chunk_number += 1
+
+        # to do: Agregar manejo de excepciones
+        except Exception:
+            pass
+
+    def receive_file_name(self, sequence_number: SequenceNumber):
+        try:
+            sequence_number.flip()
+            sequence_number, filename = self.protocol.receive_filename(sequence_number)
+            self.file = self.file_handler.open_file(filename)
+            self.protocol.send_ack(sequence_number, self.client_address, self.address)
+
+        except InvalidFilename:
+            self.logger.error("[CONN] Filename received invalid")
+            self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
+            self.protocol.send_fin(sequence_number, self.client_address, self.address)
 
     def closing_handshake(self, sequence_number: SequenceNumber):
         sequence_number.flip()
