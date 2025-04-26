@@ -68,7 +68,7 @@ class Client:
                 self.handshake()
                 self.perform_operation()
         except ConnectionRefused as e:
-            self.logger.error(e.message)
+            self.logger.error(f"Connection refused: {e}")
         finally:
             should_stop_event.set()
 

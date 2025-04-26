@@ -66,7 +66,8 @@ class UploadClient(Client):
             self.send_file()
             self.closing_handshake()
         except Exception as e:
-            self.logger.error(e)
+            err = e.message if e.message else e
+            self.logger.error(f"Error message: {err}")
 
     def inform_size_and_name(self) -> None:
         self.sequence_number.flip()
