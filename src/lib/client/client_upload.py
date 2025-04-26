@@ -8,10 +8,9 @@ from lib.common.constants import (
     FOPEN_READ_MODE,
     FOPEN_BINARY_MODE,
     ERROR_EXIT_CODE,
+    FILE_CHUNK_SIZE,
 )
 from lib.common.logger import Logger
-
-CHUNK_SIZE = 61440
 
 
 class UploadClient(Client):
@@ -48,7 +47,7 @@ class UploadClient(Client):
         return "{0:.2f}".format(megabytes)
 
     def get_number_of_chunks(self, file_size: int) -> int:
-        return ceil(file_size / CHUNK_SIZE)
+        return ceil(file_size / FILE_CHUNK_SIZE)
 
     def perform_upload(self) -> None:
         try:
@@ -89,7 +88,7 @@ class UploadClient(Client):
         total_chunks: int = self.get_number_of_chunks(self.file_stats.st_size)
         is_last_chunk: bool = False
 
-        while chunk := self.file.read(CHUNK_SIZE):
+        while chunk := self.file.read(FILE_CHUNK_SIZE):
             chunk_len = len(chunk)
             self.logger.debug(
                 f"Sending chunk {chunk_number}/{total_chunks} of size {self.bytes_to_kilobytes(chunk_len)} KB"
