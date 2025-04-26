@@ -89,7 +89,6 @@ class UploadClient(Client):
         is_last_chunk: bool = False
 
         while chunk := self.file.read(CHUNK_SIZE):
-            self.sequence_number.flip()
             chunk_len = len(chunk)
             self.logger.debug(
                 f"Sending chunk {chunk_number}/{total_chunks} of size {self.bytes_to_kilobytes(chunk_len)} KB"
@@ -98,6 +97,7 @@ class UploadClient(Client):
             if chunk_number == total_chunks:
                 is_last_chunk = True
 
+            self.sequence_number.flip()
             self.protocol.send_file_chunk(
                 self.sequence_number, chunk, chunk_len, is_last_chunk
             )
@@ -106,5 +106,6 @@ class UploadClient(Client):
                 f"Waiting confirmation for chunk {chunk_number}/{total_chunks}"
             )
             self.protocol.wait_for_ack(self.sequence_number)
+            chunk_number += 1
 
         self.file.close()

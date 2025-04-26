@@ -19,8 +19,6 @@ from lib.server.protocol_interface import (
     SocketShutdown,
 )
 
-BUFFER_SIZE = 4028
-
 
 class Accepter:
     def __init__(

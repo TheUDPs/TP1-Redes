@@ -4,6 +4,9 @@ from lib.common.constants import (
     UPLOAD_OPERATION,
     DOWNLOAD_OPERATION,
     STRING_ENCODING_FORMAT,
+    COMMS_BUFFER_SIZE,
+    FULL_BUFFER_SIZE,
+    ZERO_BYTES,
 )
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.logger import Logger
@@ -15,9 +18,6 @@ from lib.common.sequence_number import SequenceNumber
 from lib.server.client_pool import ClientPool
 from lib.server.exceptions.bad_operation import BadOperation
 from lib.server.exceptions.missing_client_address import MissingClientAddress
-
-ZERO_BYTES = bytes([])
-BUFFER_SIZE = 4028
 
 
 class ServerProtocol:
@@ -38,7 +38,7 @@ class ServerProtocol:
         self.clients: ClientPool = clients
 
     def accept_connection(self) -> tuple[Packet, Address]:
-        raw_packet, client_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
+        raw_packet, client_address_tuple = self.socket.recvfrom(COMMS_BUFFER_SIZE)
 
         if len(raw_packet) == 0:
             raise SocketShutdown()
@@ -89,7 +89,7 @@ class ServerProtocol:
         self.socket.sendto(packet_bin, client_address.to_tuple())
 
     def expect_handshake_completion(self) -> tuple[Packet, Address]:
-        raw_packet, client_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
+        raw_packet, client_address_tuple = self.socket.recvfrom(COMMS_BUFFER_SIZE)
 
         if len(raw_packet) == 0:
             raise SocketShutdown()
@@ -109,7 +109,7 @@ class ServerProtocol:
         return packet, client_address
 
     def receive_operation_intention(self) -> tuple[int, SequenceNumber]:
-        raw_packet, client_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
+        raw_packet, client_address_tuple = self.socket.recvfrom(COMMS_BUFFER_SIZE)
 
         if len(raw_packet) == 0:
             raise SocketShutdown()
@@ -167,7 +167,7 @@ class ServerProtocol:
     def receive_filename(
         self, sequence_number: SequenceNumber
     ) -> tuple[SequenceNumber, str]:
-        raw_packet, client_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
+        raw_packet, client_address_tuple = self.socket.recvfrom(FULL_BUFFER_SIZE)
 
         if len(raw_packet) == 0:
             raise SocketShutdown()
@@ -186,7 +186,7 @@ class ServerProtocol:
     def receive_filesize(
         self, sequence_number: SequenceNumber
     ) -> tuple[SequenceNumber, int]:
-        raw_packet, client_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
+        raw_packet, client_address_tuple = self.socket.recvfrom(COMMS_BUFFER_SIZE)
 
         if len(raw_packet) == 0:
             raise SocketShutdown()
@@ -201,3 +201,21 @@ class ServerProtocol:
             raise InvalidSequenceNumber()
 
         return SequenceNumber(packet.sequence_number), filesize
+
+    def receive_file_chunk(
+        self, sequence_number: SequenceNumber
+    ) -> tuple[SequenceNumber, Packet]:
+        raw_packet, client_address_tuple = self.socket.recvfrom(FULL_BUFFER_SIZE)
+
+        if len(raw_packet) == 0:
+            raise SocketShutdown()
+
+        if not client_address_tuple:
+            raise MissingClientAddress()
+
+        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
+
+        if sequence_number.value != packet.sequence_number:
+            raise InvalidSequenceNumber()
+
+        return SequenceNumber(packet.sequence_number), packet

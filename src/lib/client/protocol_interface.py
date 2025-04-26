@@ -4,15 +4,12 @@ from lib.client.exceptions.connection_refused import ConnectionRefused
 from lib.client.exceptions.operation_refused import OperationRefused
 from lib.client.exceptions.unexpected_message import UnexpectedMessage
 from lib.common.address import Address
-from lib.common.constants import STRING_ENCODING_FORMAT
+from lib.common.constants import STRING_ENCODING_FORMAT, COMMS_BUFFER_SIZE, ZERO_BYTES
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.logger import Logger
 from lib.common.packet import Packet, PacketParser
 from lib.common.exceptions.bag_flags_for_handshake import BadFlagsForHandshake
 from lib.common.sequence_number import SequenceNumber
-
-ZERO_BYTES = bytes([])
-BUFFER_SIZE = 4028
 
 
 class ClientProtocol:
@@ -60,7 +57,7 @@ class ClientProtocol:
         self, sequence_number: SequenceNumber
     ) -> Address:
         try:
-            raw_packet, server_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
+            raw_packet, server_address_tuple = self.socket.recvfrom(COMMS_BUFFER_SIZE)
         except OSError:
             raise ConnectionRefused()
 
@@ -123,7 +120,7 @@ class ClientProtocol:
     def wait_for_operation_confirmation(self, sequence_number: SequenceNumber) -> None:
         try:
             self.logger.debug("Waiting for operation confirmation")
-            raw_packet, server_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
+            raw_packet, server_address_tuple = self.socket.recvfrom(COMMS_BUFFER_SIZE)
         except OSError:
             raise ConnectionRefused()
 
@@ -161,7 +158,7 @@ class ClientProtocol:
 
     def wait_for_ack(self, sequence_number: SequenceNumber) -> None:
         try:
-            raw_packet, server_address_tuple = self.socket.recvfrom(BUFFER_SIZE)
+            raw_packet, server_address_tuple = self.socket.recvfrom(COMMS_BUFFER_SIZE)
         except OSError:
             raise ConnectionRefused()
 

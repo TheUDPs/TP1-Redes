@@ -1,8 +1,9 @@
 from os import path
 from shutil import disk_usage
 
-from lib.common.constants import FOPEN_BINARY_MODE, FOPEN_WRITE_MODE
+from lib.common.constants import FOPEN_BINARY_MODE, FOPEN_WRITE_TRUNCATE_MODE
 from lib.common.logger import Logger
+from lib.common.packet import Packet
 from lib.server.exceptions.invalid_directory import InvalidDirectory
 from lib.server.exceptions.invalid_filename import InvalidFilename
 
@@ -24,7 +25,7 @@ class FileHandler:
                 self.logger.error("Invalid filename, already exists")
                 raise InvalidFilename()
 
-            file = open(file_path, FOPEN_WRITE_MODE + FOPEN_BINARY_MODE)
+            file = open(file_path, FOPEN_WRITE_TRUNCATE_MODE + FOPEN_BINARY_MODE)
             return file
         except IOError as e:
             self.logger.error(f"I/O error occurred: {e}")
@@ -33,3 +34,9 @@ class FileHandler:
     def can_file_fit(self, filesize: int) -> bool:
         _total_space, _used_space, free_space = disk_usage(self.dirpath)
         return (free_space - MINIMUM_FREE_GAP) > filesize
+
+    def append_to_file(self, file, packet: Packet) -> None:
+        self.logger.debug(f"[CONN] Writing to file: {len(packet.data)} bytes")
+        file.write(packet.data)
+        # file.flush()
+        # fsync(file.fileno())
