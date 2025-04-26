@@ -21,16 +21,16 @@ class DownloadClient(Client):
             err = e.message if e.message else e
             self.logger.error(f"Error message: {err}")
 
-    def receive_file_info(self) -> None:
-        try:
-            self.logger.debug("Receiving file info")
-            self.send_file_name()
-
-        except Exception:
-            pass
-
     def send_file_name(self):
-        pass
+        try:
+            self.logger.debug("Sending file name")
+            self.protocol.inform_filename(self.sequence_number, self.final_filename)
+            self.logger.debug("Awaiting for file name confirmation")
+            self.protocol.wait_for_file_info_confirmation(self.sequence_number)
+            self.logger.debug("File name confirmed")
+            # To do: Agregar manejo de excepciones
+        except Exception:
+            self.logger.error("Error sending file name")
 
     def receive_file(self) -> None:
         self.logger.debug("Receiving file info")
