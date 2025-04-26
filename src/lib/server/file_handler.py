@@ -31,6 +31,17 @@ class FileHandler:
             self.logger.error(f"I/O error occurred: {e}")
             raise InvalidFilename()
 
+    def open_file_absolute(self, abs_route: str):
+        try:
+            if path.isfile(abs_route):
+                self.logger.error("Invalid filename, already exists")
+                raise InvalidFilename()
+            file = open(abs_route, FOPEN_WRITE_TRUNCATE_MODE + FOPEN_BINARY_MODE)
+            return file
+        except IOError as e:
+            self.logger.error(f"I/O error occurred: {e}")
+            raise InvalidFilename()
+
     def can_file_fit(self, filesize: int) -> bool:
         _total_space, _used_space, free_space = disk_usage(self.dirpath)
         return (free_space - MINIMUM_FREE_GAP) > filesize
