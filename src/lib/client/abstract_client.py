@@ -8,7 +8,7 @@ from ctypes import c_bool
 from threading import Event, Thread
 
 from lib.client.exceptions.connection_refused import ConnectionRefused
-from lib.client.protocol_interface import ClientProtocol
+from lib.client.protocol import ClientProtocol
 from lib.common.address import Address
 from lib.common.constants import USE_ANY_AVAILABLE_PORT
 from lib.common.logger import Logger

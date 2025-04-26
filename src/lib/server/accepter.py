@@ -13,7 +13,7 @@ from lib.server.client_pool import ClientPool
 from lib.server.exceptions.client_already_connected import ClientAlreadyConnected
 from lib.server.exceptions.protocol_mismatch import ProtocolMismatch
 from lib.server.file_handler import FileHandler
-from lib.server.protocol_interface import (
+from lib.server.protocol import (
     ServerProtocol,
     MissingClientAddress,
     SocketShutdown,

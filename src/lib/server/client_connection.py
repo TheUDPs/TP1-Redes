@@ -9,7 +9,7 @@ from lib.server.client_pool import ClientPool
 from lib.server.exceptions.invalid_filename import InvalidFilename
 from lib.server.file_handler import FileHandler
 
-from lib.server.protocol_interface import (
+from lib.server.protocol import (
     ServerProtocol,
     MissingClientAddress,
     BadFlagsForHandshake,
