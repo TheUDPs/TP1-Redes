@@ -30,11 +30,9 @@ class ClientProtocol:
         self.my_address: Address = my_address
         self.protocol_version: str = protocol_version
 
-    # def validate_incomming_packet(self, packet: bytes, server_address: tuple[str, int]) -> Packet:
-    #     if server_address != self.server_address.to_tuple():
-    #         raise UnexpectedMessage()
-    #     else:
-    #         return PacketParser.get_packet_from_bytes(packet)
+    def socket_receive(self, buffer_size: int):
+        raw_packet, server_address_tuple = self.socket.recvfrom(buffer_size)
+        return raw_packet, server_address_tuple
 
     def update_server_address(self, server_address: Address):
         self.server_address = server_address
@@ -58,7 +56,7 @@ class ClientProtocol:
         self, sequence_number: SequenceNumber
     ) -> Address:
         try:
-            raw_packet, server_address_tuple = self.socket.recvfrom(COMMS_BUFFER_SIZE)
+            raw_packet, server_address_tuple = self.socket_receive(COMMS_BUFFER_SIZE)
         except OSError:
             raise ConnectionRefused()
 
@@ -121,7 +119,7 @@ class ClientProtocol:
     def wait_for_operation_confirmation(self, sequence_number: SequenceNumber) -> None:
         try:
             self.logger.debug("Waiting for operation confirmation")
-            raw_packet, server_address_tuple = self.socket.recvfrom(COMMS_BUFFER_SIZE)
+            raw_packet, server_address_tuple = self.socket_receive(COMMS_BUFFER_SIZE)
         except OSError:
             raise ConnectionRefused()
 
@@ -159,7 +157,7 @@ class ClientProtocol:
 
     def wait_for_ack(self, sequence_number: SequenceNumber) -> None:
         try:
-            raw_packet, server_address_tuple = self.socket.recvfrom(COMMS_BUFFER_SIZE)
+            raw_packet, server_address_tuple = self.socket_receive(COMMS_BUFFER_SIZE)
         except OSError:
             raise ConnectionRefused()
 
@@ -176,7 +174,7 @@ class ClientProtocol:
 
     def wait_for_fin_ack(self, sequence_number: SequenceNumber) -> None:
         try:
-            raw_packet, server_address_tuple = self.socket.recvfrom(COMMS_BUFFER_SIZE)
+            raw_packet, server_address_tuple = self.socket_receive(COMMS_BUFFER_SIZE)
         except OSError:
             raise ConnectionRefused()
 

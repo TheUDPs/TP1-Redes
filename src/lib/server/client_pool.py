@@ -5,8 +5,12 @@ class ClientPool:
     def __init__(self):
         self.clients = {}
 
-    def add(self, key, value):
+    # value: ClientConnection
+    def add(self, key: tuple[str, int], value):
         self.clients[key] = value
+
+    def remove(self, client_to_remove: Address):
+        del self.clients[client_to_remove.to_combined()]
 
     def is_client_connected(self, client_address: Address) -> bool:
         return client_address.to_combined() in self.clients

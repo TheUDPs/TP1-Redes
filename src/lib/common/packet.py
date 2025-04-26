@@ -62,8 +62,6 @@ class PacketParser:
         pos -= 1
         flags |= is_fin << pos
 
-        # print(f"{flags:016b}\n")
-
         header = struct.pack(
             "!HHH", flags, int(packet.port), int(packet.payload_length)
         )
@@ -101,11 +99,6 @@ class PacketParser:
         port = int.from_bytes(packet[2:4], byteorder="big")
         payload_length = int.from_bytes(packet[4:6], byteorder="big")
         data = bytes(packet[6 : 6 + payload_length])
-
-        # print(f"packet: {protocol}, {sequence_number}, {is_ack}, {is_syn}, {is_fin}")
-        # print(f"port: {port}")
-        # print(f"payload_length: {payload_length}")
-        # print(f"data: {data}")
 
         return Packet(
             protocol,

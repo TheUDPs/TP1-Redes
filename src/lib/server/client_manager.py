@@ -20,6 +20,10 @@ class ClientManager:
         client_address: Address,
         file_handler: FileHandler,
     ) -> None:
+        print("Before ", self.clients)
+        self.rip_finished_clients()
+        print("After ", self.clients)
+
         new_connection: ClientConnection = ClientConnection(
             connection_socket,
             connection_address,
@@ -30,6 +34,17 @@ class ClientManager:
         )
         self.clients.add(key=connection_address.to_combined(), value=new_connection)
         new_connection.start()
+
+    def rip_finished_clients(self):
+        killed_clients = []
+
+        for connection in self.clients.values():
+            if connection.is_done_and_ready_to_die():
+                connection.kill()
+                killed_clients.append(connection.address)
+
+        for killed_client in killed_clients:
+            self.clients.remove(killed_client)
 
     def kill_all(self):
         for connection in self.clients.values():

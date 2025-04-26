@@ -40,8 +40,12 @@ class ServerProtocol:
         self.protocol_version: str = protocol_version
         self.clients: ClientPool = clients
 
+    def socket_receive(self, buffer_size: int):
+        raw_packet, server_address_tuple = self.socket.recvfrom(buffer_size)
+        return raw_packet, server_address_tuple
+
     def accept_connection(self) -> tuple[Packet, Address]:
-        raw_packet, client_address_tuple = self.socket.recvfrom(COMMS_BUFFER_SIZE)
+        raw_packet, client_address_tuple = self.socket_receive(COMMS_BUFFER_SIZE)
 
         if len(raw_packet) == 0:
             raise SocketShutdown()
@@ -92,7 +96,7 @@ class ServerProtocol:
         self.socket.sendto(packet_bin, client_address.to_tuple())
 
     def expect_handshake_completion(self) -> tuple[Packet, Address]:
-        raw_packet, client_address_tuple = self.socket.recvfrom(COMMS_BUFFER_SIZE)
+        raw_packet, client_address_tuple = self.socket_receive(COMMS_BUFFER_SIZE)
 
         if len(raw_packet) == 0:
             raise SocketShutdown()
@@ -112,7 +116,7 @@ class ServerProtocol:
         return packet, client_address
 
     def receive_operation_intention(self) -> tuple[int, SequenceNumber]:
-        raw_packet, client_address_tuple = self.socket.recvfrom(COMMS_BUFFER_SIZE)
+        raw_packet, client_address_tuple = self.socket_receive(COMMS_BUFFER_SIZE)
 
         if len(raw_packet) == 0:
             raise SocketShutdown()
@@ -190,7 +194,7 @@ class ServerProtocol:
     def receive_filename(
         self, sequence_number: SequenceNumber
     ) -> tuple[SequenceNumber, str]:
-        raw_packet, client_address_tuple = self.socket.recvfrom(FULL_BUFFER_SIZE)
+        raw_packet, client_address_tuple = self.socket_receive(FULL_BUFFER_SIZE)
 
         if len(raw_packet) == 0:
             raise SocketShutdown()
@@ -209,7 +213,7 @@ class ServerProtocol:
     def receive_filesize(
         self, sequence_number: SequenceNumber
     ) -> tuple[SequenceNumber, int]:
-        raw_packet, client_address_tuple = self.socket.recvfrom(COMMS_BUFFER_SIZE)
+        raw_packet, client_address_tuple = self.socket_receive(COMMS_BUFFER_SIZE)
 
         if len(raw_packet) == 0:
             raise SocketShutdown()
@@ -228,7 +232,7 @@ class ServerProtocol:
     def receive_file_chunk(
         self, sequence_number: SequenceNumber
     ) -> tuple[SequenceNumber, Packet]:
-        raw_packet, client_address_tuple = self.socket.recvfrom(FULL_BUFFER_SIZE)
+        raw_packet, client_address_tuple = self.socket_receive(FULL_BUFFER_SIZE)
 
         if len(raw_packet) == 0:
             raise SocketShutdown()
@@ -245,7 +249,7 @@ class ServerProtocol:
 
     def wait_for_ack(self, sequence_number: SequenceNumber) -> None:
         try:
-            raw_packet, client_address_tuple = self.socket.recvfrom(COMMS_BUFFER_SIZE)
+            raw_packet, client_address_tuple = self.socket_receive(COMMS_BUFFER_SIZE)
         except OSError:
             raise InvalidMessage()
 

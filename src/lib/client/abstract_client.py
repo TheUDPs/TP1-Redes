@@ -8,14 +8,14 @@ from ctypes import c_bool
 from threading import Event, Thread
 
 from lib.client.exceptions.connection_refused import ConnectionRefused
-from lib.client.protocol_interface import ClientProtocol
+from lib.client.protocol import ClientProtocol
 from lib.common.address import Address
 from lib.common.constants import USE_ANY_AVAILABLE_PORT
 from lib.common.logger import Logger
 from lib.common.sequence_number import SequenceNumber
 from lib.common.wait_for_quit import wait_for_quit
 
-SOCKET_TIMEOUT = 30
+SOCKET_TIMEOUT = 3
 
 USE_CURRENT_HOST = ""
 
@@ -52,6 +52,7 @@ class Client:
             self.sequence_number
         )
         self.logger.debug("Connection request accepted")
+
         # Update server address to update the server connection's port
         self.server_address: Address = server_address
         self.protocol.update_server_address(server_address)
@@ -68,7 +69,7 @@ class Client:
                 self.handshake()
                 self.perform_operation()
         except ConnectionRefused as e:
-            self.logger.error(e.message)
+            self.logger.error(f"Connection refused: {e}")
         finally:
             should_stop_event.set()
 
