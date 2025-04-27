@@ -11,6 +11,14 @@ def get_logger(verbose, quiet) -> Logger:
         return Logger(Logger.INFO_LOG_LEVEL)
 
 
+class Colors:
+    RED = "\033[1;31m"
+    GREEN = "\033[1;32m"
+    YELLOW = "\033[1;33m"
+    BLUE = "\033[1;34m"
+    RESET = "\033[0m"
+
+
 class Logger:
     DEBUG_LOG_LEVEL = 4  # debug + info + errors + warns
     INFO_LOG_LEVEL = 3  # info + errors + warns
@@ -19,10 +27,10 @@ class Logger:
     ERROR_LEVEL = 0
 
     PRINTABLE_LEVELS = {
-        DEBUG_LOG_LEVEL: "DEBUG",
-        INFO_LOG_LEVEL: "INFO",
-        WARN_LEVEL: "WARN",
-        ERROR_LEVEL: "ERROR",
+        DEBUG_LOG_LEVEL: Colors.BLUE + "DEBUG" + Colors.RESET,
+        INFO_LOG_LEVEL: Colors.GREEN + "INFO" + Colors.RESET,
+        WARN_LEVEL: Colors.YELLOW + "WARN" + Colors.RESET,
+        ERROR_LEVEL: Colors.RED + "ERROR" + Colors.RESET,
     }
 
     """

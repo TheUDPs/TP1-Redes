@@ -46,9 +46,14 @@ end
 register_menu("Add SAW Coloring Rules", set_color_filter_rules, MENU_TOOLS_UNSORTED)
 
 function p_format.dissector(buffer, pinfo, tree)
-    -- Verificación mínima de tamaño
+    -- Verificación mínima de tamaño (header size is 8 bytes)
+    if buffer:len() < 6 then
+        return false  -- Not enough bytes for minimum header
+    end
+
     -- Crear árbol de protocolo
     local subtree = tree:add(p_format, buffer(), "SAW")
+
     -- Leer flags (primeros 2 bytes)
     local byte1 = buffer(0, 1):uint()
 
@@ -58,7 +63,7 @@ function p_format.dissector(buffer, pinfo, tree)
     -- Set info column with flags info for coloring
     local info_string = "SAW"
 
-    -- Priority (bits 7-8)
+    -- Protocol type (bits 7-8)
     subtree:add(fields.protocol, buffer(0, 1))
 
     -- Sequence number as int (0 or 1)
@@ -85,20 +90,35 @@ function p_format.dissector(buffer, pinfo, tree)
 
     -- Unused bits
     subtree:add(fields.unused, buffer(0, 2))
+
     -- Puerto y longitud
     subtree:add(fields.port, buffer(2, 2))
 
-    if buffer:len() < 8 then
-        subtree:add(fields.payload_length, 0)
-        return false
-    end
+    -- Read payload length (should be there even if it's 0)
+    local plen_start = 4  -- Payload length starts at byte 4
 
-    local plen = buffer(4, 2):uint() -- Cambiado a 2 bytes
-    subtree:add(fields.payload_length, buffer(4, 2))
+    -- Make sure we have at least the bytes containing the length field
+    if buffer:len() >= plen_start + 2 then
+        local plen = buffer(plen_start, 2):uint()
+        subtree:add(fields.payload_length, buffer(plen_start, 2))
 
-    -- Datos (si existen)
-    if plen > 0 and buffer:len() >= (8 + plen) then
-        subtree:add(fields.data, buffer(8, plen))
+        -- Check if there's payload data and we have enough bytes to show it
+        local data_start = 6  -- Data starts at byte 6 (not 8 as before)
+
+        -- Show payload if it exists and we have enough bytes
+        if plen > 0 and buffer:len() >= data_start + plen then
+            subtree:add(fields.data, buffer(data_start, plen))
+            info_string = info_string .. " Data(" .. plen .. ")"
+            pinfo.cols.info = info_string
+        elseif plen > 0 then
+            -- Payload specified but not enough bytes in packet
+            subtree:add(fields.data, buffer(data_start)):append_text(" [TRUNCATED]")
+            info_string = info_string .. " Data(" .. plen .. ") [TRUNCATED]"
+            pinfo.cols.info = info_string
+        end
+    else
+        -- Not enough bytes for the length field
+        subtree:add(fields.payload_length, 0):append_text(" [MISSING]")
     end
 
     return true

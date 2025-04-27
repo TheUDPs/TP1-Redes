@@ -65,7 +65,6 @@ class Accepter:
 
             except (ConnectionLost, SocketTimeout):
                 self.logger.warn("Connection lost")
-                self.stop()
                 continue
 
     def accept(self) -> None:

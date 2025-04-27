@@ -1,3 +1,5 @@
+import functools
+
 from lib.common.address import Address
 from lib.common.constants import (
     UPLOAD_OPERATION,
@@ -24,6 +26,50 @@ from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.server.exceptions.bad_operation import UnexpectedOperation
 from lib.server.exceptions.client_already_connected import ClientAlreadyConnected
 from lib.server.exceptions.missing_client_address import MissingClientAddress
+
+from lib.common.constants import (
+    MAX_RETRANSMISSION_ATTEMPTS,
+)
+
+
+def re_listen_if_failed():
+    def decorator(wrapped_function):
+        @functools.wraps(wrapped_function)
+        def wrapper(self, *args, **kwargs):
+            return wrapped_function(self, *args, **kwargs)
+            listening_attempts = 0
+            result = None
+            exception_got = None
+
+            while listening_attempts < MAX_RETRANSMISSION_ATTEMPTS:
+                try:
+                    result = wrapped_function(self, *args, **kwargs)
+                    break
+                except (
+                    InvalidSequenceNumber,
+                    MessageIsNotAck,
+                    MessageIsNotFinAck,
+                    MessageIsNotSyn,
+                    UnexpectedFinMessage,
+                ) as e:
+                    exception_got = e
+                    listening_attempts += 1
+                    self.logger.debug(
+                        f"Retrying package reception, trial {listening_attempts}. Due to error: {e.message}"
+                    )
+                except ConnectionLost:
+                    break
+
+            if listening_attempts >= MAX_RETRANSMISSION_ATTEMPTS:
+                self.logger.debug("Max package reception retrials reached")
+                if exception_got is not None:
+                    raise exception_got
+
+            return result
+
+        return wrapper
+
+    return decorator
 
 
 class ServerProtocol:
@@ -137,9 +183,10 @@ class ServerProtocol:
 
         self.socket_send_to(packet_to_send, client_address)
 
+    @re_listen_if_failed()
     def expect_handshake_completion(self) -> tuple[Packet, Address]:
         raw_packet, client_address_tuple = self.socket_receive_from(
-            COMMS_BUFFER_SIZE, should_retransmit=False
+            COMMS_BUFFER_SIZE, should_retransmit=True
         )
 
         packet, client_address = self.validate_inbound_ack(
@@ -148,9 +195,10 @@ class ServerProtocol:
 
         return packet, client_address
 
+    @re_listen_if_failed()
     def receive_operation_intention(self) -> tuple[int, SequenceNumber]:
         raw_packet, client_address_tuple = self.socket_receive_from(
-            COMMS_BUFFER_SIZE, should_retransmit=False
+            COMMS_BUFFER_SIZE, should_retransmit=True
         )
         packet, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
@@ -220,11 +268,12 @@ class ServerProtocol:
 
         self.socket_send_to(packet_to_send, client_address)
 
+    @re_listen_if_failed()
     def receive_filename(
         self, sequence_number: SequenceNumber
     ) -> tuple[SequenceNumber, str]:
         raw_packet, client_address_tuple = self.socket_receive_from(
-            FULL_BUFFER_SIZE, should_retransmit=False
+            FULL_BUFFER_SIZE, should_retransmit=True
         )
         packet, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
@@ -234,11 +283,12 @@ class ServerProtocol:
         self.validate_sequence_number(packet, sequence_number)
         return SequenceNumber(packet.sequence_number), filename
 
+    @re_listen_if_failed()
     def receive_filesize(
         self, sequence_number: SequenceNumber
     ) -> tuple[SequenceNumber, int]:
         raw_packet, client_address_tuple = self.socket_receive_from(
-            COMMS_BUFFER_SIZE, should_retransmit=False
+            COMMS_BUFFER_SIZE, should_retransmit=True
         )
         packet, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
@@ -248,37 +298,32 @@ class ServerProtocol:
         self.validate_sequence_number(packet, sequence_number)
         return SequenceNumber(packet.sequence_number), filesize
 
+    @re_listen_if_failed()
     def receive_file_chunk(
         self, sequence_number: SequenceNumber
     ) -> tuple[SequenceNumber, Packet]:
-        while True:
-            try:
-                raw_packet, client_address_tuple = self.socket_receive_from(
-                    FULL_BUFFER_SIZE, should_retransmit=False
-                )
+        raw_packet, client_address_tuple = self.socket_receive_from(
+            FULL_BUFFER_SIZE, should_retransmit=True
+        )
 
-                if len(raw_packet) == 0:
-                    raise SocketShutdown()
+        if len(raw_packet) == 0:
+            raise SocketShutdown()
 
-                if not client_address_tuple:
-                    raise MissingClientAddress()
+        if not client_address_tuple:
+            raise MissingClientAddress()
 
-                packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
+        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
 
-                if sequence_number.value != packet.sequence_number:
-                    raise InvalidSequenceNumber()
+        if sequence_number.value != packet.sequence_number:
+            raise InvalidSequenceNumber()
 
-                return SequenceNumber(packet.sequence_number), packet
-            except InvalidSequenceNumber:
-                self.logger.warn(
-                    "Received invalid sequence number. Discarding and waiting again"
-                )
-                pass
+        return SequenceNumber(packet.sequence_number), packet
 
+    @re_listen_if_failed()
     def wait_for_ack(self, sequence_number: SequenceNumber) -> None:
         try:
             raw_packet, client_address_tuple = self.socket_receive_from(
-                COMMS_BUFFER_SIZE, should_retransmit=False
+                COMMS_BUFFER_SIZE, should_retransmit=True
             )
         except OSError:
             raise ConnectionLost()
@@ -309,6 +354,7 @@ class ServerProtocol:
 
         self.socket_send_to(packet_to_send, client_address)
 
+    @re_listen_if_failed()
     def wait_for_fin_ack(self, sequence_number: SequenceNumber) -> None:
         try:
             raw_packet, client_address_tuple = self.socket_receive_from(
