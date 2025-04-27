@@ -16,6 +16,8 @@ from lib.common.constants import (
     SOCKET_CONNECTION_LOST_TIMEOUT,
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
+from lib.common.exceptions.message_not_ack import MessageIsNotAck
+from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.logger import Logger
 from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_saw import SocketSaw
@@ -52,9 +54,15 @@ class Client:
         self.logger.debug(f"Requesting connection to {self.server_address}")
 
         self.protocol.request_connection(self.sequence_number)
-        server_address = self.protocol.wait_for_connection_request_answer(
-            self.sequence_number
-        )
+        try:
+            server_address = self.protocol.wait_for_connection_request_answer(
+                self.sequence_number,
+                exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
+            )
+        except (UnexpectedFinMessage, MessageIsNotAck):
+            self.logger.error("Protocol mismatch")
+            raise ConnectionRefused()
+
         self.logger.debug("Connection request accepted")
         self.logger.debug(f"Completing handshake with {self.server_address}")
         self.protocol.send_hanshake_completion(self.sequence_number)
@@ -73,7 +81,7 @@ class Client:
                 self.handshake()
                 self.perform_operation()
         except ConnectionRefused as e:
-            self.logger.error(f"Connection refused: {e}")
+            self.logger.error(f"{e.message}")
         except ConnectionLost:
             self.logger.error("Connection closed")
             self.sequence_number.flip()
