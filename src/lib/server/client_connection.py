@@ -107,22 +107,24 @@ class ClientConnection:
     def receive_file_info(
         self, sequence_number: SequenceNumber
     ) -> tuple[str, int, SequenceNumber]:
+        self.logger.debug("Validating filename")
         sequence_number.flip()
         sequence_number, filename = self.protocol.receive_filename(sequence_number)
         if self.is_filename_valid(filename):
             self.protocol.send_ack(sequence_number, self.client_address, self.address)
-            self.logger.debug("Filename received valid")
+            self.logger.debug(f"Filename received valid: {filename}")
         else:
             self.protocol.send_fin(sequence_number, self.client_address, self.address)
             self.logger.error("Filename received invalid")
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             raise SocketShutdown()
 
+        self.logger.debug("Validating filesize")
         sequence_number.flip()
         sequence_number, filesize = self.protocol.receive_filesize(sequence_number)
         if self.is_filesize_valid(filesize):
             self.protocol.send_ack(sequence_number, self.client_address, self.address)
-            self.logger.debug("Filesize received valid")
+            self.logger.debug(f"Filesize received valid: {filesize} bytes")
         else:
             self.protocol.send_fin(sequence_number, self.client_address, self.address)
             self.logger.error("Filesize received invalid")
@@ -133,8 +135,7 @@ class ClientConnection:
 
     def receive_file(self, sequence_number: SequenceNumber):
         self.logger.debug("Operation is: UPLOAD")
-        self.logger.debug("Validating filename and filesize")
-        self.logger.debug(f"ACK with seq {sequence_number.value}")
+        self.logger.debug("Confirming operation")
         self.protocol.send_ack(sequence_number, self.client_address, self.address)
 
         filename, _filesize, sequence_number = self.receive_file_info(sequence_number)
@@ -269,9 +270,9 @@ class ClientConnection:
                 self.transmit_file(sequence_number)
 
         except (SocketShutdown, ConnectionLost):
-            self.logger.debug("FATAL: state cannot be recovered")
+            self.logger.debug("State is unrecoverable")
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
-            self.logger.error("Connection shutdown")
+            self.logger.debug("Connection shutdown")
             self.kill()
         except (
             MissingClientAddress,

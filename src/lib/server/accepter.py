@@ -5,7 +5,8 @@ from socket import timeout as SocketTimeout
 
 from lib.common.address import Address
 from lib.common.constants import USE_ANY_AVAILABLE_PORT
-from lib.common.exceptions.bag_flags_for_handshake import BadFlagsForHandshake
+from lib.common.exceptions.connection_lost import ConnectionLost
+from lib.common.exceptions.message_not_syn import MessageIsNotSyn
 from lib.common.logger import Logger
 from lib.common.packet import Packet
 from lib.common.socket_saw import SocketSaw
@@ -60,8 +61,10 @@ class Accepter:
         while self.is_alive:
             try:
                 self.accept()
-            except SocketTimeout:
-                self.logger.warn("Socket timed out")
+
+            except (ConnectionLost, SocketTimeout):
+                self.logger.warn("Connection lost")
+                self.stop()
                 continue
 
     def accept(self) -> None:
@@ -78,9 +81,6 @@ class Accepter:
                 connection_socket, connection_address, client_address, self.file_handler
             )
 
-        except SocketShutdown:
-            self.logger.debug("Accepter socket shutdowned")
-
         except MissingClientAddress:
             self.logger.debug("Client address not found, discarding message")
 
@@ -93,8 +93,13 @@ class Accepter:
             self.logger.info(
                 f"Rejecting client {client_address} due to protocol mismatch, expected {self.protocol.protocol_version}"
             )
-        except BadFlagsForHandshake:
-            self.logger.debug("Detected message with bad flags attempting handshake")
+
+        except MessageIsNotSyn:
+            self.logger.info("Expected a SYN message but didn't get it")
+
+        except SocketShutdown:
+            self.logger.warn("Socket shutdown")
+            self.stop()
 
     def handshake(
         self, packet: Packet, client_address: Address

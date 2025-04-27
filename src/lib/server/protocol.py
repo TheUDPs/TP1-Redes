@@ -8,6 +8,7 @@ from lib.common.constants import (
     ZERO_BYTES,
     INT_DESERIALIZATION_BYTEORDER,
 )
+from lib.common.exceptions.message_not_syn import MessageIsNotSyn
 from lib.common.logger import Logger
 from lib.common.packet import Packet, PacketParser
 from lib.common.sequence_number import SequenceNumber
@@ -94,8 +95,8 @@ class ServerProtocol:
             raw_packet, client_address_tuple
         )
 
-        if packet.is_syn:
-            raise UnexpectedFinMessage()
+        if not packet.is_syn:
+            raise MessageIsNotSyn()
 
         if self.clients.is_client_connected(client_address):
             raise ClientAlreadyConnected()
@@ -227,7 +228,7 @@ class ServerProtocol:
         raw_packet, client_address_tuple = self.socket_receive_from(
             FULL_BUFFER_SIZE, should_retransmit=False, should_re_listen=False
         )
-        packet, client_address = self.validate_inbound_ack(
+        packet, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
         )
         filename: str = packet.data.decode(STRING_ENCODING_FORMAT)
@@ -241,7 +242,7 @@ class ServerProtocol:
         raw_packet, client_address_tuple = self.socket_receive_from(
             COMMS_BUFFER_SIZE, should_retransmit=False, should_re_listen=False
         )
-        packet, client_address = self.validate_inbound_ack(
+        packet, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
         )
         filesize: int = int.from_bytes(packet.data, INT_DESERIALIZATION_BYTEORDER)

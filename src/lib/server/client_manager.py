@@ -41,6 +41,9 @@ class ClientManager:
                 killed_clients.append(connection.address)
 
         for killed_client in killed_clients:
+            self.logger.debug(
+                f"Collected finished connection: {killed_client.to_combined()}"
+            )
             self.clients.remove(killed_client)
 
     def kill_all(self):
