@@ -55,10 +55,14 @@ class UploadClient(Client):
 
     def perform_upload(self) -> None:
         try:
+            self.logger.debug("Sending operation intention")
+
             self.sequence_number.flip()
             self.protocol.send_operation_intention(
                 self.sequence_number, UPLOAD_OPERATION
             )
+
+            self.logger.debug("Waiting for operation confirmation")
             self.protocol.wait_for_operation_confirmation(self.sequence_number)
             self.logger.debug("Operation accepted")
 

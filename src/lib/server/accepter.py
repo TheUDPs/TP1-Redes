@@ -6,6 +6,7 @@ from socket import timeout as SocketTimeout
 from lib.common.address import Address
 from lib.common.constants import USE_ANY_AVAILABLE_PORT
 from lib.common.exceptions.connection_lost import ConnectionLost
+from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.message_not_syn import MessageIsNotSyn
 from lib.common.logger import Logger
 from lib.common.packet import Packet
@@ -94,8 +95,8 @@ class Accepter:
                 f"Rejecting client {client_address} due to protocol mismatch, expected {self.protocol.protocol_version}"
             )
 
-        except MessageIsNotSyn:
-            self.logger.info("Expected a SYN message but didn't get it")
+        except (MessageIsNotSyn, MessageIsNotSyn, MessageIsNotAck) as e:
+            self.logger.info(f"{e.message}")
 
         except SocketShutdown:
             self.logger.warn("Socket shutdown")

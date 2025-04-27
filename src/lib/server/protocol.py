@@ -43,17 +43,15 @@ class ServerProtocol:
         self.protocol_version: str = protocol_version
         self.clients: ClientPool = clients
 
-    def socket_receive_from(
-        self, buffer_size: int, should_retransmit: bool, should_re_listen: bool
-    ):
-        raw_packet, server_address_tuple = self.socket.recvfrom(
-            buffer_size, should_retransmit, should_re_listen
+    def socket_receive_from(self, buffer_size: int, should_retransmit: bool):
+        raw_packet, client_address_tuple = self.socket.recvfrom(
+            buffer_size, should_retransmit
         )
-        return raw_packet, server_address_tuple
+        return raw_packet, client_address_tuple
 
-    def socket_send_to(self, packet_to_send: Packet, server_address_tuple: Address):
+    def socket_send_to(self, packet_to_send: Packet, client_address: Address):
         packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
-        self.socket.sendto(packet_bin, server_address_tuple)
+        self.socket.sendto(packet_bin, client_address)
 
     def validate_inbound_packet(
         self, raw_packet, client_address_tuple
@@ -86,9 +84,15 @@ class ServerProtocol:
 
         return packet, client_address
 
+    def validate_sequence_number(
+        self, packet: Packet, sequence_number: SequenceNumber
+    ) -> None:
+        if sequence_number.value != packet.sequence_number:
+            raise InvalidSequenceNumber()
+
     def accept_connection(self) -> tuple[Packet, Address]:
         raw_packet, client_address_tuple = self.socket_receive_from(
-            COMMS_BUFFER_SIZE, should_retransmit=False, should_re_listen=False
+            COMMS_BUFFER_SIZE, should_retransmit=False
         )
 
         packet, client_address = self.validate_inbound_packet(
@@ -135,7 +139,7 @@ class ServerProtocol:
 
     def expect_handshake_completion(self) -> tuple[Packet, Address]:
         raw_packet, client_address_tuple = self.socket_receive_from(
-            COMMS_BUFFER_SIZE, should_retransmit=False, should_re_listen=False
+            COMMS_BUFFER_SIZE, should_retransmit=False
         )
 
         packet, client_address = self.validate_inbound_ack(
@@ -146,7 +150,7 @@ class ServerProtocol:
 
     def receive_operation_intention(self) -> tuple[int, SequenceNumber]:
         raw_packet, client_address_tuple = self.socket_receive_from(
-            COMMS_BUFFER_SIZE, should_retransmit=False, should_re_listen=False
+            COMMS_BUFFER_SIZE, should_retransmit=False
         )
         packet, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
@@ -216,17 +220,11 @@ class ServerProtocol:
 
         self.socket_send_to(packet_to_send, client_address)
 
-    def validate_sequence_number(
-        self, packet: Packet, sequence_number: SequenceNumber
-    ) -> None:
-        if sequence_number.value != packet.sequence_number:
-            raise InvalidSequenceNumber()
-
     def receive_filename(
         self, sequence_number: SequenceNumber
     ) -> tuple[SequenceNumber, str]:
         raw_packet, client_address_tuple = self.socket_receive_from(
-            FULL_BUFFER_SIZE, should_retransmit=False, should_re_listen=False
+            FULL_BUFFER_SIZE, should_retransmit=False
         )
         packet, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
@@ -240,7 +238,7 @@ class ServerProtocol:
         self, sequence_number: SequenceNumber
     ) -> tuple[SequenceNumber, int]:
         raw_packet, client_address_tuple = self.socket_receive_from(
-            COMMS_BUFFER_SIZE, should_retransmit=False, should_re_listen=False
+            COMMS_BUFFER_SIZE, should_retransmit=False
         )
         packet, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
@@ -256,7 +254,7 @@ class ServerProtocol:
         while True:
             try:
                 raw_packet, client_address_tuple = self.socket_receive_from(
-                    FULL_BUFFER_SIZE, should_retransmit=False, should_re_listen=False
+                    FULL_BUFFER_SIZE, should_retransmit=False
                 )
 
                 if len(raw_packet) == 0:
@@ -280,7 +278,7 @@ class ServerProtocol:
     def wait_for_ack(self, sequence_number: SequenceNumber) -> None:
         try:
             raw_packet, client_address_tuple = self.socket_receive_from(
-                COMMS_BUFFER_SIZE, should_retransmit=False, should_re_listen=False
+                COMMS_BUFFER_SIZE, should_retransmit=False
             )
         except OSError:
             raise ConnectionLost()
@@ -309,19 +307,18 @@ class ServerProtocol:
             data=chunk,
         )
 
-        self.logger.debug(f"Sending chunk of size {chunk_len}, to: {client_address}")
         self.socket_send_to(packet_to_send, client_address)
 
     def wait_for_fin_ack(self, sequence_number: SequenceNumber) -> None:
         try:
-            raw_packet, server_address_tuple = self.socket_receive_from(
-                COMMS_BUFFER_SIZE, should_retransmit=True, should_re_listen=True
+            raw_packet, client_address_tuple = self.socket_receive_from(
+                COMMS_BUFFER_SIZE, should_retransmit=True
             )
-        except OSError:
+        except ConnectionLost:
             raise ConnectionLost()
 
         packet, client_address = self.validate_inbound_packet(
-            raw_packet, server_address_tuple
+            raw_packet, client_address_tuple
         )
         self.validate_sequence_number(packet, sequence_number)
 

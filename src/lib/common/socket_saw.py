@@ -94,30 +94,13 @@ class SocketSaw:
                         raise ConnectionLost()
         return raw_packet, server_address_tuple
 
-    def recvfrom_with_relisten(self, buffer_size: int):
-        listen_attempt = 0
-        raw_packet, server_address_tuple = None, None
-
-        while listen_attempt < MAX_RETRANSMISSION_ATTEMPTS:
-            listen_attempt += 1
+    def recvfrom(self, buffer_size: int, should_retransmit: bool):
+        if not should_retransmit:
             try:
                 raw_packet, server_address_tuple = self.socket.recvfrom(buffer_size)
                 return raw_packet, server_address_tuple
-            except Exception:
-                self.logger.warn("Waiting for retransmission")
-                pass
-
-        return raw_packet, server_address_tuple
-
-    def recvfrom(
-        self, buffer_size: int, should_retransmit: bool, should_re_listen: bool
-    ):
-        if not should_retransmit and not should_re_listen:
-            raw_packet, server_address_tuple = self.socket.recvfrom(buffer_size)
-            return raw_packet, server_address_tuple
-
-        if not should_retransmit and should_re_listen:
-            self.recvfrom_with_relisten(buffer_size)
+            except OSError:
+                raise ConnectionLost()
 
         raw_packet, server_address_tuple = self.recvfrom_with_retransmission(
             buffer_size

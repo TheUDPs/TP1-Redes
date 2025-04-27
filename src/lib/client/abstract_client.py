@@ -48,14 +48,14 @@ class Client:
 
     def handshake(self) -> None:
         self.logger.debug("Starting handshake")
-        self.logger.debug("Requesting connection")
+        self.logger.debug(f"Requesting connection to {self.server_address}")
 
         self.protocol.request_connection(self.sequence_number)
         server_address = self.protocol.wait_for_connection_request_answer(
             self.sequence_number
         )
         self.logger.debug("Connection request accepted")
-
+        self.logger.debug(f"Completing handshake with {self.server_address}")
         self.protocol.send_hanshake_completion(self.sequence_number)
 
         # Update server address to update the server connection's port

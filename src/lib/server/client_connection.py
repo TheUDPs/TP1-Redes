@@ -210,7 +210,9 @@ class ClientConnection:
 
                 sequence_number.flip()
 
-                self.logger.debug("Sending file chunk")
+                self.logger.debug(
+                    f"Sending chunk of size {chunk_len}, to: {self.client_address}"
+                )
                 self.protocol.send_file_chunk(
                     sequence_number,
                     chunk,
