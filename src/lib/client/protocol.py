@@ -339,7 +339,7 @@ class ClientProtocol:
         self, sequence_number: SequenceNumber
     ) -> tuple[SequenceNumber, Packet]:
         raw_packet, server_address = self.socket_receive_from(
-            FULL_BUFFER_SIZE, should_retransmit=False
+            FULL_BUFFER_SIZE, should_retransmit=True
         )
 
         if len(raw_packet) == 0:

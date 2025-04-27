@@ -36,7 +36,7 @@ def re_listen_if_failed():
     def decorator(wrapped_function):
         @functools.wraps(wrapped_function)
         def wrapper(self, *args, **kwargs):
-            return wrapped_function(self, *args, **kwargs)
+            # return wrapped_function(self, *args, **kwargs)
             listening_attempts = 0
             result = None
             exception_got = None
@@ -57,7 +57,8 @@ def re_listen_if_failed():
                     self.logger.debug(
                         f"Retrying package reception, trial {listening_attempts}. Due to error: {e.message}"
                     )
-                except ConnectionLost:
+                except ConnectionLost as e:
+                    exception_got = e
                     break
 
             if listening_attempts >= MAX_RETRANSMISSION_ATTEMPTS:

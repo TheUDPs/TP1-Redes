@@ -21,8 +21,8 @@ class Colors:
 
 class Logger:
     DEBUG_LOG_LEVEL = 4  # debug + info + errors + warns
+    WARN_LEVEL = 3.5
     INFO_LOG_LEVEL = 3  # info + errors + warns
-    WARN_LEVEL = 2
     QUIET_LOG_LEVEL = 1  # errors
     ERROR_LEVEL = 0
 

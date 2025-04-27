@@ -95,8 +95,9 @@ class SocketSaw:
         return raw_packet, server_address_tuple
 
     def recvfrom(self, buffer_size: int, should_retransmit: bool):
-        if not should_retransmit:
+        if not should_retransmit or self.last_raw_packet is None:
             try:
+                self.socket.settimeout(SOCKET_CONNECTION_LOST_TIMEOUT)
                 raw_packet, server_address_tuple = self.socket.recvfrom(buffer_size)
                 return raw_packet, server_address_tuple
             except OSError:
