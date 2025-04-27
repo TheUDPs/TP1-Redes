@@ -90,8 +90,8 @@ class SocketSaw:
                     except SocketTimeout:
                         continue
 
-                    except OSError as e:
-                        raise e
+                    except OSError:
+                        raise ConnectionLost()
         return raw_packet, server_address_tuple
 
     def recvfrom_with_relisten(self, buffer_size: int):

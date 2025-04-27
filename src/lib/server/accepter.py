@@ -30,6 +30,8 @@ class Accepter:
         self.port: int = adress.port
         self.adress: Address = adress
         self.logger: Logger = logger
+        self.logger.set_prefix("[ACCEP]")
+
         self.file_handler: FileHandler = file_handler
 
         self.is_alive: bool = True
@@ -66,7 +68,7 @@ class Accepter:
         client_address = None
 
         try:
-            self.logger.debug(f"[ACC] Waiting for connection on {self.adress}")
+            self.logger.debug(f"Waiting for connection on {self.adress}")
 
             packet, client_address = self.protocol.accept_connection()
             connection_socket, connection_address = self.handshake(
@@ -119,6 +121,10 @@ class Accepter:
         self.protocol.send_connection_accepted(
             packet, client_address, connection_address
         )
+
+        self.protocol.expect_handshake_completion()
+        self.logger.debug("Handhsake completed")
+
         return connection_socket, connection_address
 
     def stop(self) -> None:

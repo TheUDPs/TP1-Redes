@@ -1,5 +1,3 @@
-from lib.client.exceptions.invalid_message import InvalidMessage
-from lib.client.exceptions.unexpected_message import UnexpectedMessage
 from lib.common.address import Address
 from lib.common.constants import (
     UPLOAD_OPERATION,
@@ -8,19 +6,23 @@ from lib.common.constants import (
     COMMS_BUFFER_SIZE,
     FULL_BUFFER_SIZE,
     ZERO_BYTES,
+    INT_DESERIALIZATION_BYTEORDER,
 )
-from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.logger import Logger
 from lib.common.packet import Packet, PacketParser
-
-from lib.common.exceptions.bag_flags_for_handshake import BadFlagsForHandshake
-from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_saw import SocketSaw
 from lib.server.client_pool import ClientPool
-from lib.server.exceptions.bad_operation import BadOperation
+
+from lib.common.exceptions.connection_lost import ConnectionLost
+from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
+from lib.common.exceptions.message_not_ack import MessageIsNotAck
+from lib.common.exceptions.message_not_fin_ack import MessageIsNotFinAck
+from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
+from lib.common.exceptions.socket_shutdown import SocketShutdown
+from lib.server.exceptions.bad_operation import UnexpectedOperation
+from lib.server.exceptions.client_already_connected import ClientAlreadyConnected
 from lib.server.exceptions.missing_client_address import MissingClientAddress
-from lib.client.exceptions.connection_refused import ConnectionRefused
 
 
 class ServerProtocol:
@@ -48,14 +50,13 @@ class ServerProtocol:
         )
         return raw_packet, server_address_tuple
 
-    def socket_send_to(self, packet_bin: bytes, server_address_tuple: Address):
+    def socket_send_to(self, packet_to_send: Packet, server_address_tuple: Address):
+        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
         self.socket.sendto(packet_bin, server_address_tuple)
 
-    def accept_connection(self) -> tuple[Packet, Address]:
-        raw_packet, client_address_tuple = self.socket_receive_from(
-            COMMS_BUFFER_SIZE, should_retransmit=False, should_re_listen=False
-        )
-
+    def validate_inbound_packet(
+        self, raw_packet, client_address_tuple
+    ) -> tuple[Packet, Address]:
         if len(raw_packet) == 0:
             raise SocketShutdown()
 
@@ -67,8 +68,37 @@ class ServerProtocol:
         )
         packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
 
-        if not packet.is_syn and not self.clients.is_client_connected(client_address):
-            raise BadFlagsForHandshake()
+        return packet, client_address
+
+    def validate_inbound_ack(
+        self, raw_packet, client_address_tuple
+    ) -> tuple[Packet, Address]:
+        packet, client_address = self.validate_inbound_packet(
+            raw_packet, client_address_tuple
+        )
+
+        if not packet.is_ack:
+            raise MessageIsNotAck()
+
+        if packet.is_fin:
+            raise UnexpectedFinMessage()
+
+        return packet, client_address
+
+    def accept_connection(self) -> tuple[Packet, Address]:
+        raw_packet, client_address_tuple = self.socket_receive_from(
+            COMMS_BUFFER_SIZE, should_retransmit=False, should_re_listen=False
+        )
+
+        packet, client_address = self.validate_inbound_packet(
+            raw_packet, client_address_tuple
+        )
+
+        if packet.is_syn:
+            raise UnexpectedFinMessage()
+
+        if self.clients.is_client_connected(client_address):
+            raise ClientAlreadyConnected()
 
         return packet, client_address
 
@@ -84,8 +114,7 @@ class ServerProtocol:
             data=ZERO_BYTES,
         )
 
-        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
-        self.socket_send_to(packet_bin, client_address)
+        self.socket_send_to(packet_to_send, client_address)
 
     def send_connection_accepted(
         self, packet: Packet, client_address: Address, connection_address: Address
@@ -101,46 +130,31 @@ class ServerProtocol:
             data=ZERO_BYTES,
         )
 
-        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
-        self.socket_send_to(packet_bin, client_address)
+        self.socket_send_to(packet_to_send, client_address)
 
     def expect_handshake_completion(self) -> tuple[Packet, Address]:
         raw_packet, client_address_tuple = self.socket_receive_from(
-            COMMS_BUFFER_SIZE, should_retransmit=False, should_re_listen=True
+            COMMS_BUFFER_SIZE, should_retransmit=False, should_re_listen=False
         )
 
-        if len(raw_packet) == 0:
-            raise SocketShutdown()
-
-        if not client_address_tuple:
-            raise MissingClientAddress()
-
-        client_address: Address = Address(
-            client_address_tuple[0], client_address_tuple[1]
+        packet, client_address = self.validate_inbound_ack(
+            raw_packet, client_address_tuple
         )
-        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
-
-        if not packet.is_ack:
-            self.logger.error("Expected ACK packet")
-            raise BadFlagsForHandshake()
 
         return packet, client_address
 
     def receive_operation_intention(self) -> tuple[int, SequenceNumber]:
         raw_packet, client_address_tuple = self.socket_receive_from(
-            COMMS_BUFFER_SIZE, should_retransmit=False, should_re_listen=True
+            COMMS_BUFFER_SIZE, should_retransmit=False, should_re_listen=False
+        )
+        packet, client_address = self.validate_inbound_packet(
+            raw_packet, client_address_tuple
         )
 
-        if len(raw_packet) == 0:
-            raise SocketShutdown()
+        op_code: int = int.from_bytes(packet.data, INT_DESERIALIZATION_BYTEORDER)
 
-        if not client_address_tuple:
-            raise MissingClientAddress()
-
-        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
-        op_code: int = int.from_bytes(packet.data, "big")
         if op_code != UPLOAD_OPERATION and op_code != DOWNLOAD_OPERATION:
-            raise BadOperation()
+            raise UnexpectedOperation()
 
         return op_code, SequenceNumber(packet.sequence_number)
 
@@ -161,8 +175,7 @@ class ServerProtocol:
             data=ZERO_BYTES,
         )
 
-        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
-        self.socket_send_to(packet_bin, client_address)
+        self.socket_send_to(packet_to_send, client_address)
 
     def send_fin(
         self,
@@ -181,8 +194,7 @@ class ServerProtocol:
             data=ZERO_BYTES,
         )
 
-        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
-        self.socket_send_to(packet_bin, client_address)
+        self.socket_send_to(packet_to_send, client_address)
 
     def send_fin_ack(
         self,
@@ -201,49 +213,40 @@ class ServerProtocol:
             data=ZERO_BYTES,
         )
 
-        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
-        self.socket_send_to(packet_bin, client_address)
+        self.socket_send_to(packet_to_send, client_address)
+
+    def validate_sequence_number(
+        self, packet: Packet, sequence_number: SequenceNumber
+    ) -> None:
+        if sequence_number.value != packet.sequence_number:
+            raise InvalidSequenceNumber()
 
     def receive_filename(
         self, sequence_number: SequenceNumber
     ) -> tuple[SequenceNumber, str]:
         raw_packet, client_address_tuple = self.socket_receive_from(
-            FULL_BUFFER_SIZE, should_retransmit=False, should_re_listen=True
+            FULL_BUFFER_SIZE, should_retransmit=False, should_re_listen=False
         )
-
-        if len(raw_packet) == 0:
-            raise SocketShutdown()
-
-        if not client_address_tuple:
-            raise MissingClientAddress()
-
-        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
+        packet, client_address = self.validate_inbound_ack(
+            raw_packet, client_address_tuple
+        )
         filename: str = packet.data.decode(STRING_ENCODING_FORMAT)
 
-        if sequence_number.value != packet.sequence_number:
-            raise InvalidSequenceNumber()
-
+        self.validate_sequence_number(packet, sequence_number)
         return SequenceNumber(packet.sequence_number), filename
 
     def receive_filesize(
         self, sequence_number: SequenceNumber
     ) -> tuple[SequenceNumber, int]:
         raw_packet, client_address_tuple = self.socket_receive_from(
-            COMMS_BUFFER_SIZE, should_retransmit=False, should_re_listen=True
+            COMMS_BUFFER_SIZE, should_retransmit=False, should_re_listen=False
         )
+        packet, client_address = self.validate_inbound_ack(
+            raw_packet, client_address_tuple
+        )
+        filesize: int = int.from_bytes(packet.data, INT_DESERIALIZATION_BYTEORDER)
 
-        if len(raw_packet) == 0:
-            raise SocketShutdown()
-
-        if not client_address_tuple:
-            raise MissingClientAddress()
-
-        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
-        filesize: int = int.from_bytes(packet.data, "big")
-
-        if sequence_number.value != packet.sequence_number:
-            raise InvalidSequenceNumber()
-
+        self.validate_sequence_number(packet, sequence_number)
         return SequenceNumber(packet.sequence_number), filesize
 
     def receive_file_chunk(
@@ -252,7 +255,7 @@ class ServerProtocol:
         while True:
             try:
                 raw_packet, client_address_tuple = self.socket_receive_from(
-                    FULL_BUFFER_SIZE, should_retransmit=False, should_re_listen=True
+                    FULL_BUFFER_SIZE, should_retransmit=False, should_re_listen=False
                 )
 
                 if len(raw_packet) == 0:
@@ -276,21 +279,15 @@ class ServerProtocol:
     def wait_for_ack(self, sequence_number: SequenceNumber) -> None:
         try:
             raw_packet, client_address_tuple = self.socket_receive_from(
-                COMMS_BUFFER_SIZE, should_retransmit=True, should_re_listen=True
+                COMMS_BUFFER_SIZE, should_retransmit=False, should_re_listen=False
             )
         except OSError:
-            raise InvalidMessage()
+            raise ConnectionLost()
 
-        if not client_address_tuple:
-            raise UnexpectedMessage()
-
-        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
-
-        if packet.sequence_number != sequence_number.value:
-            raise InvalidSequenceNumber()
-
-        if not packet.is_ack or packet.is_fin:
-            raise InvalidMessage()
+        packet, client_address = self.validate_inbound_ack(
+            raw_packet, client_address_tuple
+        )
+        self.validate_sequence_number(packet, sequence_number)
 
     def send_file_chunk(
         self,
@@ -312,8 +309,7 @@ class ServerProtocol:
         )
 
         self.logger.debug(f"Sending chunk of size {chunk_len}, to: {client_address}")
-        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
-        self.socket_send_to(packet_bin, client_address)
+        self.socket_send_to(packet_to_send, client_address)
 
     def wait_for_fin_ack(self, sequence_number: SequenceNumber) -> None:
         try:
@@ -321,15 +317,12 @@ class ServerProtocol:
                 COMMS_BUFFER_SIZE, should_retransmit=True, should_re_listen=True
             )
         except OSError:
-            raise ConnectionRefused()
+            raise ConnectionLost()
 
-        if not server_address_tuple:
-            raise UnexpectedMessage()
+        packet, client_address = self.validate_inbound_packet(
+            raw_packet, server_address_tuple
+        )
+        self.validate_sequence_number(packet, sequence_number)
 
-        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
-
-        if packet.sequence_number != sequence_number.value:
-            raise InvalidSequenceNumber()
-
-        if not packet.is_ack or not packet.is_fin:
-            raise InvalidMessage()
+        if not (packet.is_ack and packet.is_fin):
+            raise MessageIsNotFinAck()

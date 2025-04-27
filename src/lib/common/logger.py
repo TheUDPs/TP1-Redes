@@ -30,6 +30,8 @@ class Logger:
     """
 
     def __init__(self, level=INFO_LOG_LEVEL):
+        self.prefix: str = ""
+
         if level <= self.QUIET_LOG_LEVEL:
             self.current_level = self.QUIET_LOG_LEVEL
         elif level == self.INFO_LOG_LEVEL:
@@ -43,7 +45,7 @@ class Logger:
         if self.current_level >= msg_level:
             timestamp = datetime.now().strftime("%H:%M:%S")
             print(
-                f"[{timestamp}] [{self.PRINTABLE_LEVELS[msg_level]}] {message}",
+                f"[{timestamp}] [{self.PRINTABLE_LEVELS[msg_level]}]{self.prefix} {message}",
                 flush=True,
             )
 
@@ -58,3 +60,15 @@ class Logger:
 
     def warn(self, message):
         self._log(self.WARN_LEVEL, message)
+
+    def set_prefix(self, prefix: str):
+        self.prefix = " " + prefix.strip()
+
+    def clone(self, keep_prefix=False) -> Logger:
+        logger = Logger()
+        logger.current_level = self.current_level
+
+        if keep_prefix:
+            logger.prefix = self.prefix
+
+        return logger

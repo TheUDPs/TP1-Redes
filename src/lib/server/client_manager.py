@@ -26,7 +26,7 @@ class ClientManager:
             connection_address,
             client_address,
             self.protocol,
-            self.logger,
+            self.logger.clone(),
             file_handler,
         )
         self.clients.add(key=connection_address.to_combined(), value=new_connection)

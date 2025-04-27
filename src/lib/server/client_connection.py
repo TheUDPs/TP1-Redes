@@ -4,21 +4,23 @@ from threading import Thread
 
 from lib.common.address import Address
 from lib.common.constants import FILE_CHUNK_SIZE, UPLOAD_OPERATION, DOWNLOAD_OPERATION
+from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
+from lib.common.exceptions.message_not_ack import MessageIsNotAck
+from lib.common.exceptions.message_not_fin_ack import MessageIsNotFinAck
+from lib.common.exceptions.socket_shutdown import SocketShutdown
+from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.logger import Logger
 from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_saw import SocketSaw
 from lib.server.client_pool import ClientPool
-from lib.server.exceptions.bad_operation import BadOperation
+from lib.server.exceptions.bad_operation import UnexpectedOperation
+from lib.server.exceptions.client_already_connected import ClientAlreadyConnected
 from lib.server.exceptions.invalid_filename import InvalidFilename
+from lib.server.exceptions.missing_client_address import MissingClientAddress
 from lib.server.file_handler import FileHandler
 
-from lib.server.protocol import (
-    ServerProtocol,
-    MissingClientAddress,
-    BadFlagsForHandshake,
-    SocketShutdown,
-)
+from lib.server.protocol import ServerProtocol
 from enum import Enum
 
 
@@ -45,30 +47,32 @@ class ClientConnection:
         self.address: Address = connection_address
         self.client_address: Address = client_address
         self.logger: Logger = logger
+        self.logger.set_prefix(f"[CONN:{connection_address.port}]")
+
         self.file_handler: FileHandler = file_handler
 
         self.protocol: ServerProtocol = ServerProtocol(
             self.logger, self.socket, self.address, protocol, ClientPool()
         )
-        self.state: ConnectionState = ConnectionState.HANDHSAKE
+        self.state: ConnectionState = ConnectionState.HANDHSAKE_FINISHED
         self.run_thread = Thread(target=self.run)
         self.file = None
         self.killed = False
 
-    def expect_handshake_completion(self) -> None:
-        self.logger.debug("Waiting for handshake completion")
-        try:
-            self.protocol.expect_handshake_completion()
-            self.state = ConnectionState.HANDHSAKE_FINISHED
-            self.logger.debug("Handhsake completed")
-        except SocketShutdown:
-            self.logger.debug("Client connection socket shutdowned")
-        except (MissingClientAddress, BadFlagsForHandshake) as e:
-            self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
-            raise e
+    # def expect_handshake_completion(self) -> None:
+    #     self.logger.debug("Waiting for handshake completion")
+    #     try:
+    #         self.protocol.expect_handshake_completion()
+    #         self.state = ConnectionState.HANDHSAKE_FINISHED
+    #         self.logger.debug("Handhsake completed")
+    #     except SocketShutdown:
+    #         self.logger.debug("Client connection socket shutdowned")
+    #     except (MissingClientAddress, BadFlagsForHandshake) as e:
+    #         self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
+    #         raise e
 
     def receive_operation_intention(self) -> tuple[int, SequenceNumber]:
-        self.logger.debug("[CONN] Waiting for operation intention")
+        self.logger.debug("Waiting for operation intention")
         try:
             op_code, sequence_number = self.protocol.receive_operation_intention()
 
@@ -78,7 +82,7 @@ class ClientConnection:
                 self.state = ConnectionState.READY_TO_TRANSMIT
             else:
                 self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
-                self.logger.debug("[CONN] Bad state")
+                self.logger.debug("Bad state. Unexpected operation")
 
             return op_code, sequence_number
 
@@ -86,7 +90,7 @@ class ClientConnection:
             self.logger.debug("Client connection socket shutdowned")
             raise SocketShutdown
 
-        except (MissingClientAddress, BadFlagsForHandshake) as e:
+        except MissingClientAddress as e:
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             raise e
 
@@ -107,10 +111,10 @@ class ClientConnection:
         sequence_number, filename = self.protocol.receive_filename(sequence_number)
         if self.is_filename_valid(filename):
             self.protocol.send_ack(sequence_number, self.client_address, self.address)
-            self.logger.debug("[CONN] Filename received valid")
+            self.logger.debug("Filename received valid")
         else:
             self.protocol.send_fin(sequence_number, self.client_address, self.address)
-            self.logger.error("[CONN] Filename received invalid")
+            self.logger.error("Filename received invalid")
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             raise SocketShutdown()
 
@@ -118,21 +122,23 @@ class ClientConnection:
         sequence_number, filesize = self.protocol.receive_filesize(sequence_number)
         if self.is_filesize_valid(filesize):
             self.protocol.send_ack(sequence_number, self.client_address, self.address)
-            self.logger.debug("[CONN] Filesize received valid")
+            self.logger.debug("Filesize received valid")
         else:
             self.protocol.send_fin(sequence_number, self.client_address, self.address)
-            self.logger.error("[CONN] Filesize received invalid")
+            self.logger.error("Filesize received invalid")
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             raise SocketShutdown()
 
         return filename, filesize, sequence_number
 
     def receive_file(self, sequence_number: SequenceNumber):
-        self.logger.debug("[CONN] Validating filename and filesize")
+        self.logger.debug("Operation is: UPLOAD")
+        self.logger.debug("Validating filename and filesize")
+        self.logger.debug(f"ACK with seq {sequence_number.value}")
         self.protocol.send_ack(sequence_number, self.client_address, self.address)
 
         filename, _filesize, sequence_number = self.receive_file_info(sequence_number)
-        self.logger.debug(f"[CONN] Ready to receive from {self.client_address}")
+        self.logger.debug(f"Ready to receive from {self.client_address}")
 
         chunk_number: int = 1
 
@@ -149,7 +155,7 @@ class ClientConnection:
                 sequence_number_return, self.client_address, self.address
             )
 
-        self.logger.debug(f"[CONN] Received chunk {chunk_number}")
+        self.logger.debug(f"Received chunk {chunk_number}")
         self.file_handler.append_to_file(self.file, packet)
 
         while not packet.is_fin:
@@ -169,34 +175,35 @@ class ClientConnection:
                 )
 
             self.file_handler.append_to_file(self.file, packet)
-            self.logger.debug(f"[CONN] Received chunk {chunk_number}")
+            self.logger.debug(f"Received chunk {chunk_number}")
 
-        self.logger.debug("[CONN] Finished receiving file")
+        self.logger.debug("Finished receiving file")
         self.file.close()
 
         return sequence_number_return
 
     def transmit_file(self, sequence_number: SequenceNumber):
-        self.logger.debug("[CONN] transmitting file")
+        self.logger.debug("Operation is: DOWNLOAD")
+        self.logger.debug("Transmitting file")
         try:
             sequence_number.flip()
             self.protocol.send_ack(sequence_number, self.client_address, self.address)
             sequence_number = self.receive_file_name_transmit(sequence_number)
 
             self.logger.debug(
-                f"[CONN] Configuration is done, sending file chunks {self.client_address}"
+                f"Configuration is done, sending file chunks {self.client_address}"
             )
 
-            self.logger.debug(f"[CONN] sequence_number {sequence_number.value}")
+            self.logger.debug(f"sequence_number {sequence_number.value}")
             chunk_number: int = 1
             is_last_chunk: bool = False
             while chunk := self.file.read(FILE_CHUNK_SIZE):
                 chunk_len = len(chunk)
                 self.logger.debug(
-                    f"[CONN] Sending chunk {chunk_number} of size {self.bytes_to_kilobytes(chunk_len)} KB"
+                    f"Sending chunk {chunk_number} of size {self.bytes_to_kilobytes(chunk_len)} KB"
                 )
 
-                self.logger.debug(f"[CONN] sequence_number {sequence_number.value}")
+                self.logger.debug(f"sequence_number {sequence_number.value}")
                 if chunk_len < FILE_CHUNK_SIZE:
                     is_last_chunk = True
 
@@ -211,9 +218,7 @@ class ClientConnection:
                     self.client_address,
                 )
 
-                self.logger.debug(
-                    f"[CONN] Waiting confirmation for chunk {chunk_number}"
-                )
+                self.logger.debug(f"Waiting confirmation for chunk {chunk_number}")
 
                 self.logger.debug("Is last chunk: " + str(is_last_chunk))
 
@@ -225,36 +230,36 @@ class ClientConnection:
                 chunk_number += 1
 
             self.protocol.send_ack(sequence_number, self.client_address, self.address)
-            self.logger.info("[CONN] File transfer complete")
+            self.logger.info("File transfer complete")
 
         # to do: Agregar manejo de excepciones
         except Exception as e:
             print(e)
-            self.logger.error(f"[CONN] Error transmitting file: {e.message}")
+            self.logger.error(f"Error transmitting file: {e.message}")
 
     def receive_file_name_transmit(self, sequence_number: SequenceNumber):
         try:
-            self.logger.debug("[CONN] Waiting for filename")
+            self.logger.debug("Waiting for filename")
             sequence_number.flip()
             sequence_number, filename = self.protocol.receive_filename(sequence_number)
             self.file = self.file_handler.open_file_read(filename)
-            self.logger.debug(f"[CONN] Filename received: {filename}, sending ACK")
+            self.logger.debug(f"Filename received: {filename}, sending ACK")
             self.protocol.send_ack(sequence_number, self.client_address, self.address)
             return sequence_number
         except InvalidFilename:
-            self.logger.error("[CONN] Filename received invalid")
+            self.logger.error("Filename received invalid")
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             self.protocol.send_fin(sequence_number, self.client_address, self.address)
 
     def closing_handshake(self, sequence_number: SequenceNumber):
         sequence_number.flip()
         self.protocol.wait_for_ack(sequence_number)
-        self.logger.debug("[CONN] Connection closed")
+        self.logger.debug("Connection closed")
         self.state = ConnectionState.DONE_READY_TO_DIE
 
     def run(self):
         try:
-            self.expect_handshake_completion()
+            # self.expect_handshake_completion()
             op_code, sequence_number = self.receive_operation_intention()
 
             if op_code == UPLOAD_OPERATION:
@@ -263,21 +268,26 @@ class ClientConnection:
             elif op_code == DOWNLOAD_OPERATION:
                 self.transmit_file(sequence_number)
 
-        except SocketShutdown:
+        except (SocketShutdown, ConnectionLost):
+            self.logger.debug("FATAL: state cannot be recovered")
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
-            pass
+            self.logger.error("Connection shutdown")
+            self.kill()
         except (
             MissingClientAddress,
-            BadFlagsForHandshake,
-            BadOperation,
+            UnexpectedOperation,
             InvalidSequenceNumber,
+            UnexpectedFinMessage,
+            ClientAlreadyConnected,
+            MessageIsNotAck,
+            MessageIsNotFinAck,
         ) as e:
-            self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             self.logger.error(f"{e.message}")
+            self.logger.debug("State can be recovered")
 
         except Exception as e:
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
-            self.logger.error(f"[CONN] Fatal error: {e}")
+            self.logger.error(f"Fatal error: {e}")
             self.kill()
 
     def start(self):

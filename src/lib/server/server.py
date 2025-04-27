@@ -37,7 +37,7 @@ class Server:
 
         try:
             self.accepter: Accepter = Accepter(
-                self.address, self.protocol, self.logger, self.file_handler
+                self.address, self.protocol, self.logger.clone(), self.file_handler
             )
         except CannotBindSocket:
             self.logger.error("Shutdown server")

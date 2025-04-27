@@ -56,12 +56,12 @@ class Client:
         )
         self.logger.debug("Connection request accepted")
 
+        self.protocol.send_hanshake_completion(self.sequence_number)
+
         # Update server address to update the server connection's port
         self.server_address: Address = server_address
         self.protocol.update_server_address(server_address)
 
-        self.sequence_number.flip()
-        self.protocol.send_hanshake_completion(self.sequence_number)
         self.logger.debug("Connection established")
 
     def client_start(self, should_stop_event: Event) -> None:
