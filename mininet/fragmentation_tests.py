@@ -30,17 +30,17 @@ def kill_processes(node, process_name):
     node.cmd(f"killall {process_name}")
 
 
-def run_automated_test(protocol, h1, h2, r2):
+def run_automated_test(protocol, h1, h2, s2):
     """Run automated fragmentation test with specified protocol (TCP or UDP)"""
     protocol_lower = protocol.lower()
     info(f"\n*** Running automated {protocol} fragmentation test ***\n")
 
     info(f"Starting tcpdump captures for {protocol}...\n")
     pid1 = run_tcpdump(
-        r2, "r2-eth0", f"{CAPTURE_DIR}/router_eth0_{protocol_lower}.pcap"
+        s2, "s2-eth0", f"{CAPTURE_DIR}/router_eth0_{protocol_lower}.pcap"
     )
     pid2 = run_tcpdump(
-        r2, "r2-eth1", f"{CAPTURE_DIR}/router_eth1_{protocol_lower}.pcap"
+        s2, "s2-eth1", f"{CAPTURE_DIR}/router_eth1_{protocol_lower}.pcap"
     )
     time.sleep(WAIT_TIME)
 
@@ -63,8 +63,8 @@ def run_automated_test(protocol, h1, h2, r2):
         f.write(client_output)
 
     info("Stopping tcpdump and iperf processes...\n")
-    kill_process(r2, pid1)
-    kill_process(r2, pid2)
+    kill_process(s2, pid1)
+    kill_process(s2, pid2)
     kill_processes(h1, "iperf")
     time.sleep(WAIT_TIME)
 
@@ -113,10 +113,10 @@ def fragmentation_test():
     info(f"  - {CAPTURE_DIR}/iperf_udp_client.log\n\n")
 
     info("To analyze the captures, you can run on other terminal:\n")
-    info("  wireshark /tmp/captures/router_eth0_tcp.pcap\n")
-    info("  wireshark /tmp/captures/router_eth1_tcp.pcap\n")
-    info("  wireshark /tmp/captures/router_eth0_udp.pcap\n")
-    info("  wireshark /tmp/captures/router_eth1_udp.pcap\n")
+    info(f"  wireshark {CAPTURE_DIR}/router_eth0_tcp.pcap\n")
+    info(f"  wireshark {CAPTURE_DIR}/router_eth1_tcp.pcap\n")
+    info(f"  wireshark {CAPTURE_DIR}/router_eth0_udp.pcap\n")
+    info(f"  wireshark {CAPTURE_DIR}/router_eth1_udp.pcap\n")
     info("Apply filter: ip.flags.mf == 1 or ip.frag_offset > 0\n")
     info("This will show fragmented packets in the captures\n\n")
 
