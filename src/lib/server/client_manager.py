@@ -20,9 +20,7 @@ class ClientManager:
         client_address: Address,
         file_handler: FileHandler,
     ) -> None:
-        print("Before ", self.clients)
         self.rip_finished_clients()
-        print("After ", self.clients)
 
         new_connection: ClientConnection = ClientConnection(
             connection_socket,

@@ -10,14 +10,14 @@ from threading import Event, Thread
 from lib.client.exceptions.connection_refused import ConnectionRefused
 from lib.client.protocol import ClientProtocol
 from lib.common.address import Address
-from lib.common.constants import USE_ANY_AVAILABLE_PORT
+from lib.common.constants import (
+    USE_ANY_AVAILABLE_PORT,
+    USE_CURRENT_HOST,
+    SOCKET_CONNECTION_LOST_TIMEOUT,
+)
 from lib.common.logger import Logger
 from lib.common.sequence_number import SequenceNumber
 from lib.common.wait_for_quit import wait_for_quit
-
-SOCKET_TIMEOUT = 3
-
-USE_CURRENT_HOST = ""
 
 
 class Client:
@@ -32,7 +32,7 @@ class Client:
         self.socket.bind((USE_CURRENT_HOST, USE_ANY_AVAILABLE_PORT))
         sockname: tuple[str, int] = self.socket.getsockname()
         self.my_address: Address = Address(sockname[0], sockname[1])
-        self.socket.settimeout(SOCKET_TIMEOUT)
+        self.socket.settimeout(SOCKET_CONNECTION_LOST_TIMEOUT)
 
         self.protocol = ClientProtocol(
             self.logger, self.socket, self.server_address, self.my_address, protocol
