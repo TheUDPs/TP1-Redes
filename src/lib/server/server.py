@@ -11,6 +11,7 @@ from lib.common.constants import ERROR_EXIT_CODE
 from lib.common.logger import Logger
 from lib.common.wait_for_quit import wait_for_quit
 from lib.server.accepter import Accepter
+from lib.server.exceptions.cannot_bind_socket import CannotBindSocket
 from lib.server.file_handler import FileHandler
 
 
@@ -34,9 +35,13 @@ class Server:
             self.logger.error(f"Error opening storage directory: {e}")
             sys.exit(ERROR_EXIT_CODE)
 
-        self.accepter: Accepter = Accepter(
-            self.address, self.protocol, self.logger, self.file_handler
-        )
+        try:
+            self.accepter: Accepter = Accepter(
+                self.address, self.protocol, self.logger, self.file_handler
+            )
+        except CannotBindSocket:
+            self.logger.error("Shutdown server")
+            sys.exit(ERROR_EXIT_CODE)
 
         self.stopped = False
 

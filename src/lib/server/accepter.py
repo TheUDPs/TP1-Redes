@@ -10,6 +10,7 @@ from lib.common.logger import Logger
 from lib.common.packet import Packet
 from lib.server.client_manager import ClientManager
 from lib.server.client_pool import ClientPool
+from lib.server.exceptions.cannot_bind_socket import CannotBindSocket
 from lib.server.exceptions.client_already_connected import ClientAlreadyConnected
 from lib.server.exceptions.protocol_mismatch import ProtocolMismatch
 from lib.server.file_handler import FileHandler
@@ -39,7 +40,13 @@ class Accepter:
         )
 
         self.welcoming_socket: Socket = Socket(AF_INET, SOCK_DGRAM)
-        self.welcoming_socket.bind(self.adress.to_tuple())
+
+        try:
+            self.welcoming_socket.bind(self.adress.to_tuple())
+        except OSError as e:
+            self.logger.error(f"Cannot bind socket to port. {e}")
+            raise CannotBindSocket()
+
         self.protocol: ServerProtocol = ServerProtocol(
             self.logger, self.welcoming_socket, self.adress, protocol, self.clients
         )
