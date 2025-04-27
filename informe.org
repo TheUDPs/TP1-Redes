@@ -215,7 +215,21 @@ _Mensajes para caso Upload_:
 * Preguntas a Responder
 ** Describa la arquitectura Cliente-Servidor.
 ** ¿Cuál es la función de un protocolo de capa de aplicación?
-** Detalle el protocolo de aplicación desarrollado en este trabajo.
+
+Un protocolo de capa de aplicación especifica cómo los procesos de una aplicación, que se ejecutan en diferentes sistemas finales, intercambian mensajes entre sí. Este tipo de protocolo define:
+
+- Los tipos de mensajes que se envían, como mensajes de solicitud y de respuesta.
+
+- La sintaxis de los mensajes, es decir, la estructura de los campos dentro de cada mensaje y cómo se separan o identifican esos campos.
+
+- La semántica de los campos, indicando qué significa la información contenida en cada uno.
+
+- Las reglas de comunicación, que establecen cuándo un proceso debe enviar un mensaje y cómo debe reaccionar al recibir uno.
+
+En resumen, los protocolos de capa de aplicación aseguran que las aplicaciones puedan comunicarse correctamente y coordinarse en la red, haciendo posible servicios como el correo electrónico, la web o la transferencia de archivos.
+
+* Detalle el protocolo de aplicación desarrollado en este trabajo.
+
 ** La capa de transporte del stack TCP/IP ofrece dos protocolos: TCP y UDP.
 
 *** ¿Qué servicios proveen dichos protocolos?
