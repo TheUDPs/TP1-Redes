@@ -1,5 +1,3 @@
-from socket import socket as Socket
-
 from lib.client.exceptions.connection_refused import ConnectionRefused
 from lib.client.exceptions.invalid_message import InvalidMessage
 from lib.client.exceptions.operation_refused import OperationRefused
@@ -17,28 +15,32 @@ from lib.common.packet import Packet, PacketParser
 from lib.common.exceptions.bag_flags_for_handshake import BadFlagsForHandshake
 from lib.common.sequence_number import SequenceNumber
 from lib.common.exceptions.socket_shutdown import SocketShutdown
+from lib.common.socket_saw import SocketSaw
 
 
 class ClientProtocol:
     def __init__(
         self,
         logger: Logger,
-        client_socket: Socket,
+        client_socket: SocketSaw,
         server_address: Address,
         my_address: Address,
         protocol_version: str,
     ):
         self.logger: Logger = logger
-        self.socket: Socket = client_socket
+        self.socket: SocketSaw = client_socket
         self.server_host: str = server_address.host
         self.server_port: int = server_address.port
         self.server_address: Address = server_address
         self.my_address: Address = my_address
         self.protocol_version: str = protocol_version
 
-    def socket_receive(self, buffer_size: int):
+    def socket_receive_from(self, buffer_size: int):
         raw_packet, server_address_tuple = self.socket.recvfrom(buffer_size)
         return raw_packet, server_address_tuple
+
+    def socket_send_to(self, packet_bin: bytes, server_address_tuple: Address):
+        self.socket.sendto(packet_bin, server_address_tuple)
 
     def update_server_address(self, server_address: Address):
         self.server_address = server_address
@@ -56,13 +58,15 @@ class ClientProtocol:
         )
         self.logger.debug(f"Requesting connection to {self.server_address}")
         packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
-        self.socket.sendto(packet_bin, self.server_address.to_tuple())
+        self.socket.sendto(packet_bin, self.server_address)
 
     def wait_for_connection_request_answer(
         self, sequence_number: SequenceNumber
     ) -> Address:
         try:
-            raw_packet, server_address_tuple = self.socket_receive(COMMS_BUFFER_SIZE)
+            raw_packet, server_address_tuple = self.socket_receive_from(
+                COMMS_BUFFER_SIZE
+            )
         except OSError:
             raise ConnectionRefused()
 
@@ -100,7 +104,7 @@ class ClientProtocol:
         self.logger.debug(f"Completing handshake with {self.server_address}")
 
         packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
-        self.socket.sendto(packet_bin, self.server_address.to_tuple())
+        self.socket.sendto(packet_bin, self.server_address)
 
     def send_operation_intention(
         self, sequence_number: SequenceNumber, op_code: int
@@ -120,12 +124,14 @@ class ClientProtocol:
         self.logger.debug("Sending operation intention")
 
         packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
-        self.socket.sendto(packet_bin, self.server_address.to_tuple())
+        self.socket.sendto(packet_bin, self.server_address)
 
     def wait_for_operation_confirmation(self, sequence_number: SequenceNumber) -> None:
         try:
             self.logger.debug("Waiting for operation confirmation")
-            raw_packet, server_address_tuple = self.socket_receive(COMMS_BUFFER_SIZE)
+            raw_packet, server_address_tuple = self.socket_receive_from(
+                COMMS_BUFFER_SIZE
+            )
         except OSError:
             raise ConnectionRefused()
 
@@ -159,11 +165,13 @@ class ClientProtocol:
         )
 
         packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
-        self.socket.sendto(packet_bin, self.server_address.to_tuple())
+        self.socket.sendto(packet_bin, self.server_address)
 
     def wait_for_ack(self, sequence_number: SequenceNumber) -> None:
         try:
-            raw_packet, server_address_tuple = self.socket_receive(COMMS_BUFFER_SIZE)
+            raw_packet, server_address_tuple = self.socket_receive_from(
+                COMMS_BUFFER_SIZE
+            )
         except OSError:
             raise ConnectionRefused()
 
@@ -180,7 +188,9 @@ class ClientProtocol:
 
     def wait_for_fin_ack(self, sequence_number: SequenceNumber) -> None:
         try:
-            raw_packet, server_address_tuple = self.socket_receive(COMMS_BUFFER_SIZE)
+            raw_packet, server_address_tuple = self.socket_receive_from(
+                COMMS_BUFFER_SIZE
+            )
         except OSError:
             raise ConnectionRefused()
 
@@ -210,7 +220,7 @@ class ClientProtocol:
         )
 
         packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
-        self.socket.sendto(packet_bin, self.server_address.to_tuple())
+        self.socket.sendto(packet_bin, self.server_address)
 
     def inform_filesize(self, sequence_number: SequenceNumber, file_size: int) -> None:
         data = file_size.to_bytes(4, byteorder="big")
@@ -227,7 +237,7 @@ class ClientProtocol:
         )
 
         packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
-        self.socket.sendto(packet_bin, self.server_address.to_tuple())
+        self.socket.sendto(packet_bin, self.server_address)
 
     def send_ack(
         self,
@@ -248,7 +258,7 @@ class ClientProtocol:
             f"Sending ack to {self.server_address}, of packet {sequence_number.value}"
         )
         packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
-        self.socket.sendto(packet_bin, self.server_address.to_tuple())
+        self.socket.sendto(packet_bin, self.server_address)
 
     def send_fin_ack(
         self,
@@ -269,12 +279,12 @@ class ClientProtocol:
             f"Sending ack to {self.server_address}, of packet {sequence_number.value}"
         )
         packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
-        self.socket.sendto(packet_bin, self.server_address.to_tuple())
+        self.socket.sendto(packet_bin, self.server_address)
 
     def receive_file_chunk(
         self, sequence_number: SequenceNumber
     ) -> tuple[SequenceNumber, Packet]:
-        raw_packet, server_address = self.socket_receive(FULL_BUFFER_SIZE)
+        raw_packet, server_address = self.socket_receive_from(FULL_BUFFER_SIZE)
 
         if len(raw_packet) == 0:
             raise SocketShutdown()

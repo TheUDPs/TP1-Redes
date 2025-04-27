@@ -2,7 +2,7 @@ from socket import socket as Socket
 from lib.common.address import Address
 
 
-class SocketSaW:
+class SocketSaw:
     def __init__(self, _socket: Socket):
         self.socket = _socket
         self.last_raw_packet = None
@@ -12,9 +12,16 @@ class SocketSaW:
         self.last_raw_packet = data
         self.last_address = to_address
 
-    def send(self, data: bytes, to_address: Address):
+    def sendto(self, data: bytes, to_address: Address):
         self.save_state(data, to_address)
         self.socket.sendto(data, to_address.to_tuple())
 
-    def receive(self, buffersize: int):
-        _data = self.socket.recv(buffersize)
+    def recvfrom(self, buffersize: int):
+        raw_packet, server_address_tuple = self.socket.recvfrom(buffersize)
+        return raw_packet, server_address_tuple
+
+    def shutdown(self, shutdown_type):
+        self.socket.shutdown(shutdown_type)
+
+    def close(self):
+        self.socket.close()

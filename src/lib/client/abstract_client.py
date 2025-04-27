@@ -17,6 +17,7 @@ from lib.common.constants import (
 )
 from lib.common.logger import Logger
 from lib.common.sequence_number import SequenceNumber
+from lib.common.socket_saw import SocketSaw
 from lib.common.wait_for_quit import wait_for_quit
 
 
@@ -28,11 +29,13 @@ class Client:
 
         self.server_address: Address = Address(self.server_host, self.server_port)
 
-        self.socket: Socket = Socket(AF_INET, SOCK_DGRAM)
-        self.socket.bind((USE_CURRENT_HOST, USE_ANY_AVAILABLE_PORT))
-        sockname: tuple[str, int] = self.socket.getsockname()
+        raw_socket: Socket = Socket(AF_INET, SOCK_DGRAM)
+        raw_socket.bind((USE_CURRENT_HOST, USE_ANY_AVAILABLE_PORT))
+        sockname: tuple[str, int] = raw_socket.getsockname()
+        raw_socket.settimeout(SOCKET_CONNECTION_LOST_TIMEOUT)
         self.my_address: Address = Address(sockname[0], sockname[1])
-        self.socket.settimeout(SOCKET_CONNECTION_LOST_TIMEOUT)
+
+        self.socket: SocketSaw = SocketSaw(raw_socket)
 
         self.protocol = ClientProtocol(
             self.logger, self.socket, self.server_address, self.my_address, protocol
