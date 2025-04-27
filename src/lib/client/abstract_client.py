@@ -15,6 +15,7 @@ from lib.common.constants import (
     USE_CURRENT_HOST,
     SOCKET_CONNECTION_LOST_TIMEOUT,
 )
+from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.logger import Logger
 from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_saw import SocketSaw
@@ -73,6 +74,10 @@ class Client:
                 self.perform_operation()
         except ConnectionRefused as e:
             self.logger.error(f"Connection refused: {e}")
+        except ConnectionLost:
+            self.logger.error("Connection closed")
+            self.sequence_number.flip()
+            self.protocol.send_fin(self.sequence_number)
         finally:
             should_stop_event.set()
 

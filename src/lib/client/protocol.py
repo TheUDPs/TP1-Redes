@@ -1,5 +1,3 @@
-import functools
-
 from lib.client.exceptions.connection_refused import ConnectionRefused
 from lib.client.exceptions.missing_server_address import MissingServerAddress
 from lib.client.exceptions.unexpected_message import UnexpectedMessage
@@ -20,50 +18,10 @@ from lib.common.exceptions.message_not_syn import MessageIsNotSyn
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.logger import Logger
 from lib.common.packet import Packet, PacketParser
+from lib.common.re_listen_decorator import re_listen_if_failed
 from lib.common.sequence_number import SequenceNumber
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.socket_saw import SocketSaw
-
-from lib.common.constants import (
-    MAX_RETRANSMISSION_ATTEMPTS,
-)
-
-
-def re_listen_if_failed():
-    def decorator(wrapped_function):
-        @functools.wraps(wrapped_function)
-        def wrapper(self, *args, **kwargs):
-            listening_attempts = 0
-            result = None
-            exception_got = None
-
-            while listening_attempts < MAX_RETRANSMISSION_ATTEMPTS:
-                try:
-                    result = wrapped_function(self, *args, **kwargs)
-                    break
-                except (
-                    InvalidSequenceNumber,
-                    MessageIsNotAck,
-                    MessageIsNotFin,
-                    MessageIsNotFinAck,
-                    MessageIsNotSyn,
-                    UnexpectedFinMessage,
-                ) as e:
-                    exception_got = e
-                    listening_attempts += 1
-                    self.logger.debug(
-                        f"Retrying package reception, trial {listening_attempts}"
-                    )
-
-            if listening_attempts >= MAX_RETRANSMISSION_ATTEMPTS:
-                self.logger.debug("Max package reception retrials reached")
-                raise exception_got
-
-            return result
-
-        return wrapper
-
-    return decorator
 
 
 class ClientProtocol:
@@ -205,20 +163,23 @@ class ClientProtocol:
         self.socket_send_to(packet_to_send, self.server_address)
 
     @re_listen_if_failed()
-    def wait_for_operation_confirmation(self, sequence_number: SequenceNumber) -> None:
+    def wait_for_operation_confirmation(
+        self, sequence_number: SequenceNumber
+    ) -> Packet:
         try:
             raw_packet, server_address_tuple = self.socket_receive_from(
                 COMMS_BUFFER_SIZE,
                 should_retransmit=True,
             )
         except ConnectionLost:
-            raise ConnectionRefused()
+            raise ConnectionLost()
 
         packet, server_address = self.validate_inbound_ack(
             raw_packet, server_address_tuple
         )
         self.validate_not_fin(packet)
         self.validate_sequence_number(packet, sequence_number)
+        return packet
 
     def send_file_chunk(
         self,
@@ -242,12 +203,9 @@ class ClientProtocol:
 
     @re_listen_if_failed()
     def wait_for_ack(self, sequence_number: SequenceNumber) -> None:
-        try:
-            raw_packet, server_address_tuple = self.socket_receive_from(
-                COMMS_BUFFER_SIZE, should_retransmit=True
-            )
-        except ConnectionLost:
-            raise ConnectionRefused()
+        raw_packet, server_address_tuple = self.socket_receive_from(
+            COMMS_BUFFER_SIZE, should_retransmit=True
+        )
 
         packet, server_address = self.validate_inbound_ack(
             raw_packet, server_address_tuple
@@ -257,12 +215,9 @@ class ClientProtocol:
 
     @re_listen_if_failed()
     def wait_for_fin_ack(self, sequence_number: SequenceNumber) -> None:
-        try:
-            raw_packet, server_address_tuple = self.socket_receive_from(
-                COMMS_BUFFER_SIZE, should_retransmit=True
-            )
-        except ConnectionLost:
-            raise ConnectionRefused()
+        raw_packet, server_address_tuple = self.socket_receive_from(
+            COMMS_BUFFER_SIZE, should_retransmit=True
+        )
 
         packet, server_address = self.validate_inbound_packet(
             raw_packet, server_address_tuple
@@ -325,6 +280,22 @@ class ClientProtocol:
         packet_to_send: Packet = Packet(
             protocol=self.protocol_version,
             is_ack=True,
+            is_syn=False,
+            is_fin=True,
+            port=self.server_address.port,
+            payload_length=0,
+            sequence_number=sequence_number.value,
+            data=ZERO_BYTES,
+        )
+        self.socket_send_to(packet_to_send, self.server_address)
+
+    def send_fin(
+        self,
+        sequence_number: SequenceNumber,
+    ) -> None:
+        packet_to_send: Packet = Packet(
+            protocol=self.protocol_version,
+            is_ack=False,
             is_syn=False,
             is_fin=True,
             port=self.server_address.port,

@@ -5,7 +5,6 @@ from sys import exit
 from lib.client.abstract_client import Client
 from lib.client.exceptions.file_already_exists import FileAlreadyExists
 from lib.client.exceptions.file_too_big import FileTooBig
-from lib.client.exceptions.invalid_message import InvalidMessage
 from lib.common.constants import (
     UPLOAD_OPERATION,
     FOPEN_READ_MODE,
@@ -14,6 +13,9 @@ from lib.common.constants import (
     FILE_CHUNK_SIZE,
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
+from lib.common.exceptions.message_not_ack import MessageIsNotAck
+from lib.common.exceptions.socket_shutdown import SocketShutdown
+from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.logger import Logger
 
 
@@ -63,7 +65,11 @@ class UploadClient(Client):
             )
 
             self.logger.debug("Waiting for operation confirmation")
-            self.protocol.wait_for_operation_confirmation(self.sequence_number)
+            packet = self.protocol.wait_for_operation_confirmation(self.sequence_number)
+            if packet.is_fin:
+                self.logger.error("File already exists in server")
+                raise SocketShutdown()
+
             self.logger.debug("Operation accepted")
 
             self.inform_size_and_name()
@@ -88,8 +94,12 @@ class UploadClient(Client):
 
         self.logger.debug("Waiting for filename confirmation")
         try:
-            self.protocol.wait_for_ack(self.sequence_number)
-        except InvalidMessage:
+            self.protocol.wait_for_ack(
+                self.sequence_number,
+                exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
+            )
+        except (UnexpectedFinMessage, MessageIsNotAck):
+            self.logger.debug("Filename confirmation failed")
             raise FileAlreadyExists()
 
         self.sequence_number.flip()
@@ -99,8 +109,12 @@ class UploadClient(Client):
         self.logger.debug("Waiting for filesize confirmation")
 
         try:
-            self.protocol.wait_for_ack(self.sequence_number)
-        except InvalidMessage:
+            self.protocol.wait_for_ack(
+                self.sequence_number,
+                exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
+            )
+        except (UnexpectedFinMessage, MessageIsNotAck):
+            self.logger.debug("Filesize confirmation failed")
             raise FileTooBig()
 
     def send_file(self) -> None:

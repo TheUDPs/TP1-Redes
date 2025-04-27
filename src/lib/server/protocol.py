@@ -1,5 +1,3 @@
-import functools
-
 from lib.common.address import Address
 from lib.common.constants import (
     UPLOAD_OPERATION,
@@ -13,6 +11,7 @@ from lib.common.constants import (
 from lib.common.exceptions.message_not_syn import MessageIsNotSyn
 from lib.common.logger import Logger
 from lib.common.packet import Packet, PacketParser
+from lib.common.re_listen_decorator import re_listen_if_failed
 from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_saw import SocketSaw
 from lib.server.client_pool import ClientPool
@@ -26,51 +25,6 @@ from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.server.exceptions.bad_operation import UnexpectedOperation
 from lib.server.exceptions.client_already_connected import ClientAlreadyConnected
 from lib.server.exceptions.missing_client_address import MissingClientAddress
-
-from lib.common.constants import (
-    MAX_RETRANSMISSION_ATTEMPTS,
-)
-
-
-def re_listen_if_failed():
-    def decorator(wrapped_function):
-        @functools.wraps(wrapped_function)
-        def wrapper(self, *args, **kwargs):
-            # return wrapped_function(self, *args, **kwargs)
-            listening_attempts = 0
-            result = None
-            exception_got = None
-
-            while listening_attempts < MAX_RETRANSMISSION_ATTEMPTS:
-                try:
-                    result = wrapped_function(self, *args, **kwargs)
-                    break
-                except (
-                    InvalidSequenceNumber,
-                    MessageIsNotAck,
-                    MessageIsNotFinAck,
-                    MessageIsNotSyn,
-                    UnexpectedFinMessage,
-                ) as e:
-                    exception_got = e
-                    listening_attempts += 1
-                    self.logger.debug(
-                        f"Retrying package reception, trial {listening_attempts}. Due to error: {e.message}"
-                    )
-                except ConnectionLost as e:
-                    exception_got = e
-                    break
-
-            if listening_attempts >= MAX_RETRANSMISSION_ATTEMPTS:
-                self.logger.debug("Max package reception retrials reached")
-                if exception_got is not None:
-                    raise exception_got
-
-            return result
-
-        return wrapper
-
-    return decorator
 
 
 class ServerProtocol:
@@ -90,9 +44,11 @@ class ServerProtocol:
         self.protocol_version: str = protocol_version
         self.clients: ClientPool = clients
 
-    def socket_receive_from(self, buffer_size: int, should_retransmit: bool):
+    def socket_receive_from(
+        self, buffer_size: int, should_retransmit: bool, do_not_timeout: bool = False
+    ):
         raw_packet, client_address_tuple = self.socket.recvfrom(
-            buffer_size, should_retransmit
+            buffer_size, should_retransmit, do_not_timeout
         )
         return raw_packet, client_address_tuple
 
@@ -139,7 +95,7 @@ class ServerProtocol:
 
     def accept_connection(self) -> tuple[Packet, Address]:
         raw_packet, client_address_tuple = self.socket_receive_from(
-            COMMS_BUFFER_SIZE, should_retransmit=False
+            COMMS_BUFFER_SIZE, should_retransmit=False, do_not_timeout=True
         )
 
         packet, client_address = self.validate_inbound_packet(

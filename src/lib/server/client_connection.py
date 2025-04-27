@@ -33,6 +33,10 @@ class ConnectionState(Enum):
     UNRECOVERABLE_BAD_STATE = 99
 
 
+class GracefulShutdown(Exception):
+    pass
+
+
 class ClientConnection:
     def __init__(
         self,
@@ -59,18 +63,6 @@ class ClientConnection:
         self.file = None
         self.killed = False
 
-    # def expect_handshake_completion(self) -> None:
-    #     self.logger.debug("Waiting for handshake completion")
-    #     try:
-    #         self.protocol.expect_handshake_completion()
-    #         self.state = ConnectionState.HANDHSAKE_FINISHED
-    #         self.logger.debug("Handhsake completed")
-    #     except SocketShutdown:
-    #         self.logger.debug("Client connection socket shutdowned")
-    #     except (MissingClientAddress, BadFlagsForHandshake) as e:
-    #         self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
-    #         raise e
-
     def receive_operation_intention(self) -> tuple[int, SequenceNumber]:
         self.logger.debug("Waiting for operation intention")
         try:
@@ -88,7 +80,7 @@ class ClientConnection:
 
         except SocketShutdown:
             self.logger.debug("Client connection socket shutdowned")
-            raise SocketShutdown
+            raise GracefulShutdown()
 
         except MissingClientAddress as e:
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
@@ -115,7 +107,10 @@ class ClientConnection:
             self.logger.debug(f"Filename received valid: {filename}")
         else:
             self.protocol.send_fin(sequence_number, self.client_address, self.address)
-            self.logger.error("Filename received invalid")
+            self.logger.warn("Filename received invalid")
+            self.logger.error(
+                f"Client {self.client_address.to_combined()} shutdowned due to file already existing '{filename}'"
+            )
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             raise SocketShutdown()
 
@@ -127,7 +122,10 @@ class ClientConnection:
             self.logger.debug(f"Filesize received valid: {filesize} bytes")
         else:
             self.protocol.send_fin(sequence_number, self.client_address, self.address)
-            self.logger.error("Filesize received invalid")
+            self.logger.warn("Filesize received invalid")
+            self.logger.error(
+                f"Client {self.client_address.to_combined()} shutdowned due to file being too big"
+            )
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             raise SocketShutdown()
 
@@ -238,7 +236,7 @@ class ClientConnection:
         # to do: Agregar manejo de excepciones
         except Exception as e:
             print(e)
-            self.logger.error(f"Error transmitting file: {e.message}")
+            self.logger.warn(f"Error transmitting file: {e.message}")
 
     def receive_file_name_transmit(self, sequence_number: SequenceNumber):
         try:
@@ -262,7 +260,6 @@ class ClientConnection:
 
     def run(self):
         try:
-            # self.expect_handshake_completion()
             op_code, sequence_number = self.receive_operation_intention()
 
             if op_code == UPLOAD_OPERATION:
@@ -285,7 +282,7 @@ class ClientConnection:
             MessageIsNotAck,
             MessageIsNotFinAck,
         ) as e:
-            self.logger.error(f"{e.message}")
+            self.logger.warn(f"Error: {e.message}")
             self.logger.debug("State can be recovered")
 
         except Exception as e:

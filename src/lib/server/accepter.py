@@ -72,8 +72,8 @@ class Accepter:
 
         try:
             self.logger.debug(f"Waiting for connection on {self.adress}")
-
             packet, client_address = self.protocol.accept_connection()
+
             connection_socket, connection_address = self.handshake(
                 packet, client_address
             )
