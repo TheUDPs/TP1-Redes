@@ -3,6 +3,9 @@ from math import ceil
 from sys import exit
 
 from lib.client.abstract_client import Client
+from lib.client.exceptions.file_already_exists import FileAlreadyExists
+from lib.client.exceptions.file_too_big import FileTooBig
+from lib.client.exceptions.invalid_message import InvalidMessage
 from lib.common.constants import (
     UPLOAD_OPERATION,
     FOPEN_READ_MODE,
@@ -10,6 +13,7 @@ from lib.common.constants import (
     ERROR_EXIT_CODE,
     FILE_CHUNK_SIZE,
 )
+from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.logger import Logger
 
 
@@ -65,6 +69,10 @@ class UploadClient(Client):
             )
             self.send_file()
             self.closing_handshake()
+
+        except (FileAlreadyExists, FileTooBig, ConnectionLost) as e:
+            self.logger.error(f"{e.message}")
+
         except Exception as e:
             err = e.message if e.message else e
             self.logger.error(f"Error message: {err}")
@@ -75,14 +83,21 @@ class UploadClient(Client):
         self.protocol.inform_filename(self.sequence_number, self.final_filename)
 
         self.logger.debug("Waiting for filename confirmation")
-        self.protocol.wait_for_ack(self.sequence_number)
+        try:
+            self.protocol.wait_for_ack(self.sequence_number)
+        except InvalidMessage:
+            raise FileAlreadyExists()
 
         self.sequence_number.flip()
         self.logger.debug(f"Informing filesize: {self.file_stats.st_size} bytes")
         self.protocol.inform_filesize(self.sequence_number, self.file_stats.st_size)
 
         self.logger.debug("Waiting for filesize confirmation")
-        self.protocol.wait_for_ack(self.sequence_number)
+
+        try:
+            self.protocol.wait_for_ack(self.sequence_number)
+        except InvalidMessage:
+            raise FileTooBig()
 
     def send_file(self) -> None:
         chunk_number: int = 1

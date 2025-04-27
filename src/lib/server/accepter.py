@@ -8,6 +8,7 @@ from lib.common.constants import USE_ANY_AVAILABLE_PORT
 from lib.common.exceptions.bag_flags_for_handshake import BadFlagsForHandshake
 from lib.common.logger import Logger
 from lib.common.packet import Packet
+from lib.common.socket_saw import SocketSaw
 from lib.server.client_manager import ClientManager
 from lib.server.client_pool import ClientPool
 from lib.server.exceptions.cannot_bind_socket import CannotBindSocket
@@ -39,13 +40,15 @@ class Accepter:
             self.logger, protocol, self.clients
         )
 
-        self.welcoming_socket: Socket = Socket(AF_INET, SOCK_DGRAM)
+        welcoming_socket: Socket = Socket(AF_INET, SOCK_DGRAM)
 
         try:
-            self.welcoming_socket.bind(self.adress.to_tuple())
+            welcoming_socket.bind(self.adress.to_tuple())
         except OSError as e:
             self.logger.error(f"Cannot bind socket to port. {e}")
             raise CannotBindSocket()
+
+        self.welcoming_socket: SocketSaw = SocketSaw(welcoming_socket, self.logger)
 
         self.protocol: ServerProtocol = ServerProtocol(
             self.logger, self.welcoming_socket, self.adress, protocol, self.clients
@@ -93,7 +96,7 @@ class Accepter:
 
     def handshake(
         self, packet: Packet, client_address: Address
-    ) -> tuple[Socket, Address]:
+    ) -> tuple[SocketSaw, Address]:
         if self.clients.is_client_connected(client_address):
             raise ClientAlreadyConnected()
 
@@ -101,12 +104,14 @@ class Accepter:
             self.protocol.reject_connection(packet, client_address)
             raise ProtocolMismatch()
 
-        connection_socket: Socket = Socket(AF_INET, SOCK_DGRAM)
-        connection_socket.bind((self.host, USE_ANY_AVAILABLE_PORT))
-        connection_sockname: tuple[str, int] = connection_socket.getsockname()
+        connection_socket_raw: Socket = Socket(AF_INET, SOCK_DGRAM)
+        connection_socket_raw.bind((self.host, USE_ANY_AVAILABLE_PORT))
+        connection_sockname: tuple[str, int] = connection_socket_raw.getsockname()
         connection_address: Address = Address(
             connection_sockname[0], connection_sockname[1]
         )
+
+        connection_socket: SocketSaw = SocketSaw(connection_socket_raw, self.logger)
 
         self.logger.debug(
             f"Accepting connection for {client_address}. Transferred to {connection_address}"

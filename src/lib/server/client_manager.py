@@ -1,7 +1,6 @@
-from socket import socket
-
 from lib.common.address import Address
 from lib.common.logger import Logger
+from lib.common.socket_saw import SocketSaw
 from lib.server.client_connection import ClientConnection
 from lib.server.client_pool import ClientPool
 from lib.server.file_handler import FileHandler
@@ -15,7 +14,7 @@ class ClientManager:
 
     def add_client(
         self,
-        connection_socket: socket,
+        connection_socket: SocketSaw,
         connection_address: Address,
         client_address: Address,
         file_handler: FileHandler,

@@ -1,12 +1,15 @@
 from math import ceil
-from socket import socket, SHUT_RDWR
+from socket import SHUT_RDWR
 from threading import Thread
 
 from lib.common.address import Address
 from lib.common.constants import FILE_CHUNK_SIZE, UPLOAD_OPERATION, DOWNLOAD_OPERATION
+from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.logger import Logger
 from lib.common.sequence_number import SequenceNumber
+from lib.common.socket_saw import SocketSaw
 from lib.server.client_pool import ClientPool
+from lib.server.exceptions.bad_operation import BadOperation
 from lib.server.exceptions.invalid_filename import InvalidFilename
 from lib.server.file_handler import FileHandler
 
@@ -31,14 +34,14 @@ class ConnectionState(Enum):
 class ClientConnection:
     def __init__(
         self,
-        connection_socket: socket,
+        connection_socket: SocketSaw,
         connection_address: Address,
         client_address: Address,
         protocol: str,
         logger: Logger,
         file_handler: FileHandler,
     ):
-        self.socket: socket = connection_socket
+        self.socket: SocketSaw = connection_socket
         self.address: Address = connection_address
         self.client_address: Address = client_address
         self.logger: Logger = logger
@@ -263,6 +266,15 @@ class ClientConnection:
         except SocketShutdown:
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             pass
+        except (
+            MissingClientAddress,
+            BadFlagsForHandshake,
+            BadOperation,
+            InvalidSequenceNumber,
+        ) as e:
+            self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
+            self.logger.error(f"{e.message}")
+
         except Exception as e:
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             self.logger.error(f"[CONN] Fatal error: {e}")

@@ -35,7 +35,7 @@ class Client:
         raw_socket.settimeout(SOCKET_CONNECTION_LOST_TIMEOUT)
         self.my_address: Address = Address(sockname[0], sockname[1])
 
-        self.socket: SocketSaw = SocketSaw(raw_socket)
+        self.socket: SocketSaw = SocketSaw(raw_socket, self.logger)
 
         self.protocol = ClientProtocol(
             self.logger, self.socket, self.server_address, self.my_address, protocol

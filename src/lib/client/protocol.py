@@ -35,8 +35,12 @@ class ClientProtocol:
         self.my_address: Address = my_address
         self.protocol_version: str = protocol_version
 
-    def socket_receive_from(self, buffer_size: int):
-        raw_packet, server_address_tuple = self.socket.recvfrom(buffer_size)
+    def socket_receive_from(
+        self, buffer_size: int, should_retransmit: bool, should_re_listen: bool
+    ):
+        raw_packet, server_address_tuple = self.socket.recvfrom(
+            buffer_size, should_retransmit, should_re_listen
+        )
         return raw_packet, server_address_tuple
 
     def socket_send_to(self, packet_bin: bytes, server_address_tuple: Address):
@@ -65,7 +69,7 @@ class ClientProtocol:
     ) -> Address:
         try:
             raw_packet, server_address_tuple = self.socket_receive_from(
-                COMMS_BUFFER_SIZE
+                COMMS_BUFFER_SIZE, should_retransmit=True, should_re_listen=False
             )
         except OSError:
             raise ConnectionRefused()
@@ -130,7 +134,7 @@ class ClientProtocol:
         try:
             self.logger.debug("Waiting for operation confirmation")
             raw_packet, server_address_tuple = self.socket_receive_from(
-                COMMS_BUFFER_SIZE
+                COMMS_BUFFER_SIZE, should_retransmit=True, should_re_listen=False
             )
         except OSError:
             raise ConnectionRefused()
@@ -170,7 +174,7 @@ class ClientProtocol:
     def wait_for_ack(self, sequence_number: SequenceNumber) -> None:
         try:
             raw_packet, server_address_tuple = self.socket_receive_from(
-                COMMS_BUFFER_SIZE
+                COMMS_BUFFER_SIZE, should_retransmit=True, should_re_listen=False
             )
         except OSError:
             raise ConnectionRefused()
@@ -189,7 +193,7 @@ class ClientProtocol:
     def wait_for_fin_ack(self, sequence_number: SequenceNumber) -> None:
         try:
             raw_packet, server_address_tuple = self.socket_receive_from(
-                COMMS_BUFFER_SIZE
+                COMMS_BUFFER_SIZE, should_retransmit=True, should_re_listen=False
             )
         except OSError:
             raise ConnectionRefused()
@@ -284,7 +288,9 @@ class ClientProtocol:
     def receive_file_chunk(
         self, sequence_number: SequenceNumber
     ) -> tuple[SequenceNumber, Packet]:
-        raw_packet, server_address = self.socket_receive_from(FULL_BUFFER_SIZE)
+        raw_packet, server_address = self.socket_receive_from(
+            FULL_BUFFER_SIZE, should_retransmit=False, should_re_listen=True
+        )
 
         if len(raw_packet) == 0:
             raise SocketShutdown()
