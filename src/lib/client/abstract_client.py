@@ -112,7 +112,7 @@ class Client:
             if not quited.value:
                 sys.stdin = StringIO("q\n")
                 sys.stdin.flush()
-                self.logger.info("Press Enter to finish")
+                self.logger.force_info("Press Enter to finish")
 
             wait_for_quit_thread.join()
             self.logger.info("Client shutdown")

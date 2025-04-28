@@ -57,11 +57,21 @@ class Logger:
                 flush=True,
             )
 
+    def _force_log(self, msg_level, message):
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        print(
+            f"[{timestamp}] [{self.PRINTABLE_LEVELS[msg_level]}]{self.prefix} {message}",
+            flush=True,
+        )
+
     def debug(self, message):
         self._log(self.DEBUG_LOG_LEVEL, message)
 
     def info(self, message):
         self._log(self.INFO_LOG_LEVEL, message)
+
+    def force_info(self, message):
+        self._force_log(self.INFO_LOG_LEVEL, message)
 
     def error(self, message):
         self._log(self.ERROR_LEVEL, message)

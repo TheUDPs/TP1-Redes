@@ -147,7 +147,7 @@ class UploadClient(Client):
 
             chunk_number += 1
 
-        self.logger.info("File transfer complete")
+        self.logger.force_info("File transfer complete")
         self.file.close()
 
     def closing_handshake(self) -> None:
