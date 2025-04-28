@@ -12,7 +12,7 @@ from lib.common.logger import Logger
 from lib.common.wait_for_quit import wait_for_quit
 from lib.server.accepter import Accepter
 from lib.server.exceptions.cannot_bind_socket import CannotBindSocket
-from lib.server.file_handler import FileHandler
+from lib.common.file_handler import FileHandler
 
 
 class Server:

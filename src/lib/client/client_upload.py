@@ -1,4 +1,4 @@
-from os import stat, path
+from os import path, getcwd
 from math import ceil
 from sys import exit
 
@@ -7,14 +7,14 @@ from lib.client.exceptions.file_already_exists import FileAlreadyExists
 from lib.client.exceptions.file_too_big import FileTooBig
 from lib.common.constants import (
     UPLOAD_OPERATION,
-    FOPEN_READ_MODE,
-    FOPEN_BINARY_MODE,
     ERROR_EXIT_CODE,
     FILE_CHUNK_SIZE,
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
+from lib.common.exceptions.invalid_filename import InvalidFilename
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
+from lib.common.file_handler import FileHandler
 from lib.common.logger import Logger
 
 
@@ -23,20 +23,23 @@ class UploadClient(Client):
         self, logger: Logger, host: str, port: int, src: str, name: str, protocol: str
     ):
         self.src_filepath: str = src
-        self.final_filename: str = name
+        self.filename_in_server: str = name
 
         try:
-            self.file = open(self.src_filepath, FOPEN_READ_MODE + FOPEN_BINARY_MODE)
-            self.file_stats = stat(self.src_filepath)
-        except FileNotFoundError:
+            self.file_handler: FileHandler = FileHandler(getcwd(), logger)
+            self.file = self.file_handler.open_file_read_mode(
+                self.src_filepath, is_path_complete=True
+            )
+            self.filesize = self.file_handler.get_filesize(
+                self.src_filepath, is_path_complete=True
+            )
+            print(self.file, self.filesize)
+        except InvalidFilename:
             logger.error(f"Could not find or open file {src}")
-            exit(ERROR_EXIT_CODE)
-        except IOError as e:
-            logger.error(f"I/O error occurred: {e}")
             exit(ERROR_EXIT_CODE)
 
         if name is None or name == "":
-            self.final_filename = path.basename(self.src_filepath)
+            self.filename_in_server = path.basename(self.src_filepath)
 
         super().__init__(logger, host, port, protocol)
 
@@ -58,10 +61,6 @@ class UploadClient(Client):
         try:
             self.send_operation_intention()
             self.inform_size_and_name()
-
-            self.logger.info(
-                f"Sending file {self.final_filename} of {self.bytes_to_megabytes(self.file_stats.st_size)} MB"
-            )
             self.send_file()
             self.closing_handshake()
 
@@ -82,10 +81,10 @@ class UploadClient(Client):
         self.protocol.wait_for_operation_confirmation(self.sequence_number)
         self.logger.debug("Operation accepted")
 
-    def inform_size_and_name(self) -> None:
+    def inform_filename(self):
         self.sequence_number.flip()
-        self.logger.debug(f"Informing filename: {self.final_filename}")
-        self.protocol.inform_filename(self.sequence_number, self.final_filename)
+        self.logger.debug(f"Informing filename: {self.filename_in_server}")
+        self.protocol.inform_filename(self.sequence_number, self.filename_in_server)
 
         self.logger.debug("Waiting for filename confirmation")
         try:
@@ -97,9 +96,10 @@ class UploadClient(Client):
             self.logger.debug("Filename confirmation failed")
             raise FileAlreadyExists()
 
+    def inform_filesize(self):
         self.sequence_number.flip()
-        self.logger.debug(f"Informing filesize: {self.file_stats.st_size} bytes")
-        self.protocol.inform_filesize(self.sequence_number, self.file_stats.st_size)
+        self.logger.debug(f"Informing filesize: {self.filesize} bytes")
+        self.protocol.inform_filesize(self.sequence_number, self.filesize)
 
         self.logger.debug("Waiting for filesize confirmation")
 
@@ -112,12 +112,20 @@ class UploadClient(Client):
             self.logger.debug("Filesize confirmation failed")
             raise FileTooBig()
 
+    def inform_size_and_name(self) -> None:
+        self.inform_filename()
+        self.inform_filesize()
+
     def send_file(self) -> None:
         chunk_number: int = 1
-        total_chunks: int = self.get_number_of_chunks(self.file_stats.st_size)
+        total_chunks: int = self.get_number_of_chunks(self.filesize)
         is_last_chunk: bool = False
 
-        while chunk := self.file.read(FILE_CHUNK_SIZE):
+        self.logger.info(
+            f"Sending file {self.filename_in_server} of {self.bytes_to_megabytes(self.filesize)} MB"
+        )
+
+        while chunk := self.file_handler.read(self.file, FILE_CHUNK_SIZE):
             chunk_len = len(chunk)
             self.logger.debug(
                 f"Sending chunk {chunk_number}/{total_chunks} of size {self.bytes_to_kilobytes(chunk_len)} KB"

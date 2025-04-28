@@ -9,6 +9,7 @@ from lib.common.constants import (
     SOCKET_CONNECTION_LOST_TIMEOUT,
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
+from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.logger import Logger
 
 
@@ -33,7 +34,10 @@ class SocketSaw:
 
     def sendto(self, data: bytes, to_address: Address):
         self.save_state(data, to_address)
-        self.socket.sendto(data, to_address.to_tuple())
+        try:
+            self.socket.sendto(data, to_address.to_tuple())
+        except OSError:
+            raise SocketShutdown()
 
     def retransmit_last_packet(self, attempt_number: int):
         if self.last_raw_packet is None:

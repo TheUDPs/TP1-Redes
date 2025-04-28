@@ -3,8 +3,8 @@ import sys
 from lib.client.abstract_client import Client
 from lib.common.logger import Logger
 from lib.common.constants import DOWNLOAD_OPERATION, ERROR_EXIT_CODE
-from lib.server.exceptions.invalid_filename import InvalidFilename
-from lib.server.file_handler import FileHandler
+from lib.common.exceptions.invalid_filename import InvalidFilename
+from lib.common.file_handler import FileHandler
 
 
 class DownloadClient(Client):

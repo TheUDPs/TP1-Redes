@@ -11,14 +11,15 @@ from lib.common.exceptions.message_not_fin_ack import MessageIsNotFinAck
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.logger import Logger
+from lib.common.packet import Packet
 from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_saw import SocketSaw
 from lib.server.client_pool import ClientPool
 from lib.server.exceptions.unexpected_operation import UnexpectedOperation
 from lib.server.exceptions.client_already_connected import ClientAlreadyConnected
-from lib.server.exceptions.invalid_filename import InvalidFilename
+from lib.common.exceptions.invalid_filename import InvalidFilename
 from lib.server.exceptions.missing_client_address import MissingClientAddress
-from lib.server.file_handler import FileHandler
+from lib.common.file_handler import FileHandler
 
 from lib.server.protocol import ServerProtocol
 from enum import Enum
@@ -84,7 +85,9 @@ class ClientConnection:
 
     def is_filename_valid(self, filename: str) -> bool:
         try:
-            self.file = self.file_handler.open_file(filename)
+            self.file = self.file_handler.open_file_write_mode(
+                filename, is_path_complete=False
+            )
             return True
         except InvalidFilename:
             return False
@@ -127,20 +130,13 @@ class ClientConnection:
 
         return filename, filesize, sequence_number
 
-    def receive_file(self, sequence_number: SequenceNumber):
-        self.logger.debug("Operation is: UPLOAD")
-        self.logger.debug("Confirming operation")
-        self.protocol.send_ack(sequence_number, self.client_address, self.address)
-
-        filename, _filesize, sequence_number = self.receive_file_info(sequence_number)
-        self.logger.debug(f"Ready to receive from {self.client_address}")
-
-        chunk_number: int = 1
-
-        sequence_number.flip()
+    def receive_single_chunk(
+        self, sequence_number: SequenceNumber, chunk_number: int
+    ) -> tuple[SequenceNumber, Packet]:
         sequence_number_return, packet = self.protocol.receive_file_chunk(
             sequence_number
         )
+
         if packet.is_fin:
             self.protocol.send_fin_ack(
                 sequence_number_return, self.client_address, self.address
@@ -153,27 +149,32 @@ class ClientConnection:
         self.logger.debug(f"Received chunk {chunk_number}")
         self.file_handler.append_to_file(self.file, packet)
 
+        return sequence_number_return, packet
+
+    def receive_file(self, sequence_number: SequenceNumber):
+        self.logger.debug("Operation is: UPLOAD")
+        self.logger.debug("Confirming operation")
+        self.protocol.send_ack(sequence_number, self.client_address, self.address)
+
+        filename, _filesize, sequence_number = self.receive_file_info(sequence_number)
+        self.logger.debug(f"Ready to receive from {self.client_address}")
+
+        chunk_number: int = 1
+
+        sequence_number.flip()
+        sequence_number_return, packet = self.receive_single_chunk(
+            sequence_number, chunk_number
+        )
+
         while not packet.is_fin:
             chunk_number += 1
             sequence_number_return.flip()
-            sequence_number_return, packet = self.protocol.receive_file_chunk(
-                sequence_number_return
+            sequence_number_return, packet = self.receive_single_chunk(
+                sequence_number_return, chunk_number
             )
 
-            if packet.is_fin:
-                self.protocol.send_fin_ack(
-                    sequence_number_return, self.client_address, self.address
-                )
-            else:
-                self.protocol.send_ack(
-                    sequence_number_return, self.client_address, self.address
-                )
-
-            self.file_handler.append_to_file(self.file, packet)
-            self.logger.debug(f"Received chunk {chunk_number}")
-
         self.logger.debug("Finished receiving file")
-        self.file.close()
+        self.file_handler.close(self.file)
 
         return sequence_number_return
 
@@ -192,7 +193,7 @@ class ClientConnection:
             self.logger.debug(f"sequence_number {sequence_number.value}")
             chunk_number: int = 1
             is_last_chunk: bool = False
-            while chunk := self.file.read(FILE_CHUNK_SIZE):
+            while chunk := self.file_handler.read(self.file, FILE_CHUNK_SIZE):
                 chunk_len = len(chunk)
                 self.logger.debug(
                     f"Sending chunk {chunk_number} of size {self.bytes_to_kilobytes(chunk_len)} KB"
@@ -239,7 +240,9 @@ class ClientConnection:
             self.logger.debug("Waiting for filename")
             sequence_number.flip()
             sequence_number, filename = self.protocol.receive_filename(sequence_number)
-            self.file = self.file_handler.open_file_read(filename)
+            self.file = self.file_handler.open_file_read_mode(
+                filename, is_path_complete=False
+            )
             self.logger.debug(f"Filename received: {filename}, sending ACK")
             self.protocol.send_ack(sequence_number, self.client_address, self.address)
             return sequence_number

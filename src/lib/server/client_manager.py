@@ -3,7 +3,7 @@ from lib.common.logger import Logger
 from lib.common.socket_saw import SocketSaw
 from lib.server.client_connection import ClientConnection
 from lib.server.client_pool import ClientPool
-from lib.server.file_handler import FileHandler
+from lib.common.file_handler import FileHandler
 
 
 class ClientManager:
