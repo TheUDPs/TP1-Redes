@@ -51,7 +51,7 @@ def re_listen_if_failed(exceptions_to_let_through=None):
                 except want_to_catch as e:
                     exception_got = e
                     listening_attempts += 1
-                    self.logger.debug(
+                    self.logger.warn(
                         f"Re-listening attempt attempt number {listening_attempts}. Due to error: {e.message}"
                     )
                 except ConnectionLost as e:
@@ -59,7 +59,7 @@ def re_listen_if_failed(exceptions_to_let_through=None):
                     break
 
             if listening_attempts >= MAX_RETRANSMISSION_ATTEMPTS:
-                self.logger.debug("Max package reception retrials reached")
+                self.logger.warn("Max package reception retrials reached")
                 if exception_got is not None:
                     raise exception_got
 

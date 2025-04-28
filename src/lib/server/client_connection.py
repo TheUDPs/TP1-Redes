@@ -78,10 +78,6 @@ class ClientConnection:
 
             return op_code, sequence_number
 
-        except SocketShutdown:
-            self.logger.debug("Client connection socket shutdowned")
-            raise GracefulShutdown()
-
         except MissingClientAddress as e:
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             raise e
@@ -265,8 +261,14 @@ class ClientConnection:
             if op_code == UPLOAD_OPERATION:
                 sequence_number = self.receive_file(sequence_number)
                 self.closing_handshake(sequence_number)
+                self.logger.force_info(
+                    f"Upload completed from client {self.client_address}"
+                )
             elif op_code == DOWNLOAD_OPERATION:
                 self.transmit_file(sequence_number)
+                self.logger.force_info(
+                    f"Download completed to client {self.client_address.to_combined()}"
+                )
 
         except (SocketShutdown, ConnectionLost):
             self.logger.debug("State is unrecoverable")
@@ -308,7 +310,7 @@ class ClientConnection:
             self.run_thread.join()
             self.killed = True
 
-    def is_done_and_ready_to_die(self):
+    def is_ready_to_die(self):
         return (
             self.state == ConnectionState.DONE_READY_TO_DIE
             or self.state == ConnectionState.UNRECOVERABLE_BAD_STATE

@@ -36,7 +36,7 @@ class ClientManager:
         killed_clients = []
 
         for connection in self.clients.values():
-            if connection.is_done_and_ready_to_die():
+            if connection.is_ready_to_die():
                 connection.kill()
                 killed_clients.append(connection.address)
 
