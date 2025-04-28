@@ -1,4 +1,5 @@
-from os import path, stat
+from math import ceil
+from os import path, stat, remove
 from shutil import disk_usage
 
 from lib.common.constants import (
@@ -7,6 +8,7 @@ from lib.common.constants import (
     FOPEN_WRITE_TRUNCATE_MODE,
 )
 from lib.common.logger import Logger
+from lib.common.mutable_variable import MutableVariable
 from lib.common.packet import Packet
 from lib.server.exceptions.invalid_directory import InvalidDirectory
 from lib.common.exceptions.invalid_filename import InvalidFilename
@@ -77,3 +79,39 @@ class FileHandler:
 
     def append_to_file(self, file, packet: Packet) -> None:
         file.write(packet.data)
+
+    def bytes_to_megabytes(self, bytes: int) -> str:
+        megabytes = bytes / (1024 * 1024)
+        return "{0:.2f}".format(megabytes)
+
+    def bytes_to_kilobytes(self, bytes: int) -> str:
+        megabytes = bytes / (1024)
+        return "{0:.2f}".format(megabytes)
+
+    def get_number_of_chunks(self, file_size: int, chunk_size: int) -> int:
+        return ceil(file_size / chunk_size)
+
+    def remove_file_if_corrupted_or_incomplete(
+        self,
+        filename: MutableVariable,
+        filesize: MutableVariable,
+        is_path_complete: bool,
+    ):
+        try:
+            final_filepath = self.get_filepath(filename.value, is_path_complete)
+
+            if not path.isfile(final_filepath):
+                return
+
+            real_size = path.getsize(final_filepath)
+            if real_size != filesize.value:
+                self.logger.warn(f"File {final_filepath} is corrupted or incomplete.")
+                self.logger.warn(
+                    f"Expected {self.bytes_to_kilobytes(filesize.value)} kB, got {self.bytes_to_kilobytes(real_size)} kB. Removing file"
+                )
+                remove(final_filepath)
+            else:
+                self.logger.debug(f"File {final_filepath} is OK")
+
+        except Exception as e:
+            self.logger.warn(f"Error checking or removing file {filename.value}: {e}")

@@ -1,4 +1,3 @@
-from math import ceil
 from socket import SHUT_RDWR
 from threading import Thread
 
@@ -11,10 +10,12 @@ from lib.common.exceptions.message_not_fin_ack import MessageIsNotFinAck
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.logger import Logger
+from lib.common.mutable_variable import MutableVariable
 from lib.common.packet import Packet
 from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_saw import SocketSaw
 from lib.server.client_pool import ClientPool
+from lib.server.connection_state import ConnectionState
 from lib.server.exceptions.unexpected_operation import UnexpectedOperation
 from lib.server.exceptions.client_already_connected import ClientAlreadyConnected
 from lib.common.exceptions.invalid_filename import InvalidFilename
@@ -22,20 +23,6 @@ from lib.server.exceptions.missing_client_address import MissingClientAddress
 from lib.common.file_handler import FileHandler
 
 from lib.server.protocol import ServerProtocol
-from enum import Enum
-
-
-class ConnectionState(Enum):
-    HANDHSAKE = 1
-    HANDHSAKE_FINISHED = 2
-    READY_TO_TRANSMIT = 3
-    READY_TO_RECEIVE = 4
-    DONE_READY_TO_DIE = 5
-    UNRECOVERABLE_BAD_STATE = 99
-
-
-class GracefulShutdown(Exception):
-    pass
 
 
 class ClientConnection:
@@ -151,12 +138,20 @@ class ClientConnection:
 
         return sequence_number_return, packet
 
-    def receive_file(self, sequence_number: SequenceNumber):
+    def receive_file(
+        self,
+        sequence_number: SequenceNumber,
+        filename: MutableVariable,
+        filesize: MutableVariable,
+    ):
         self.logger.debug("Operation is: UPLOAD")
         self.logger.debug("Confirming operation")
         self.protocol.send_ack(sequence_number, self.client_address, self.address)
 
-        filename, _filesize, sequence_number = self.receive_file_info(sequence_number)
+        _filename, _filesize, sequence_number = self.receive_file_info(sequence_number)
+        filename.value = _filename
+        filesize.value = _filesize
+
         self.logger.debug(f"Ready to receive from {self.client_address}")
 
         chunk_number: int = 1
@@ -196,7 +191,7 @@ class ClientConnection:
             while chunk := self.file_handler.read(self.file, FILE_CHUNK_SIZE):
                 chunk_len = len(chunk)
                 self.logger.debug(
-                    f"Sending chunk {chunk_number} of size {self.bytes_to_kilobytes(chunk_len)} KB"
+                    f"Sending chunk {chunk_number} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB"
                 )
 
                 self.logger.debug(f"sequence_number {sequence_number.value}")
@@ -258,11 +253,13 @@ class ClientConnection:
         self.state = ConnectionState.DONE_READY_TO_DIE
 
     def run(self):
+        filename = MutableVariable(None)
+        filesize = MutableVariable(None)
         try:
             op_code, sequence_number = self.receive_operation_intention()
 
             if op_code == UPLOAD_OPERATION:
-                sequence_number = self.receive_file(sequence_number)
+                sequence_number = self.receive_file(sequence_number, filename, filesize)
                 self.closing_handshake(sequence_number)
                 self.logger.force_info(
                     f"Upload completed from client {self.client_address}"
@@ -277,6 +274,9 @@ class ClientConnection:
             self.logger.debug("State is unrecoverable")
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             self.logger.debug("Connection shutdown")
+            self.file_handler.remove_file_if_corrupted_or_incomplete(
+                filename, filesize, is_path_complete=False
+            )
             self.kill()
         except (
             MissingClientAddress,
@@ -293,6 +293,9 @@ class ClientConnection:
         except Exception as e:
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             self.logger.error(f"Fatal error: {e}")
+            self.file_handler.remove_file_if_corrupted_or_incomplete(
+                filename, filesize, is_path_complete=False
+            )
             self.kill()
 
     def start(self):
@@ -318,14 +321,3 @@ class ClientConnection:
             self.state == ConnectionState.DONE_READY_TO_DIE
             or self.state == ConnectionState.UNRECOVERABLE_BAD_STATE
         )
-
-    def bytes_to_megabytes(self, bytes: int) -> str:
-        megabytes = bytes / (1024 * 1024)
-        return "{0:.2f}".format(megabytes)
-
-    def bytes_to_kilobytes(self, bytes: int) -> str:
-        megabytes = bytes / (1024)
-        return "{0:.2f}".format(megabytes)
-
-    def get_number_of_chunks(self, file_size: int) -> int:
-        return ceil(file_size / FILE_CHUNK_SIZE)

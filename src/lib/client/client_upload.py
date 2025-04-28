@@ -1,5 +1,4 @@
 from os import path, getcwd
-from math import ceil
 from sys import exit
 
 from lib.client.abstract_client import Client
@@ -45,17 +44,6 @@ class UploadClient(Client):
 
     def perform_operation(self) -> None:
         self.perform_upload()
-
-    def bytes_to_megabytes(self, bytes: int) -> str:
-        megabytes = bytes / (1024 * 1024)
-        return "{0:.2f}".format(megabytes)
-
-    def bytes_to_kilobytes(self, bytes: int) -> str:
-        megabytes = bytes / (1024)
-        return "{0:.2f}".format(megabytes)
-
-    def get_number_of_chunks(self, file_size: int) -> int:
-        return ceil(file_size / FILE_CHUNK_SIZE)
 
     def perform_upload(self) -> None:
         try:
@@ -118,17 +106,19 @@ class UploadClient(Client):
 
     def send_file(self) -> None:
         chunk_number: int = 1
-        total_chunks: int = self.get_number_of_chunks(self.filesize)
+        total_chunks: int = self.file_handler.get_number_of_chunks(
+            self.filesize, FILE_CHUNK_SIZE
+        )
         is_last_chunk: bool = False
 
         self.logger.info(
-            f"Sending file {self.filename_in_server} of {self.bytes_to_megabytes(self.filesize)} MB"
+            f"Sending file {self.filename_in_server} of {self.file_handler.bytes_to_megabytes(self.filesize)} MB"
         )
 
         while chunk := self.file_handler.read(self.file, FILE_CHUNK_SIZE):
             chunk_len = len(chunk)
             self.logger.debug(
-                f"Sending chunk {chunk_number}/{total_chunks} of size {self.bytes_to_kilobytes(chunk_len)} KB"
+                f"Sending chunk {chunk_number}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB"
             )
 
             if chunk_number == total_chunks:
