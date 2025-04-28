@@ -14,7 +14,7 @@ from lib.common.logger import Logger
 from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_saw import SocketSaw
 from lib.server.client_pool import ClientPool
-from lib.server.exceptions.bad_operation import UnexpectedOperation
+from lib.server.exceptions.unexpected_operation import UnexpectedOperation
 from lib.server.exceptions.client_already_connected import ClientAlreadyConnected
 from lib.server.exceptions.invalid_filename import InvalidFilename
 from lib.server.exceptions.missing_client_address import MissingClientAddress

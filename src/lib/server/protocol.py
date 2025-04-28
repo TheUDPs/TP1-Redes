@@ -22,7 +22,7 @@ from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.message_not_fin_ack import MessageIsNotFinAck
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.exceptions.socket_shutdown import SocketShutdown
-from lib.server.exceptions.bad_operation import UnexpectedOperation
+from lib.server.exceptions.unexpected_operation import UnexpectedOperation
 from lib.server.exceptions.client_already_connected import ClientAlreadyConnected
 from lib.server.exceptions.missing_client_address import MissingClientAddress
 
@@ -263,17 +263,10 @@ class ServerProtocol:
             FULL_BUFFER_SIZE, should_retransmit=True
         )
 
-        if len(raw_packet) == 0:
-            raise SocketShutdown()
-
-        if not client_address_tuple:
-            raise MissingClientAddress()
-
-        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
-
-        if sequence_number.value != packet.sequence_number:
-            raise InvalidSequenceNumber()
-
+        packet, client_address = self.validate_inbound_packet(
+            raw_packet, client_address_tuple
+        )
+        self.validate_sequence_number(packet, sequence_number)
         return SequenceNumber(packet.sequence_number), packet
 
     @re_listen_if_failed()

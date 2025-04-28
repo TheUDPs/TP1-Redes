@@ -1,6 +1,5 @@
 from lib.client.exceptions.connection_refused import ConnectionRefused
 from lib.client.exceptions.missing_server_address import MissingServerAddress
-from lib.client.exceptions.unexpected_message import UnexpectedMessage
 from lib.common.address import Address
 from lib.common.constants import (
     FULL_BUFFER_SIZE,
@@ -309,19 +308,13 @@ class ClientProtocol:
     def receive_file_chunk(
         self, sequence_number: SequenceNumber
     ) -> tuple[SequenceNumber, Packet]:
-        raw_packet, server_address = self.socket_receive_from(
+        raw_packet, server_address_tuple = self.socket_receive_from(
             FULL_BUFFER_SIZE, should_retransmit=True
         )
 
-        if len(raw_packet) == 0:
-            raise SocketShutdown()
+        packet, server_address = self.validate_inbound_packet(
+            raw_packet, server_address_tuple
+        )
 
-        if not server_address:
-            raise UnexpectedMessage()
-
-        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
-
-        if sequence_number.value != packet.sequence_number:
-            raise InvalidSequenceNumber()
-
+        self.validate_sequence_number(packet, sequence_number)
         return SequenceNumber(packet.sequence_number), packet
