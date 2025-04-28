@@ -12,6 +12,30 @@ from lib.common.exceptions.message_not_syn import MessageIsNotSyn
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 
 
+def configure_wanted_exceptions_to_catch(exceptions_to_let_through):
+    want_to_catch_all = [
+        InvalidSequenceNumber,
+        MessageIsNotAck,
+        MessageIsNotFin,
+        MessageIsNotFinAck,
+        MessageIsNotSyn,
+        UnexpectedFinMessage,
+        ConnectionLost,
+    ]
+    exceptions_subset = []
+
+    if exceptions_to_let_through is not None:
+        for element in want_to_catch_all:
+            if element in exceptions_to_let_through:
+                pass
+            else:
+                exceptions_subset.append(element)
+    else:
+        exceptions_subset = want_to_catch_all
+
+    return tuple(exceptions_subset)
+
+
 def re_listen_if_failed(exceptions_to_let_through=None):
     def decorator(wrapped_function):
         @functools.wraps(wrapped_function)
@@ -19,30 +43,13 @@ def re_listen_if_failed(exceptions_to_let_through=None):
             _exceptions_to_let_through = kwargs.pop(
                 "exceptions_to_let_through", exceptions_to_let_through
             )
+            want_to_catch = configure_wanted_exceptions_to_catch(
+                _exceptions_to_let_through
+            )
+
             listening_attempts = 0
             result = None
             exception_got = None
-
-            can_raise = [
-                InvalidSequenceNumber,
-                MessageIsNotAck,
-                MessageIsNotFin,
-                MessageIsNotFinAck,
-                MessageIsNotSyn,
-                UnexpectedFinMessage,
-            ]
-            want_to_catch = []
-
-            if _exceptions_to_let_through is not None:
-                for element in can_raise:
-                    if element in _exceptions_to_let_through:
-                        pass
-                    else:
-                        want_to_catch.append(element)
-            else:
-                want_to_catch = can_raise
-
-            want_to_catch = tuple(want_to_catch)
 
             while listening_attempts < MAX_RETRANSMISSION_ATTEMPTS:
                 try:
@@ -54,9 +61,6 @@ def re_listen_if_failed(exceptions_to_let_through=None):
                     self.logger.warn(
                         f"Re-listening attempt attempt number {listening_attempts}. Due to error: {e.message}"
                     )
-                except ConnectionLost as e:
-                    exception_got = e
-                    break
 
             if listening_attempts >= MAX_RETRANSMISSION_ATTEMPTS:
                 self.logger.warn("Max package reception retrials reached")

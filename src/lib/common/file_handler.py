@@ -13,7 +13,7 @@ from lib.common.packet import Packet
 from lib.server.exceptions.invalid_directory import InvalidDirectory
 from lib.common.exceptions.invalid_filename import InvalidFilename
 
-MINIMUM_FREE_GAP = 100_000_000
+MINIMUM_FREE_GAP = 104_857_600  # 100 MB
 
 
 class FileHandler:
@@ -97,6 +97,9 @@ class FileHandler:
         filesize: MutableVariable,
         is_path_complete: bool,
     ):
+        if filename.value is None or filesize.value is None:
+            return
+
         try:
             final_filepath = self.get_filepath(filename.value, is_path_complete)
 

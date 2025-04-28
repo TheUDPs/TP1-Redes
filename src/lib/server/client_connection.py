@@ -51,10 +51,11 @@ class ClientConnection:
         self.file = None
         self.killed = False
 
-    def receive_operation_intention(self) -> tuple[int, SequenceNumber]:
+    def receive_operation_intention(self, sequence_number: MutableVariable) -> int:
         self.logger.debug("Waiting for operation intention")
         try:
-            op_code, sequence_number = self.protocol.receive_operation_intention()
+            op_code, _seq = self.protocol.receive_operation_intention()
+            sequence_number.value = _seq
 
             if op_code == UPLOAD_OPERATION:
                 self.state = ConnectionState.READY_TO_RECEIVE
@@ -64,7 +65,7 @@ class ClientConnection:
                 self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
                 self.logger.debug("Bad state. Unexpected operation")
 
-            return op_code, sequence_number
+            return op_code
 
         except MissingClientAddress as e:
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
@@ -82,17 +83,21 @@ class ClientConnection:
     def is_filesize_valid(self, filesize: int) -> bool:
         return self.file_handler.can_file_fit(filesize)
 
-    def receive_file_info(
-        self, sequence_number: SequenceNumber
-    ) -> tuple[str, int, SequenceNumber]:
+    def receive_file_info(self, sequence_number: MutableVariable) -> tuple[str, int]:
         self.logger.debug("Validating filename")
-        sequence_number.flip()
-        sequence_number, filename = self.protocol.receive_filename(sequence_number)
+        sequence_number.value.flip()
+        _seq, filename = self.protocol.receive_filename(sequence_number.value)
+        sequence_number.value = _seq
+
         if self.is_filename_valid(filename):
-            self.protocol.send_ack(sequence_number, self.client_address, self.address)
+            self.protocol.send_ack(
+                sequence_number.value, self.client_address, self.address
+            )
             self.logger.debug(f"Filename received valid: {filename}")
         else:
-            self.protocol.send_fin(sequence_number, self.client_address, self.address)
+            self.protocol.send_fin(
+                sequence_number.value, self.client_address, self.address
+            )
             self.logger.warn("Filename received invalid")
             self.logger.error(
                 f"Client {self.client_address.to_combined()} shutdowned due to file already existing '{filename}'"
@@ -101,13 +106,19 @@ class ClientConnection:
             raise SocketShutdown()
 
         self.logger.debug("Validating filesize")
-        sequence_number.flip()
-        sequence_number, filesize = self.protocol.receive_filesize(sequence_number)
+        sequence_number.value.flip()
+        _seq, filesize = self.protocol.receive_filesize(sequence_number.value)
+        sequence_number.value = _seq
+
         if self.is_filesize_valid(filesize):
-            self.protocol.send_ack(sequence_number, self.client_address, self.address)
+            self.protocol.send_ack(
+                sequence_number.value, self.client_address, self.address
+            )
             self.logger.debug(f"Filesize received valid: {filesize} bytes")
         else:
-            self.protocol.send_fin(sequence_number, self.client_address, self.address)
+            self.protocol.send_fin(
+                sequence_number.value, self.client_address, self.address
+            )
             self.logger.warn("Filesize received invalid")
             self.logger.error(
                 f"Client {self.client_address.to_combined()} shutdowned due to file being too big"
@@ -115,40 +126,39 @@ class ClientConnection:
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             raise SocketShutdown()
 
-        return filename, filesize, sequence_number
+        return filename, filesize
 
     def receive_single_chunk(
-        self, sequence_number: SequenceNumber, chunk_number: int
-    ) -> tuple[SequenceNumber, Packet]:
-        sequence_number_return, packet = self.protocol.receive_file_chunk(
-            sequence_number
-        )
+        self, sequence_number: MutableVariable, chunk_number: int
+    ) -> Packet:
+        _seq, packet = self.protocol.receive_file_chunk(sequence_number.value)
+        sequence_number.value = _seq
 
         if packet.is_fin:
             self.protocol.send_fin_ack(
-                sequence_number_return, self.client_address, self.address
+                sequence_number.value, self.client_address, self.address
             )
         else:
             self.protocol.send_ack(
-                sequence_number_return, self.client_address, self.address
+                sequence_number.value, self.client_address, self.address
             )
 
         self.logger.debug(f"Received chunk {chunk_number}")
         self.file_handler.append_to_file(self.file, packet)
 
-        return sequence_number_return, packet
+        return packet
 
     def receive_file(
         self,
-        sequence_number: SequenceNumber,
+        sequence_number: MutableVariable,
         filename: MutableVariable,
         filesize: MutableVariable,
     ):
         self.logger.debug("Operation is: UPLOAD")
         self.logger.debug("Confirming operation")
-        self.protocol.send_ack(sequence_number, self.client_address, self.address)
+        self.protocol.send_ack(sequence_number.value, self.client_address, self.address)
 
-        _filename, _filesize, sequence_number = self.receive_file_info(sequence_number)
+        _filename, _filesize = self.receive_file_info(sequence_number)
         filename.value = _filename
         filesize.value = _filesize
 
@@ -156,22 +166,16 @@ class ClientConnection:
 
         chunk_number: int = 1
 
-        sequence_number.flip()
-        sequence_number_return, packet = self.receive_single_chunk(
-            sequence_number, chunk_number
-        )
+        sequence_number.value.flip()
+        packet = self.receive_single_chunk(sequence_number, chunk_number)
 
         while not packet.is_fin:
             chunk_number += 1
-            sequence_number_return.flip()
-            sequence_number_return, packet = self.receive_single_chunk(
-                sequence_number_return, chunk_number
-            )
+            sequence_number.value.flip()
+            packet = self.receive_single_chunk(sequence_number, chunk_number)
 
         self.logger.debug("Finished receiving file")
         self.file_handler.close(self.file)
-
-        return sequence_number_return
 
     def transmit_file(self, sequence_number: SequenceNumber):
         self.logger.debug("Operation is: DOWNLOAD")
@@ -246,20 +250,22 @@ class ClientConnection:
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             self.protocol.send_fin(sequence_number, self.client_address, self.address)
 
-    def closing_handshake(self, sequence_number: SequenceNumber):
-        sequence_number.flip()
-        self.protocol.wait_for_ack(sequence_number)
+    def closing_handshake(self, sequence_number: MutableVariable):
+        sequence_number.value.flip()
+        self.protocol.wait_for_ack(sequence_number.value)
         self.logger.debug("Connection closed")
         self.state = ConnectionState.DONE_READY_TO_DIE
 
     def run(self):
         filename = MutableVariable(None)
         filesize = MutableVariable(None)
+        sequence_number = MutableVariable(None)
+
         try:
-            op_code, sequence_number = self.receive_operation_intention()
+            op_code = self.receive_operation_intention(sequence_number)
 
             if op_code == UPLOAD_OPERATION:
-                sequence_number = self.receive_file(sequence_number, filename, filesize)
+                self.receive_file(sequence_number, filename, filesize)
                 self.closing_handshake(sequence_number)
                 self.logger.force_info(
                     f"Upload completed from client {self.client_address}"
