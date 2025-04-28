@@ -3,6 +3,7 @@ import sys
 from lib.client.abstract_client import Client
 from lib.common.logger import Logger
 from lib.common.constants import DOWNLOAD_OPERATION, ERROR_EXIT_CODE
+from lib.server.exceptions.invalid_filename import InvalidFilename
 from lib.server.file_handler import FileHandler
 
 
@@ -10,16 +11,17 @@ class DownloadClient(Client):
     def __init__(
         self, logger: Logger, host: str, port: int, dst: str, name: str, protocol: str
     ):
-        self.file = None
         try:
             self.file_handler: FileHandler = FileHandler(getcwd(), logger)
             self.file = self.file_handler.open_file_absolute(dst)
-        except Exception as e:
-            logger.error(f"Error opening storage directory: {e.message}")
+        except InvalidFilename:
             sys.exit(ERROR_EXIT_CODE)
+
         super().__init__(logger, host, port, protocol)
         self.file_destination: str = dst
         self.file_name: str = name
+
+        self.logger.debug(f"Location to save downloaded file: {self.file_destination}")
 
     def perform_operation(self) -> None:
         self.perform_download()
@@ -27,7 +29,7 @@ class DownloadClient(Client):
     def perform_download(self) -> None:
         try:
             self.send_operation_intention()
-            self.send_file_name()
+            self.send_file_name_to_download()
             self.receive_file()
             self.closing_handshake()
         except Exception as e:
@@ -36,22 +38,29 @@ class DownloadClient(Client):
 
     def send_operation_intention(self) -> None:
         try:
+            self.logger.debug("Sending operation intention")
+
+            self.sequence_number.flip()
             self.protocol.send_operation_intention(
                 self.sequence_number, DOWNLOAD_OPERATION
             )
+
+            self.logger.debug("Waiting for operation confirmation")
             self.protocol.wait_for_operation_confirmation(self.sequence_number)
             self.logger.debug("Operation accepted")
         except Exception:
             # To do: Agregar manejo de excepciones
             pass
 
-    def send_file_name(self):
+    def send_file_name_to_download(self):
         try:
-            self.logger.debug("Sending file name")
+            self.logger.debug(f"Sending file name to download: {self.file_name}")
             self.protocol.inform_filename(self.sequence_number, self.file_name)
-            self.logger.debug("Awaiting for file name confirmation")
+
+            self.logger.debug("Waiting for file name confirmation")
             self.protocol.wait_for_ack(self.sequence_number)
-            self.logger.debug("File name confirmed")
+
+            self.logger.debug("Filename to download confirmed")
         except Exception as e:
             # To do: Agregar manejo de excepciones
             self.logger.error(f"Error sending file name, {e}")

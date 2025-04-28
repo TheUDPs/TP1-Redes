@@ -50,12 +50,13 @@ class FileHandler:
 
     def open_file_absolute(self, abs_route: str):
         try:
-            self.logger.debug(f"Absolute path: {abs_route}")
             if path.isfile(abs_route):
-                self.logger.error("Invalid filename, already exists")
+                self.logger.error("Invalid destination filename, already exists")
                 raise InvalidFilename()
+
             file = open(abs_route, FOPEN_WRITE_TRUNCATE_MODE + FOPEN_BINARY_MODE)
             return file
+
         except IOError as e:
             self.logger.error(f"I/O error occurred: {e}")
             raise InvalidFilename()

@@ -14,7 +14,6 @@ from lib.common.constants import (
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
-from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.logger import Logger
 
@@ -57,21 +56,7 @@ class UploadClient(Client):
 
     def perform_upload(self) -> None:
         try:
-            self.logger.debug("Sending operation intention")
-
-            self.sequence_number.flip()
-            self.protocol.send_operation_intention(
-                self.sequence_number, UPLOAD_OPERATION
-            )
-
-            self.logger.debug("Waiting for operation confirmation")
-            packet = self.protocol.wait_for_operation_confirmation(self.sequence_number)
-            if packet.is_fin:
-                self.logger.error("File already exists in server")
-                raise SocketShutdown()
-
-            self.logger.debug("Operation accepted")
-
+            self.send_operation_intention()
             self.inform_size_and_name()
 
             self.logger.info(
@@ -86,6 +71,16 @@ class UploadClient(Client):
         except Exception as e:
             err = e.message if e.message else e
             self.logger.error(f"Error message: {err}")
+
+    def send_operation_intention(self) -> None:
+        self.logger.debug("Sending operation intention")
+
+        self.sequence_number.flip()
+        self.protocol.send_operation_intention(self.sequence_number, UPLOAD_OPERATION)
+
+        self.logger.debug("Waiting for operation confirmation")
+        self.protocol.wait_for_operation_confirmation(self.sequence_number)
+        self.logger.debug("Operation accepted")
 
     def inform_size_and_name(self) -> None:
         self.sequence_number.flip()

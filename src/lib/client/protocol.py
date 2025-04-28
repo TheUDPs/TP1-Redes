@@ -178,7 +178,6 @@ class ClientProtocol:
         )
         self.validate_not_fin(packet)
         self.validate_sequence_number(packet, sequence_number)
-        return packet
 
     def send_file_chunk(
         self,
