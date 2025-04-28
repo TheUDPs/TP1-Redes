@@ -67,6 +67,9 @@ class FileHandler:
         stats = stat(final_filepath)
         return stats.st_size
 
+    def is_closed(self, file) -> bool:
+        return file.closed
+
     def close(self, file):
         file.close()
 
@@ -97,9 +100,6 @@ class FileHandler:
         filesize: MutableVariable,
         is_path_complete: bool,
     ):
-        if filename.value is None or filesize.value is None:
-            return
-
         try:
             final_filepath = self.get_filepath(filename.value, is_path_complete)
 
@@ -107,7 +107,13 @@ class FileHandler:
                 return
 
             real_size = path.getsize(final_filepath)
-            if real_size != filesize.value:
+
+            if filesize.value is None:
+                self.logger.warn(
+                    f"File {final_filepath} is corrupted or incomplete. Removing file"
+                )
+                remove(final_filepath)
+            elif real_size != filesize.value:
                 self.logger.warn(f"File {final_filepath} is corrupted or incomplete.")
                 self.logger.warn(
                     f"Expected {self.bytes_to_kilobytes(filesize.value)} kB, got {self.bytes_to_kilobytes(real_size)} kB. Removing file"

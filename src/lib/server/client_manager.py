@@ -1,5 +1,6 @@
 from lib.common.address import Address
 from lib.common.logger import Logger
+from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_saw import SocketSaw
 from lib.server.client_connection import ClientConnection
 from lib.server.client_pool import ClientPool
@@ -18,6 +19,7 @@ class ClientManager:
         connection_address: Address,
         client_address: Address,
         file_handler: FileHandler,
+        sequence_number: SequenceNumber,
     ) -> None:
         self.rip_finished_clients()
 
@@ -28,6 +30,7 @@ class ClientManager:
             self.protocol,
             self.logger.clone(),
             file_handler,
+            sequence_number,
         )
         self.clients.add(key=connection_address.to_combined(), value=new_connection)
         new_connection.start()

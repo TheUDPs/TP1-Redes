@@ -10,6 +10,7 @@ from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.message_not_syn import MessageIsNotSyn
 from lib.common.logger import Logger
 from lib.common.packet import Packet
+from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_saw import SocketSaw
 from lib.server.client_manager import ClientManager
 from lib.server.client_pool import ClientPool
@@ -74,11 +75,15 @@ class Accepter:
             self.logger.debug(f"Waiting for connection on {self.adress}")
             packet, client_address = self.protocol.accept_connection()
 
-            connection_socket, connection_address = self.handshake(
+            connection_socket, connection_address, sequence_number = self.handshake(
                 packet, client_address
             )
             self.client_manager.add_client(
-                connection_socket, connection_address, client_address, self.file_handler
+                connection_socket,
+                connection_address,
+                client_address,
+                self.file_handler,
+                sequence_number,
             )
 
         except MissingClientAddress:
@@ -103,7 +108,7 @@ class Accepter:
 
     def handshake(
         self, packet: Packet, client_address: Address
-    ) -> tuple[SocketSaw, Address]:
+    ) -> tuple[SocketSaw, Address, SequenceNumber]:
         if self.clients.is_client_connected(client_address):
             raise ClientAlreadyConnected()
 
@@ -127,10 +132,14 @@ class Accepter:
             packet, client_address, connection_address
         )
 
-        self.protocol.expect_handshake_completion()
+        packet, _ = self.protocol.expect_handshake_completion()
         self.logger.debug("Handhsake completed")
 
-        return connection_socket, connection_address
+        return (
+            connection_socket,
+            connection_address,
+            SequenceNumber(packet.sequence_number),
+        )
 
     def stop(self) -> None:
         self.is_alive = False

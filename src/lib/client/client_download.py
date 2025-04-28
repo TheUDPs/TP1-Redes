@@ -1,118 +1,118 @@
 from os import getcwd
-import sys
+from sys import exit
+
 from lib.client.abstract_client import Client
+from lib.client.exceptions.file_does_not_exist import FileDoesNotExist
+from lib.common.exceptions.connection_lost import ConnectionLost
+from lib.common.exceptions.message_not_ack import MessageIsNotAck
+from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.logger import Logger
 from lib.common.constants import DOWNLOAD_OPERATION, ERROR_EXIT_CODE
 from lib.common.exceptions.invalid_filename import InvalidFilename
 from lib.common.file_handler import FileHandler
+from lib.common.mutable_variable import MutableVariable
+from lib.common.packet import Packet
 
 
 class DownloadClient(Client):
     def __init__(
         self, logger: Logger, host: str, port: int, dst: str, name: str, protocol: str
     ):
+        self.file_destination: str = dst
+        self.filename_for_download: str = name
+
         try:
             self.file_handler: FileHandler = FileHandler(getcwd(), logger)
-            self.file = self.file_handler.open_file_absolute(dst)
+            self.file = self.file_handler.open_file_write_mode(
+                dst, is_path_complete=True
+            )
         except InvalidFilename:
-            sys.exit(ERROR_EXIT_CODE)
+            logger.error(f"File {self.file_destination} already exists")
+            exit(ERROR_EXIT_CODE)
 
         super().__init__(logger, host, port, protocol)
-        self.file_destination: str = dst
-        self.file_name: str = name
-
         self.logger.debug(f"Location to save downloaded file: {self.file_destination}")
+        self.download_completed = False
 
     def perform_operation(self) -> None:
         self.perform_download()
 
     def perform_download(self) -> None:
         try:
-            self.send_operation_intention()
-            self.send_file_name_to_download()
+            self.send_operation_intention(DOWNLOAD_OPERATION)
+            self.inform_name_to_download()
             self.receive_file()
             self.closing_handshake()
+
+        except (FileDoesNotExist, ConnectionLost) as e:
+            self.logger.error(f"{e.message}")
+            self.file_cleanup_after_error()
+
         except Exception as e:
             err = e.message if e.message else e
             self.logger.error(f"Error message: {err}")
+            self.file_cleanup_after_error()
 
-    def send_operation_intention(self) -> None:
+    def inform_name_to_download(self):
+        self.sequence_number.flip()
+        self.logger.debug(
+            f"Informing filename to download: {self.filename_for_download}"
+        )
+        self.protocol.inform_filename(self.sequence_number, self.filename_for_download)
+
+        self.logger.debug("Waiting for filename confirmation")
         try:
-            self.logger.debug("Sending operation intention")
-
-            self.sequence_number.flip()
-            self.protocol.send_operation_intention(
-                self.sequence_number, DOWNLOAD_OPERATION
+            self.protocol.wait_for_ack(
+                self.sequence_number,
+                exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
             )
+        except (UnexpectedFinMessage, MessageIsNotAck):
+            self.logger.debug("Filename confirmation failed")
+            raise FileDoesNotExist()
 
-            self.logger.debug("Waiting for operation confirmation")
-            self.protocol.wait_for_operation_confirmation(self.sequence_number)
-            self.logger.debug("Operation accepted")
-        except Exception:
-            # To do: Agregar manejo de excepciones
-            pass
+    def receive_single_chunk(self, chunk_number: int) -> Packet:
+        self.sequence_number.flip()
+        self.sequence_number, packet = self.protocol.receive_file_chunk(
+            self.sequence_number
+        )
 
-    def send_file_name_to_download(self):
-        try:
-            self.logger.debug(f"Sending file name to download: {self.file_name}")
-            self.protocol.inform_filename(self.sequence_number, self.file_name)
+        if packet.is_fin:
+            self.protocol.send_fin_ack(self.sequence_number)
+        else:
+            self.protocol.send_ack(self.sequence_number)
 
-            self.logger.debug("Waiting for file name confirmation")
-            self.protocol.wait_for_ack(self.sequence_number)
+        self.logger.debug(f"Received chunk {chunk_number}")
+        self.file_handler.append_to_file(self.file, packet)
 
-            self.logger.debug("Filename to download confirmed")
-        except Exception as e:
-            # To do: Agregar manejo de excepciones
-            self.logger.error(f"Error sending file name, {e}")
+        return packet
 
     def receive_file(self) -> None:
-        self.logger.debug("Receiving file info")
-        try:
-            chunk_number: int = 1
+        chunk_number: int = 1
+        packet = self.receive_single_chunk(chunk_number)
 
-            self.sequence_number.flip()
-            self.sequence_number, packet = self.protocol.receive_file_chunk(
-                self.sequence_number
-            )
+        while not packet.is_fin:
+            chunk_number += 1
+            packet = self.receive_single_chunk(chunk_number)
 
-            if packet.is_fin:
-                self.protocol.send_fin_ack(self.sequence_number)
-            else:
-                self.protocol.send_ack(self.sequence_number)
-
-            self.file_handler.append_to_file(self.file, packet)
-
-            self.logger.debug(f"Received chunk {chunk_number} info: {len(packet.data)}")
-
-            while not packet.is_fin:
-                chunk_number += 1
-                self.sequence_number.flip()
-                self.sequence_number, packet = self.protocol.receive_file_chunk(
-                    self.sequence_number
-                )
-
-                if packet.is_fin:
-                    self.protocol.send_fin_ack(self.sequence_number)
-                else:
-                    self.protocol.send_ack(self.sequence_number)
-
-                self.logger.debug(f"Received chunk {chunk_number}")
-                self.file_handler.append_to_file(self.file, packet)
-
-            self.logger.debug("Finished receiving file")
-            self.file.close()
-
-        except Exception as e:
-            # To do: Agregar manejo de excepciones
-            self.logger.error(f"Error receiving file, {e}")
-            pass
+        self.logger.force_info("Download completed")
+        self.download_completed = True
+        self.file_handler.close(self.file)
 
     def closing_handshake(self) -> None:
-        self.logger.debug("Starting closing handshake")
-        try:
-            self.sequence_number.flip()
-            self.protocol.wait_for_ack(self.sequence_number)
-            self.logger.debug("Connection closed, file transfer complete")
-        except Exception:
-            # To do: Agregar manejo de excepciones
-            pass
+        self.sequence_number.flip()
+        self.protocol.wait_for_ack(self.sequence_number)
+        self.logger.debug("Connection closed")
+
+    def file_cleanup_after_error(self):
+        if not self.file_handler.is_closed(self.file):
+            self.file_handler.close(self.file)
+
+        if self.download_completed:
+            self.logger.debug(f"File {self.file_destination} is OK")
+            return
+
+        self.file_handler.remove_file_if_corrupted_or_incomplete(
+            MutableVariable(self.file_destination),
+            MutableVariable(None),
+            is_path_complete=True,
+        )

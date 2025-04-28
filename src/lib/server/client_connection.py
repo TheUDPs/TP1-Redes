@@ -2,7 +2,12 @@ from socket import SHUT_RDWR
 from threading import Thread
 
 from lib.common.address import Address
-from lib.common.constants import FILE_CHUNK_SIZE, UPLOAD_OPERATION, DOWNLOAD_OPERATION
+from lib.common.constants import (
+    FILE_CHUNK_SIZE,
+    UPLOAD_OPERATION,
+    DOWNLOAD_OPERATION,
+    OPERATION_STRING_FROM_CODE,
+)
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
@@ -34,12 +39,14 @@ class ClientConnection:
         protocol: str,
         logger: Logger,
         file_handler: FileHandler,
+        initial_sequence_number: SequenceNumber,
     ):
         self.socket: SocketSaw = connection_socket
         self.address: Address = connection_address
         self.client_address: Address = client_address
         self.logger: Logger = logger
         self.logger.set_prefix(f"[CONN:{connection_address.port}]")
+        self.initial_sequence_number: SequenceNumber = initial_sequence_number
 
         self.file_handler: FileHandler = file_handler
 
@@ -65,13 +72,20 @@ class ClientConnection:
                 self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
                 self.logger.debug("Bad state. Unexpected operation")
 
+            self.logger.debug(f"Operation is: {OPERATION_STRING_FROM_CODE[op_code]}")
+            self.logger.debug("Confirming operation")
+
+            self.protocol.send_ack(
+                sequence_number.value, self.client_address, self.address
+            )
+
             return op_code
 
         except MissingClientAddress as e:
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             raise e
 
-    def is_filename_valid(self, filename: str) -> bool:
+    def is_filename_valid_for_upload(self, filename: str) -> bool:
         try:
             self.file = self.file_handler.open_file_write_mode(
                 filename, is_path_complete=False
@@ -80,16 +94,18 @@ class ClientConnection:
         except InvalidFilename:
             return False
 
-    def is_filesize_valid(self, filesize: int) -> bool:
+    def is_filesize_valid_for_upload(self, filesize: int) -> bool:
         return self.file_handler.can_file_fit(filesize)
 
-    def receive_file_info(self, sequence_number: MutableVariable) -> tuple[str, int]:
+    def receive_file_info_for_upload(
+        self, sequence_number: MutableVariable
+    ) -> tuple[str, int]:
         self.logger.debug("Validating filename")
         sequence_number.value.flip()
         _seq, filename = self.protocol.receive_filename(sequence_number.value)
         sequence_number.value = _seq
 
-        if self.is_filename_valid(filename):
+        if self.is_filename_valid_for_upload(filename):
             self.protocol.send_ack(
                 sequence_number.value, self.client_address, self.address
             )
@@ -100,7 +116,7 @@ class ClientConnection:
             )
             self.logger.warn("Filename received invalid")
             self.logger.error(
-                f"Client {self.client_address.to_combined()} shutdowned due to file already existing '{filename}'"
+                f"Client {self.client_address.to_combined()} shutdowned due to file '{filename}' already existing in the server"
             )
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             raise SocketShutdown()
@@ -110,7 +126,7 @@ class ClientConnection:
         _seq, filesize = self.protocol.receive_filesize(sequence_number.value)
         sequence_number.value = _seq
 
-        if self.is_filesize_valid(filesize):
+        if self.is_filesize_valid_for_upload(filesize):
             self.protocol.send_ack(
                 sequence_number.value, self.client_address, self.address
             )
@@ -154,11 +170,7 @@ class ClientConnection:
         filename: MutableVariable,
         filesize: MutableVariable,
     ):
-        self.logger.debug("Operation is: UPLOAD")
-        self.logger.debug("Confirming operation")
-        self.protocol.send_ack(sequence_number.value, self.client_address, self.address)
-
-        _filename, _filesize = self.receive_file_info(sequence_number)
+        _filename, _filesize = self.receive_file_info_for_upload(sequence_number)
         filename.value = _filename
         filesize.value = _filesize
 
@@ -177,101 +189,136 @@ class ClientConnection:
         self.logger.debug("Finished receiving file")
         self.file_handler.close(self.file)
 
-    def transmit_file(self, sequence_number: SequenceNumber):
-        self.logger.debug("Operation is: DOWNLOAD")
-        self.logger.debug("Transmitting file")
-        try:
-            sequence_number.flip()
-            self.protocol.send_ack(sequence_number, self.client_address, self.address)
-            sequence_number = self.receive_file_name_transmit(sequence_number)
+    def transmit_file(
+        self, sequence_number: MutableVariable, filename: MutableVariable
+    ):
+        _filename, filesize = self.receive_file_info_for_download(sequence_number)
+        filename.value = _filename
 
+        self.logger.debug(f"Ready to transmit to {self.client_address}")
+
+        chunk_number: int = 1
+        total_chunks: int = self.file_handler.get_number_of_chunks(
+            filesize, FILE_CHUNK_SIZE
+        )
+        is_last_chunk: bool = False
+
+        self.logger.info(
+            f"Sending file {filename.value} of {self.file_handler.bytes_to_megabytes(filesize)} MB"
+        )
+
+        while chunk := self.file_handler.read(self.file, FILE_CHUNK_SIZE):
+            chunk_len = len(chunk)
             self.logger.debug(
-                f"Configuration is done, sending file chunks {self.client_address}"
+                f"Sending chunk {chunk_number}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB"
             )
 
-            self.logger.debug(f"sequence_number {sequence_number.value}")
-            chunk_number: int = 1
-            is_last_chunk: bool = False
-            while chunk := self.file_handler.read(self.file, FILE_CHUNK_SIZE):
-                chunk_len = len(chunk)
-                self.logger.debug(
-                    f"Sending chunk {chunk_number} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB"
-                )
+            if chunk_number == total_chunks:
+                is_last_chunk = True
 
-                self.logger.debug(f"sequence_number {sequence_number.value}")
-                if chunk_len < FILE_CHUNK_SIZE:
-                    is_last_chunk = True
+            sequence_number.value.flip()
+            self.protocol.send_file_chunk(
+                sequence_number.value,
+                chunk,
+                chunk_len,
+                is_last_chunk,
+                self.client_address,
+            )
 
-                sequence_number.flip()
+            self.logger.debug(f"Waiting confirmation for chunk {chunk_number}")
 
-                self.logger.debug(
-                    f"Sending chunk of size {chunk_len}, to: {self.client_address}"
-                )
-                self.protocol.send_file_chunk(
-                    sequence_number,
-                    chunk,
-                    chunk_len,
-                    is_last_chunk,
-                    self.client_address,
-                )
+            if is_last_chunk:
+                self.protocol.wait_for_fin_ack(sequence_number.value)
+            else:
+                self.protocol.wait_for_ack(sequence_number.value)
 
-                self.logger.debug(f"Waiting confirmation for chunk {chunk_number}")
+            chunk_number += 1
 
-                self.logger.debug("Is last chunk: " + str(is_last_chunk))
+        self.logger.info("File transfer complete")
 
-                if is_last_chunk:
-                    self.protocol.wait_for_fin_ack(sequence_number)
-                else:
-                    self.protocol.wait_for_ack(sequence_number)
-
-                chunk_number += 1
-
-            self.protocol.send_ack(sequence_number, self.client_address, self.address)
-            self.logger.info("File transfer complete")
-
-        # to do: Agregar manejo de excepciones
-        except Exception as e:
-            print(e)
-            self.logger.warn(f"Error transmitting file: {e.message}")
-
-    def receive_file_name_transmit(self, sequence_number: SequenceNumber):
+    def is_filename_valid_for_download(self, filename: str):
         try:
-            self.logger.debug("Waiting for filename")
-            sequence_number.flip()
-            sequence_number, filename = self.protocol.receive_filename(sequence_number)
             self.file = self.file_handler.open_file_read_mode(
                 filename, is_path_complete=False
             )
-            self.logger.debug(f"Filename received: {filename}, sending ACK")
-            self.protocol.send_ack(sequence_number, self.client_address, self.address)
-            return sequence_number
+            return True
         except InvalidFilename:
-            self.logger.error("Filename received invalid")
-            self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
-            self.protocol.send_fin(sequence_number, self.client_address, self.address)
+            return False
 
-    def closing_handshake(self, sequence_number: MutableVariable):
+    def receive_file_info_for_download(
+        self, sequence_number: MutableVariable
+    ) -> tuple[str, int]:
+        self.logger.debug("Validating filename")
+        sequence_number.value.flip()
+        _seq, filename = self.protocol.receive_filename(sequence_number.value)
+        sequence_number.value = _seq
+
+        if self.is_filename_valid_for_download(filename):
+            self.protocol.send_ack(
+                sequence_number.value, self.client_address, self.address
+            )
+            self.logger.debug("Filename received valid")
+        else:
+            self.protocol.send_fin(
+                sequence_number.value, self.client_address, self.address
+            )
+            self.logger.warn("Filename received invalid")
+            self.logger.error(
+                f"Client {self.client_address.to_combined()} shutdowned due to file '{filename}' not existing in server for download"
+            )
+            self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
+            raise SocketShutdown()
+
+        filesize = self.file_handler.get_filesize(filename, is_path_complete=False)
+
+        return filename, filesize
+
+    def closing_handshake_for_upload(self, sequence_number: MutableVariable):
         sequence_number.value.flip()
         self.protocol.wait_for_ack(sequence_number.value)
         self.logger.debug("Connection closed")
         self.state = ConnectionState.DONE_READY_TO_DIE
 
+    def closing_handshake_for_download(self, sequence_number: MutableVariable):
+        sequence_number.value.flip()
+        self.protocol.send_ack(sequence_number.value, self.client_address, self.address)
+        self.logger.debug("Connection closed")
+        self.state = ConnectionState.DONE_READY_TO_DIE
+
+    def file_cleanup_after_error(
+        self, filename_for_upload: MutableVariable, filesize_for_upload: MutableVariable
+    ):
+        if self.file is not None and self.file_handler.is_closed(self.file):
+            self.file_handler.close(self.file)
+
+        if filename_for_upload.value is not None:
+            self.file_handler.remove_file_if_corrupted_or_incomplete(
+                filename_for_upload, filesize_for_upload, is_path_complete=False
+            )
+
     def run(self):
-        filename = MutableVariable(None)
-        filesize = MutableVariable(None)
-        sequence_number = MutableVariable(None)
+        filename_for_upload = MutableVariable(None)
+        filesize_for_upload = MutableVariable(None)
+        filename_for_download = MutableVariable(None)
+        sequence_number = MutableVariable(
+            SequenceNumber(self.initial_sequence_number.value)
+        )
+        sequence_number.value.flip()
 
         try:
             op_code = self.receive_operation_intention(sequence_number)
 
             if op_code == UPLOAD_OPERATION:
-                self.receive_file(sequence_number, filename, filesize)
-                self.closing_handshake(sequence_number)
+                self.receive_file(
+                    sequence_number, filename_for_upload, filesize_for_upload
+                )
+                self.closing_handshake_for_upload(sequence_number)
                 self.logger.force_info(
-                    f"Upload completed from client {self.client_address}"
+                    f"Upload completed from client {self.client_address.to_combined()}"
                 )
             elif op_code == DOWNLOAD_OPERATION:
-                self.transmit_file(sequence_number)
+                self.transmit_file(sequence_number, filename_for_download)
+                self.closing_handshake_for_download(sequence_number)
                 self.logger.force_info(
                     f"Download completed to client {self.client_address.to_combined()}"
                 )
@@ -280,9 +327,7 @@ class ClientConnection:
             self.logger.debug("State is unrecoverable")
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             self.logger.debug("Connection shutdown")
-            self.file_handler.remove_file_if_corrupted_or_incomplete(
-                filename, filesize, is_path_complete=False
-            )
+            self.file_cleanup_after_error(filename_for_upload, filesize_for_upload)
             self.kill()
         except (
             MissingClientAddress,
@@ -299,9 +344,7 @@ class ClientConnection:
         except Exception as e:
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             self.logger.error(f"Fatal error: {e}")
-            self.file_handler.remove_file_if_corrupted_or_incomplete(
-                filename, filesize, is_path_complete=False
-            )
+            self.file_cleanup_after_error(filename_for_upload, filesize_for_upload)
             self.kill()
 
     def start(self):

@@ -147,7 +147,7 @@ class ClientProtocol:
     def send_operation_intention(
         self, sequence_number: SequenceNumber, op_code: int
     ) -> None:
-        data = op_code.to_bytes(1, byteorder=INT_DESERIALIZATION_BYTEORDER)
+        data = op_code.to_bytes(2, byteorder=INT_DESERIALIZATION_BYTEORDER)
 
         packet_to_send: Packet = Packet(
             protocol=self.protocol_version,

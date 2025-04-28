@@ -47,27 +47,19 @@ class UploadClient(Client):
 
     def perform_upload(self) -> None:
         try:
-            self.send_operation_intention()
+            self.send_operation_intention(UPLOAD_OPERATION)
             self.inform_size_and_name()
             self.send_file()
             self.closing_handshake()
 
         except (FileAlreadyExists, FileTooBig, ConnectionLost) as e:
             self.logger.error(f"{e.message}")
+            self.file_cleanup_after_error()
 
         except Exception as e:
             err = e.message if e.message else e
             self.logger.error(f"Error message: {err}")
-
-    def send_operation_intention(self) -> None:
-        self.logger.debug("Sending operation intention")
-
-        self.sequence_number.flip()
-        self.protocol.send_operation_intention(self.sequence_number, UPLOAD_OPERATION)
-
-        self.logger.debug("Waiting for operation confirmation")
-        self.protocol.wait_for_operation_confirmation(self.sequence_number)
-        self.logger.debug("Operation accepted")
+            self.file_cleanup_after_error()
 
     def inform_filename(self):
         self.sequence_number.flip()
@@ -141,9 +133,13 @@ class UploadClient(Client):
             chunk_number += 1
 
         self.logger.force_info("File transfer complete")
-        self.file.close()
+        self.file_handler.close(self.file)
 
     def closing_handshake(self) -> None:
         self.sequence_number.flip()
         self.protocol.send_ack(self.sequence_number)
         self.logger.debug("Connection closed")
+
+    def file_cleanup_after_error(self):
+        if not self.file_handler.is_closed(self.file):
+            self.file_handler.close(self.file)

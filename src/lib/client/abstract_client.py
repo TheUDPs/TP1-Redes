@@ -122,6 +122,16 @@ class Client:
     def perform_operation(self):
         pass
 
+    def send_operation_intention(self, op_code: int) -> None:
+        self.logger.debug("Sending operation intention")
+
+        self.sequence_number.flip()
+        self.protocol.send_operation_intention(self.sequence_number, op_code)
+
+        self.logger.debug("Waiting for operation confirmation")
+        self.protocol.wait_for_operation_confirmation(self.sequence_number)
+        self.logger.debug("Operation accepted")
+
     def run(self) -> None:
         self.logger.info("Client started for upload")
         self.logger.debug(f"Protocol: {self.protocol.protocol_version}")
