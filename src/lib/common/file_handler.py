@@ -9,7 +9,7 @@ from lib.common.constants import (
 )
 from lib.common.logger import Logger
 from lib.common.mutable_variable import MutableVariable
-from lib.common.packet import Packet
+from lib.common.packet.packet import Packet
 from lib.server.exceptions.invalid_directory import InvalidDirectory
 from lib.common.exceptions.invalid_filename import InvalidFilename
 

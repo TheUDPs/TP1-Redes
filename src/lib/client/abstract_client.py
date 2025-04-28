@@ -84,7 +84,7 @@ class Client:
             self.logger.error(f"{e.message}")
         except ConnectionLost:
             self.logger.error("Connection closed")
-            self.sequence_number.flip()
+            self.sequence_number.step()
             self.protocol.send_fin(self.sequence_number)
         finally:
             should_stop_event.set()
@@ -125,7 +125,7 @@ class Client:
     def send_operation_intention(self, op_code: int) -> None:
         self.logger.debug("Sending operation intention")
 
-        self.sequence_number.flip()
+        self.sequence_number.step()
         self.protocol.send_operation_intention(self.sequence_number, op_code)
 
         self.logger.debug("Waiting for operation confirmation")

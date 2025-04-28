@@ -27,7 +27,7 @@ from lib.server.exceptions.client_already_connected import ClientAlreadyConnecte
 from lib.server.exceptions.missing_client_address import MissingClientAddress
 
 
-class ServerProtocol:
+class AccepterProtocol:
     def __init__(
         self,
         logger: Logger,

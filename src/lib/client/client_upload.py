@@ -62,7 +62,7 @@ class UploadClient(Client):
             self.file_cleanup_after_error()
 
     def inform_filename(self):
-        self.sequence_number.flip()
+        self.sequence_number.step()
         self.logger.debug(f"Informing filename: {self.filename_in_server}")
         self.protocol.inform_filename(self.sequence_number, self.filename_in_server)
 
@@ -77,7 +77,7 @@ class UploadClient(Client):
             raise FileAlreadyExists()
 
     def inform_filesize(self):
-        self.sequence_number.flip()
+        self.sequence_number.step()
         self.logger.debug(f"Informing filesize: {self.filesize} bytes")
         self.protocol.inform_filesize(self.sequence_number, self.filesize)
 
@@ -116,7 +116,7 @@ class UploadClient(Client):
             if chunk_number == total_chunks:
                 is_last_chunk = True
 
-            self.sequence_number.flip()
+            self.sequence_number.step()
             self.protocol.send_file_chunk(
                 self.sequence_number, chunk, chunk_len, is_last_chunk
             )
@@ -136,7 +136,7 @@ class UploadClient(Client):
         self.file_handler.close(self.file)
 
     def closing_handshake(self) -> None:
-        self.sequence_number.flip()
+        self.sequence_number.step()
         self.protocol.send_ack(self.sequence_number)
         self.logger.debug("Connection closed")
 

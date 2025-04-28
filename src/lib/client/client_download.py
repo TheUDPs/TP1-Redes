@@ -11,7 +11,7 @@ from lib.common.constants import DOWNLOAD_OPERATION, ERROR_EXIT_CODE
 from lib.common.exceptions.invalid_filename import InvalidFilename
 from lib.common.file_handler import FileHandler
 from lib.common.mutable_variable import MutableVariable
-from lib.common.packet import Packet
+from lib.common.packet.packet import Packet
 
 
 class DownloadClient(Client):
@@ -54,7 +54,7 @@ class DownloadClient(Client):
             self.file_cleanup_after_error()
 
     def inform_name_to_download(self):
-        self.sequence_number.flip()
+        self.sequence_number.step()
         self.logger.debug(
             f"Informing filename to download: {self.filename_for_download}"
         )
@@ -71,7 +71,7 @@ class DownloadClient(Client):
             raise FileDoesNotExist()
 
     def receive_single_chunk(self, chunk_number: int) -> Packet:
-        self.sequence_number.flip()
+        self.sequence_number.step()
         self.sequence_number, packet = self.protocol.receive_file_chunk(
             self.sequence_number
         )
@@ -99,7 +99,7 @@ class DownloadClient(Client):
         self.file_handler.close(self.file)
 
     def closing_handshake(self) -> None:
-        self.sequence_number.flip()
+        self.sequence_number.step()
         self.protocol.wait_for_ack(self.sequence_number)
         self.logger.debug("Connection closed")
 

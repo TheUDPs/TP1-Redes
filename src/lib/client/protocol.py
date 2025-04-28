@@ -16,7 +16,7 @@ from lib.common.exceptions.message_not_fin_ack import MessageIsNotFinAck
 from lib.common.exceptions.message_not_syn import MessageIsNotSyn
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.logger import Logger
-from lib.common.packet import Packet, PacketParser
+from lib.common.packet.packet import Packet, PacketParser
 from lib.common.re_listen_decorator import re_listen_if_failed
 from lib.common.sequence_number import SequenceNumber
 from lib.common.exceptions.socket_shutdown import SocketShutdown
