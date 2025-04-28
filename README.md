@@ -25,7 +25,7 @@
 Run mininet with the following command:
 
 ```bash
-sudo mn --mac --custom ./mininet/linear_ends_topo.py --topo linends,n,p_loss --link tc
+sudo mn --mac --custom ./mininet_topo/linear_ends_topo.py --topo linends,n,p_loss --link tc
 ```
 
 Where:
@@ -37,7 +37,7 @@ Where:
 If you simply run:
 
 ```bash
-sudo mn --mac --custom ./mininet/linear_ends_topo.py --topo linends
+sudo mn --mac --custom ./mininet_topo/linear_ends_topo.py --topo linends
 ```
 
 It is assumed `n=1` and `p_loss=0`, given there is no loss `--link tc` is no longer necessary.
@@ -66,7 +66,7 @@ There is one customization parameter for adding more hosts to the right end, a.k
 To launch Mininet with the LinearEnds topology execute the next command:
 
 ```bash
-sudo mn --mac --custom ./mininet/linear_ends_topo.py --topo linends
+sudo mn --mac --custom ./mininet_topo/linear_ends_topo.py --topo linends
 ```
 
 The `--mac` argument is to simplify the MAC addresses of the hosts making the more semantic.
@@ -74,13 +74,13 @@ The `--mac` argument is to simplify the MAC addresses of the hosts making the mo
 To have more Client hosts, let's say `n` total client hosts, execute the next command:
 
 ```bash
-sudo mn --mac --custom ./mininet/linear_ends_topo.py --topo linends,n
+sudo mn --mac --custom ./mininet_topo/linear_ends_topo.py --topo linends,n
 ```
 
 To add a certain packet loss percentage, let's say `p_loss` (expressed as an integer between `1` and `100`), in the link between the server (h1) and its switch (s1) you have to execute the next command:
 
 ```bash
-sudo mn --mac --custom ./mininet/linear_ends_topo.py --topo linends,n,p_loss --link tc
+sudo mn --mac --custom ./mininet_topo/linear_ends_topo.py --topo linends,n,p_loss --link tc
 ```
 
 Where `--link tc` is to setup the link type as TrafficControl to be able to modify the packet loss.
@@ -96,7 +96,7 @@ If you don't have Mininet run in Linux the script `scripts/install_deps.sh` or y
 Once mininet is up with a certain packet loss setup:
 
 ```bash
-sudo mn --mac --custom ./mininet/linear_ends_topo.py --topo linends,n,p_loss --link tc
+sudo mn --mac --custom ./mininet_topo/linear_ends_topo.py --topo linends,n,p_loss --link tc
 ```
 
 Open xterm terminals in 2 hosts, let's say h1 and h2:
@@ -188,7 +188,7 @@ Given the node that can fragment is in the middle and the MTU is lowered on the 
 To run IP fragmentation tests for the LinearEnds topology run the tests with the next command:
 
 ```bash
-sudo python3 ./mininet/fragmentation_tests.py
+sudo python3 ./mininet_topo/fragmentation_tests.py
 ```
 
 # Informe
