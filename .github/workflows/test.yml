@@ -43,4 +43,6 @@ jobs:
 
       - name: Run tests
         run: |
+          pwd
+          chmod +x ./test.sh
           sudo ./test.sh
