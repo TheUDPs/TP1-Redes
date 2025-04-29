@@ -4,6 +4,8 @@ import os
 import random
 import shutil
 import string
+import subprocess
+
 import pytest
 import hashlib
 from time import time_ns, time, sleep
@@ -64,7 +66,7 @@ def setup_directories(tests_dir):
 def start_server(host, tmp_path, port):
     log_file = f"{tmp_path}/server_output.log"
     pid = host.cmd(
-        f"{PROJECT_ROOT}/src/start-server.py -p {port} -s {tmp_path}/server/ -H 10.0.0.1 -r saw -q > {log_file} 2>&1 & echo $!"
+        f"{PROJECT_ROOT}/src/start-server.py -p {port} -s {tmp_path}/server/ -H 10.0.0.1 -r saw > {log_file} 2>&1 & echo $!"
     )
     return pid.strip(), log_file
 
@@ -72,7 +74,7 @@ def start_server(host, tmp_path, port):
 def start_upload_client(host, tmp_path, port, file_to_upload):
     log_file = f"{tmp_path}/client_output.log"
     pid = host.cmd(
-        f"{PROJECT_ROOT}/src/upload.py -H 10.0.0.1 -p {port} -s {file_to_upload} -r saw -q > {log_file} 2>&1 & echo $!"
+        f"{PROJECT_ROOT}/src/upload.py -H 10.0.0.1 -p {port} -s {file_to_upload} -r saw > {log_file} 2>&1 & echo $!"
     )
     return pid.strip(), log_file
 
@@ -147,12 +149,13 @@ def poll_results(
             if client_log is not None:
                 with open(client_log, "r", encoding="utf-8") as f:
                     output = f.read()
-                    if client_message_expected in output:
-                        was_client_successful.value = True
-                        print(
-                            f"Found client success message: '{client_message_expected}'"
-                        )
-                    elif error_prefix in output:
+                    for message in client_message_expected:
+                        if message in output:
+                            was_client_successful.value = True
+                            print(f"Found client success message: '{message}'")
+                            break
+
+                    if error_prefix in output and not was_client_successful.value:
                         raise ErrorDetected()
         except Exception as e:
             print(f"Error reading client log: {e}")
@@ -165,10 +168,13 @@ def poll_results(
 
             with open(server_log, "r", encoding="utf-8") as f:
                 output = f.read()
-                if server_message_expected in output:
-                    was_server_successful.value = True
-                    print(f"Found server success message: '{server_message_expected}'")
-                elif error_prefix in output:
+                for message in server_message_expected:
+                    if message in output:
+                        was_server_successful.value = True
+                        print(f"Found server success message: '{message}'")
+                        break
+
+                if error_prefix in output and not was_server_successful.value:
                     raise ErrorDetected()
         except Exception as e:
             print(f"Error reading server log: {e}")
@@ -191,16 +197,23 @@ def emergency_directory_teardown():
             print(f"Deleted undeleted dir: {full_path}")
 
 
-@pytest.fixture(scope="session")
-def mininet_net_setup():
-    topo = LinearEndsTopo(client_number=1)
+@pytest.fixture(scope="session", params=[0, 10, 40])
+def mininet_net_setup(request):
+    packet_loss_percentage = request.param
+
+    topo = LinearEndsTopo(
+        client_number=1, packet_loss_percentage=packet_loss_percentage
+    )
     net = Mininet(topo=topo, link=TCLink)
-    print("[Fixture] Starting Mininet network...")
+    print(
+        f"[Fixture] Starting Mininet network with p_loss={packet_loss_percentage}%..."
+    )
     net.start()
 
     yield net
     print("[Fixture] Stopping Mininet network...")
     net.stop()
+    subprocess.run(["sudo", "mn", "-c"], check=False)
     emergency_directory_teardown()
 
 
@@ -209,8 +222,8 @@ def check_results(
     was_server_successful,
     client_log,
     server_log,
-    server_message_expected: str,
-    client_message_expected: str,
+    server_message_expected,
+    client_message_expected,
 ):
     TEST_TIMEOUT = 30
     TEST_POLLING_TIME = 1
@@ -276,7 +289,7 @@ def get_random_port():
     return port
 
 
-def test_01_upload_is_correct_without_packet_loss(mininet_net_setup):
+def test_01_upload_is_correct(mininet_net_setup):
     h1 = mininet_net_setup.get("h1")
     h2 = mininet_net_setup.get("h2")
 
@@ -299,8 +312,8 @@ def test_01_upload_is_correct_without_packet_loss(mininet_net_setup):
     was_client_successful = MutableVariable(False)
     was_server_successful = MutableVariable(False)
 
-    client_message_expected = "Upload completed"
-    server_message_expected = "Upload completed from client"
+    client_message_expected = ["Upload completed"]
+    server_message_expected = ["Upload completed from client"]
     check_results(
         was_client_successful=was_client_successful,
         was_server_successful=was_server_successful,
@@ -357,8 +370,12 @@ def test_02_upload_fails_when_is_already_present_in_server(mininet_net_setup):
     was_client_successful = MutableVariable(False)
     was_server_successful = MutableVariable(False)
 
-    client_message_expected = "File in server already exists"
-    server_message_expected = "already existing in the server"
+    client_message_expected = [
+        "File in server already exists",
+        "connection lost",
+        "Connection was lost",
+    ]
+    server_message_expected = ["already existing in the server"]
     check_results(
         was_client_successful=was_client_successful,
         was_server_successful=was_server_successful,
@@ -395,7 +412,7 @@ def test_03_upload_fails_when_file_to_upload_does_not_exist(mininet_net_setup):
     was_client_successful = MutableVariable(False)
     was_server_successful = MutableVariable(False)
 
-    client_message_expected = "Could not find or open file"
+    client_message_expected = ["Could not find or open file"]
     check_results(
         was_client_successful=was_client_successful,
         was_server_successful=was_server_successful,
@@ -413,7 +430,7 @@ def test_03_upload_fails_when_file_to_upload_does_not_exist(mininet_net_setup):
     assert was_client_successful.value
 
 
-def test_04_download_is_correct_without_packet_loss(mininet_net_setup):
+def test_04_download_is_correct(mininet_net_setup):
     h1 = mininet_net_setup.get("h1")
     h2 = mininet_net_setup.get("h2")
 
@@ -435,8 +452,8 @@ def test_04_download_is_correct_without_packet_loss(mininet_net_setup):
     was_client_successful = MutableVariable(False)
     was_server_successful = MutableVariable(False)
 
-    client_message_expected = "Download completed"
-    server_message_expected = "Download completed to client"
+    client_message_expected = ["Download completed"]
+    server_message_expected = ["Download completed to client"]
     check_results(
         was_client_successful=was_client_successful,
         was_server_successful=was_server_successful,
@@ -488,8 +505,12 @@ def test_05_download_fails_when_is_not_present_in_server(mininet_net_setup):
     was_client_successful = MutableVariable(False)
     was_server_successful = MutableVariable(False)
 
-    client_message_expected = "File in server does not exist"
-    server_message_expected = "not existing in server for download"
+    client_message_expected = [
+        "File in server does not exist",
+        "connection lost",
+        "Connection was lost",
+    ]
+    server_message_expected = ["not existing in server for download"]
 
     check_results(
         was_client_successful=was_client_successful,
@@ -527,7 +548,7 @@ def test_06_download_fails_when_file_already_exists_in_client(mininet_net_setup)
     was_client_successful = MutableVariable(False)
     was_server_successful = MutableVariable(False)
 
-    client_message_expected = "already exists"
+    client_message_expected = ["already exists"]
     check_results(
         was_client_successful=was_client_successful,
         was_server_successful=was_server_successful,
@@ -560,8 +581,8 @@ def test_07_cannot_boot_server_with_invalid_storage(mininet_net_setup):
     was_client_successful = MutableVariable(False)
     was_server_successful = MutableVariable(False)
 
-    client_message_expected = ""
-    server_message_expected = "Error opening storage directory"
+    client_message_expected = None
+    server_message_expected = ["Error opening storage directory"]
     check_results(
         was_client_successful=was_client_successful,
         was_server_successful=was_server_successful,

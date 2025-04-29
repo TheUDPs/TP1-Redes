@@ -37,7 +37,6 @@ class UploadClient(Client):
             self.filesize = self.file_handler.get_filesize(
                 self.src_filepath, is_path_complete=True
             )
-            print(self.file, self.filesize)
         except InvalidFilename:
             logger.error(f"Could not find or open file {src}")
             exit(ERROR_EXIT_CODE)

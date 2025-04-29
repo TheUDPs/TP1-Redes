@@ -30,7 +30,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y mininet
           sudo apt install -y openvswitch-testcontroller
-          sudo apt install -y iproute2 iputils-ping net-tools
           sudo mn --clean
 
       - name: Set up virtualenv
