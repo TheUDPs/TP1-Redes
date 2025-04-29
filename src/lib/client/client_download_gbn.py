@@ -3,16 +3,16 @@ from os import getcwd, path
 from lib.client.abstract_client import Client
 from lib.common.exceptions.invalid_filename import InvalidFilename
 from lib.common.file_handler import FileHandler
+from lib.common.mutable_variable import MutableVariable
 from lib.common.logger import Logger
 from lib.common.constants import (
-    UPLOAD_OPERATION,
     ERROR_EXIT_CODE,
-    FILE_CHUNK_SIZE,
     DOWNLOAD_OPERATION,
 )
 
-from src.lib.client.exceptions.file_does_not_exist import FileDoesNotExist
-from src.lib.common.exceptions.connection_lost import ConnectionLost
+from lib.client.exceptions.file_does_not_exist import FileDoesNotExist
+from lib.common.exceptions.connection_lost import ConnectionLost
+from lib.common.packet_gbn import PacketGBN
 
 
 class DownloadClientGbn(Client):
@@ -23,7 +23,7 @@ class DownloadClientGbn(Client):
         self.filename_in_server: str = name
         self.sequence_number: int = 0
         self.expected_sqn_number: int = 1
-
+        self.file_destination: str = ""
         try:
             self.file_handler: FileHandler = FileHandler(getcwd(), logger)
             self.file = self.file_handler.open_file_read_mode(
@@ -43,7 +43,7 @@ class DownloadClientGbn(Client):
         super().__init__(logger, host, port, protocol)
 
     def perform_operation(self) -> None:
-        self.perform_upload()
+        self.perform_download_gbn()
 
     def perform_download_gbn(self) -> None:
         try:
@@ -63,10 +63,11 @@ class DownloadClientGbn(Client):
 
     def receive_file_gbn(self):
         chunk_number: int = 1
-        packet = self.receive_single_chunk(chunk_number)
+        packet = self.receive_single_chunk_gbn(chunk_number)
 
         if packet.sequence_number == 1:
-            expected_sqn_number++
+            self.expected_sqn_number += 1
+            self.sequence_number += 1
 
         while not packet.is_fin:
             chunk_number += 1
@@ -76,31 +77,33 @@ class DownloadClientGbn(Client):
         self.download_completed = True
         self.file_handler.close(self.file)
 
-    def receive_single_chunk_gbn(self, chunk_number: int) -> Packet:
+    def receive_single_chunk_gbn(self, chunk_number: int) -> PacketGBN:
+        packet: PacketGBN = None
 
-        sequence_number, packet = self.protocol.receive_file_chunk(
-            self.sequence_number
-        )
-
-        if not self.expected_sqn_number == sequence_number:
-            self.protocol.send_ack(self.sequence_number)
-            return packet
-
-        self.expected_sqn_number += 1
-        self.sequence_number += 1
-
-        if packet.is_fin:
-            self.protocol.send_fin_ack(self.sequence_number)
-        else:
-            self.protocol.send_ack(self.sequence_number)
-
-        self.logger.debug(f"Received chunk {chunk_number}")
-        self.file_handler.append_to_file(self.file, packet)
+        # To do: Quitar la dependencia que tiene el procotolo del sequence number
+        # sequence_number, packet = self.protocol.receive_file_chunk(
+        #     self.sequence_number
+        # )
+        #
+        # if not self.expected_sqn_number == sequence_number:
+        #     self.protocol.send_ack(self.sequence_number)
+        #     return packet
+        #
+        # self.expected_sqn_number += 1
+        # self.sequence_number += 1
+        #
+        # if packet.is_fin:
+        #     self.protocol.send_fin_ack(self.sequence_number)
+        # else:
+        #     self.protocol.send_ack(self.sequence_number)
+        #
+        # self.logger.debug(f"Received chunk {chunk_number}")
+        # self.file_handler.append_to_file(self.file, packet)
 
         return packet
 
     def closing_handshake_gbn(self) -> None:
-        self.protocol.wait_for_ack(self.sequence_number)
+        # self.protocol.wait_for_ack(self.sequence_number)
         self.logger.debug("Connection closed")
 
     def file_cleanup_after_error(self):
@@ -116,3 +119,6 @@ class DownloadClientGbn(Client):
             MutableVariable(None),
             is_path_complete=True,
         )
+
+    def inform_name_to_download(self):
+        pass
