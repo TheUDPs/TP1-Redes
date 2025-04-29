@@ -115,15 +115,17 @@ def generate_random_text_file(filepath, size_mb=5):
 def print_outputs(server_log, client_log):
     print("\n=== SERVER OUTPUT ===")
     try:
-        with open(server_log, "r") as f:
-            print(f.read())
+        if server_log is not None:
+            with open(server_log, "r") as f:
+                print(f.read())
     except Exception as e:
         print(f"Error reading server log: {e}")
 
     print("\n=== CLIENT OUTPUT ===")
     try:
-        with open(client_log, "r") as f:
-            print(f.read())
+        if client_log is not None:
+            with open(client_log, "r") as f:
+                print(f.read())
     except Exception as e:
         print(f"Error reading client log: {e}")
 
@@ -142,13 +144,16 @@ def poll_results(
 
     try:
         try:
-            with open(client_log, "r", encoding="utf-8") as f:
-                output = f.read()
-                if client_message_expected in output:
-                    was_client_successful.value = True
-                    print(f"Found client success message: '{client_message_expected}'")
-                elif error_prefix in output:
-                    raise ErrorDetected()
+            if client_log is not None:
+                with open(client_log, "r", encoding="utf-8") as f:
+                    output = f.read()
+                    if client_message_expected in output:
+                        was_client_successful.value = True
+                        print(
+                            f"Found client success message: '{client_message_expected}'"
+                        )
+                    elif error_prefix in output:
+                        raise ErrorDetected()
         except Exception as e:
             print(f"Error reading client log: {e}")
             if e.__class__ == ErrorDetected:
@@ -240,6 +245,10 @@ def check_results(
             if was_client_successful.value:
                 print("Success! Client reported completion.")
                 break
+        elif client_log is None:
+            if was_server_successful.value:
+                print("Success! Client reported completion.")
+                break
         else:
             if was_client_successful.value and was_server_successful.value:
                 print("Success! Both client and server reported completion.")
@@ -309,8 +318,8 @@ def test_01_upload_is_correct_without_packet_loss(mininet_net_setup):
 
     teardown_directories(tmp_path)
 
-    assert was_client_successful.value, "Client did not report successful file transfer"
-    assert was_server_successful.value, "Server did not report successful file upload"
+    assert was_client_successful.value
+    assert was_server_successful.value
 
     if os.path.exists(client_log) and os.path.exists(server_log):
         hash_client = compute_sha256(client_log)
@@ -367,8 +376,8 @@ def test_02_upload_fails_when_is_already_present_in_server(mininet_net_setup):
 
     teardown_directories(tmp_path)
 
-    assert was_client_successful.value, "Expected failure but client completed transfer"
-    assert was_server_successful.value, "Expected failure but server completed transfer"
+    assert was_client_successful.value
+    assert was_server_successful.value
 
 
 def test_03_upload_fails_when_file_to_upload_does_not_exist(mininet_net_setup):
@@ -401,7 +410,7 @@ def test_03_upload_fails_when_file_to_upload_does_not_exist(mininet_net_setup):
 
     teardown_directories(tmp_path)
 
-    assert was_client_successful.value, "Expected failure but client completed transfer"
+    assert was_client_successful.value
 
 
 def test_04_download_is_correct_without_packet_loss(mininet_net_setup):
@@ -445,8 +454,8 @@ def test_04_download_is_correct_without_packet_loss(mininet_net_setup):
 
     teardown_directories(tmp_path)
 
-    assert was_client_successful.value, "Client did not report successful file transfer"
-    assert was_server_successful.value, "Server did not report successful file download"
+    assert was_client_successful.value
+    assert was_server_successful.value
 
     if os.path.exists(client_log) and os.path.exists(server_log):
         hash_client = compute_sha256(f"{tmp_path}/client/test_file.txt")
@@ -456,7 +465,7 @@ def test_04_download_is_correct_without_packet_loss(mininet_net_setup):
         print(f"Server file hash: {hash_server}")
 
         assert hash_client == hash_server, (
-            "SHA256 mismatch: uploaded file is not identical to the original"
+            "SHA256 mismatch: downloaded file is not identical to the original"
         )
 
 
@@ -499,8 +508,8 @@ def test_05_download_fails_when_is_not_present_in_server(mininet_net_setup):
 
     teardown_directories(tmp_path)
 
-    assert was_client_successful.value, "Expected failure but client completed transfer"
-    assert was_server_successful.value, "Expected failure but server completed transfer"
+    assert was_client_successful.value
+    assert was_server_successful.value
 
 
 def test_06_download_fails_when_file_already_exists_in_client(mininet_net_setup):
@@ -533,4 +542,40 @@ def test_06_download_fails_when_file_already_exists_in_client(mininet_net_setup)
 
     teardown_directories(tmp_path)
 
-    assert was_client_successful.value, "Expected failure but client completed transfer"
+    assert was_client_successful.value
+
+
+def test_07_cannot_boot_server_with_invalid_storage(mininet_net_setup):
+    h1 = mininet_net_setup.get("h1")
+
+    tmp_path, timestamp = setup_directories(TESTS_DIR)
+    shutil.rmtree(f"{tmp_path}/server")
+
+    port = get_random_port()
+    print(f"Starting server on {h1.name}...")
+    server_pid, server_log = start_server(h1, tmp_path, port)
+
+    sleep(1)  # wait for server start
+
+    was_client_successful = MutableVariable(False)
+    was_server_successful = MutableVariable(False)
+
+    client_message_expected = ""
+    server_message_expected = "Error opening storage directory"
+    check_results(
+        was_client_successful=was_client_successful,
+        was_server_successful=was_server_successful,
+        client_log=None,
+        server_log=server_log,
+        server_message_expected=server_message_expected,
+        client_message_expected=client_message_expected,
+    )
+
+    print("Cleaning up processes...")
+    kill_process(h1, server_pid)
+
+    print_outputs(server_log, None)
+
+    teardown_directories(tmp_path)
+
+    assert was_server_successful.value

@@ -13,6 +13,7 @@ from lib.common.wait_for_quit import wait_for_quit
 from lib.server.accepter import Accepter
 from lib.server.exceptions.cannot_bind_socket import CannotBindSocket
 from lib.common.file_handler import FileHandler
+from lib.server.exceptions.invalid_directory import InvalidDirectory
 
 
 class Server:
@@ -31,6 +32,9 @@ class Server:
 
         try:
             self.file_handler: FileHandler = FileHandler(self.storage, self.logger)
+        except InvalidDirectory as e:
+            self.logger.error(f"Error opening storage directory: {e.message}")
+            sys.exit(ERROR_EXIT_CODE)
         except Exception as e:
             self.logger.error(f"Error opening storage directory: {e}")
             sys.exit(ERROR_EXIT_CODE)
