@@ -24,7 +24,7 @@ class DownloadClient(Client):
     ):
         self.file_destination: str = dst
         self.filename_for_download: str = name
-        self.protocol = protocol
+        self.protocol_version: str = protocol
 
         try:
             self.file_handler: FileHandler = FileHandler(getcwd(), logger)
@@ -35,11 +35,11 @@ class DownloadClient(Client):
             logger.error(f"File {self.file_destination} already exists")
             exit(ERROR_EXIT_CODE)
 
-        super().__init__(logger, host, port, protocol)
+        super().__init__(logger, host, port, self.protocol_version)
         self.logger.debug(f"Location to save downloaded file: {self.file_destination}")
         self.download_completed = False
 
-        if self.protocol == GO_BACK_N_PROTOCOL_TYPE:
+        if self.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
             self.expected_sqn_number: int = 1
 
     def perform_operation(self) -> None:
@@ -79,14 +79,14 @@ class DownloadClient(Client):
             raise FileDoesNotExist()
 
     def receive_single_chunk(self, chunk_number: int) -> Packet:
-        if self.protocol != GO_BACK_N_PROTOCOL_TYPE:
+        if self.protocol_version != GO_BACK_N_PROTOCOL_TYPE:
             self.sequence_number.step()
 
         self.sequence_number, packet = self.protocol.receive_file_chunk(
             self.sequence_number
         )
 
-        if self.protocol == GO_BACK_N_PROTOCOL_TYPE:
+        if self.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
             if not self.expected_sqn_number == self.sequence_number:
                 self.protocol.send_ack(self.sequence_number)
                 return packet
@@ -108,7 +108,7 @@ class DownloadClient(Client):
         chunk_number: int = 1
         packet = self.receive_single_chunk(chunk_number)
 
-        if self.protocol == GO_BACK_N_PROTOCOL_TYPE and packet.sequence_number == 1:
+        if self.protocol_version == GO_BACK_N_PROTOCOL_TYPE and packet.sequence_number == 1:
             self.expected_sqn_number += 1
             self.sequence_number += 1
 
@@ -121,7 +121,7 @@ class DownloadClient(Client):
         self.file_handler.close(self.file)
 
     def closing_handshake(self) -> None:
-        if self.protocol != GO_BACK_N_PROTOCOL_TYPE:
+        if self.protocol_version != GO_BACK_N_PROTOCOL_TYPE:
             self.sequence_number.step()
         self.protocol.wait_for_ack(self.sequence_number)
         self.logger.debug("Connection closed")
