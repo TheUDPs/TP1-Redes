@@ -9,6 +9,7 @@ from src.lib.common.exceptions.invalid_filename import InvalidFilename
 from src.lib.common.file_handler import FileHandler
 from src.lib.common.logger import Logger
 
+
 # TODO
 class UploadClient(Client):
     def __init__(
@@ -53,3 +54,12 @@ class UploadClient(Client):
             err = e.message if e.message else e
             self.logger.error(f"Error message: {err}")
             self.file_cleanup_after_error()
+
+    def inform_size_and_name(self) -> None:
+        pass
+
+    def send_file(self) -> None:
+        pass
+
+    def closing_handshake(self) -> None:
+        pass
