@@ -1,13 +1,15 @@
 from os import getcwd, path
 
-from src.lib.client.abstract_client import Client
-from src.lib.client.exceptions.file_already_exists import FileAlreadyExists
-from src.lib.client.exceptions.file_too_big import FileTooBig
-from src.lib.common.constants import ERROR_EXIT_CODE, UPLOAD_OPERATION
-from src.lib.common.exceptions.connection_lost import ConnectionLost
-from src.lib.common.exceptions.invalid_filename import InvalidFilename
-from src.lib.common.file_handler import FileHandler
-from src.lib.common.logger import Logger
+from lib.client.abstract_client import Client
+from lib.client.exceptions.file_already_exists import FileAlreadyExists
+from lib.client.exceptions.file_too_big import FileTooBig
+from lib.common.constants import ERROR_EXIT_CODE, UPLOAD_OPERATION
+from lib.common.exceptions.connection_lost import ConnectionLost
+from lib.common.exceptions.invalid_filename import InvalidFilename
+from lib.common.exceptions.message_not_ack import MessageIsNotAck
+from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
+from lib.common.file_handler import FileHandler
+from lib.common.logger import Logger
 
 
 # TODO
@@ -56,10 +58,48 @@ class UploadClient(Client):
             self.file_cleanup_after_error()
 
     def inform_size_and_name(self) -> None:
-        pass
+        self.inform_filename()
+        self.inform_filesize()
+
+    def inform_filename(self):
+        self.sequence_number.step()
+        self.logger.debug(f"Informing filename: {self.filename_in_server}")
+        self.protocol.inform_filename(self.sequence_number, self.filename_in_server)
+
+        self.logger.debug("Waiting for filename confirmation")
+        try:
+            self.protocol.wait_for_ack(
+                self.sequence_number,
+                exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
+            )
+        except (UnexpectedFinMessage, MessageIsNotAck):
+            self.logger.debug("Filename confirmation failed")
+            raise FileAlreadyExists()
+
+    def inform_filesize(self):
+        self.sequence_number.step()
+        self.logger.debug(f"Informing filesize: {self.filesize} bytes")
+        self.protocol.inform_filesize(self.sequence_number, self.filesize)
+
+        self.logger.debug("Waiting for filesize confirmation")
+
+        try:
+            self.protocol.wait_for_ack(
+                self.sequence_number,
+                exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
+            )
+        except (UnexpectedFinMessage, MessageIsNotAck):
+            self.logger.debug("Filesize confirmation failed")
+            raise FileTooBig()
 
     def send_file(self) -> None:
         pass
 
     def closing_handshake(self) -> None:
-        pass
+        self.sequence_number.step()
+        self.protocol.send_ack(self.sequence_number)
+        self.logger.debug("Connection closed")
+
+    def file_cleanup_after_error(self) -> None:
+        if not self.file_handler.is_closed(self.file):
+            self.file_handler.close(self.file)
