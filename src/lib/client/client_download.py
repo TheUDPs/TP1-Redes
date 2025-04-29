@@ -88,11 +88,10 @@ class DownloadClient(Client):
 
         if self.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
             if not self.expected_sqn_number == self.sequence_number:
-                self.protocol.send_ack(self.sequence_number)
+                self.protocol.send_ack(self.sequence_number) # We send the last in order ack
                 return packet
 
-            self.expected_sqn_number += 1
-            self.sequence_number += 1
+            self._update_sqn_and_excpected()
 
         if packet.is_fin:
             self.protocol.send_fin_ack(self.sequence_number)
@@ -109,8 +108,7 @@ class DownloadClient(Client):
         packet = self.receive_single_chunk(chunk_number)
 
         if self.protocol_version == GO_BACK_N_PROTOCOL_TYPE and packet.sequence_number == self.expected_sqn_number:
-            self.expected_sqn_number += 1
-            self.sequence_number += 1
+            self._update_sqn_and_excpected()
 
         while not packet.is_fin:
             chunk_number += 1
@@ -139,3 +137,7 @@ class DownloadClient(Client):
             MutableVariable(None),
             is_path_complete=True,
         )
+
+    def _update_sqn_and_excpected(self) -> None:
+        self.expected_sqn_number += 1
+        self.sequence_number += 1
