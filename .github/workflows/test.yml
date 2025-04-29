@@ -1,4 +1,4 @@
-name: Run Python Tests
+name: Integration tests
 
 on:
   push:
@@ -27,23 +27,20 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
-      - name: Install system dependencies (Mininet, etc.)
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y mininet iproute2 iputils-ping net-tools sudo
-          sudo mn --clean  # clean any leftover mininet networks
+          sudo apt-get install -y mininet
+          sudo apt install -y openvswitch-testcontroller
+          sudo apt install -y iproute2 iputils-ping net-tools
+          sudo mn --clean
 
       - name: Set up virtualenv
         run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          pip install --upgrade pip
-          pip install pytest pytest-xdist pytest-randomly
+          pip install -r requirements.txt
 
       - name: Run tests
-        run: |
-          source .venv/bin/activate
-          pytest
+        run: pytest
         shell: bash
