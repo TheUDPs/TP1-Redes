@@ -45,6 +45,7 @@ def setup_directories(tests_dir):
 
     return tmp_path, timestamp
 
+
 def start_server(host, tmp_path):
     log_file = f"{tmp_path}/server_output.log"
     pid = host.cmd(
@@ -52,8 +53,10 @@ def start_server(host, tmp_path):
     )
     return pid.strip(), log_file
 
+
 def teardown_directories(tmp_path):
     shutil.rmtree(tmp_path, ignore_errors=True)
+
 
 def generate_random_text_file(filepath, size_mb=5):
     random.seed(RANDOM_SEED)
@@ -71,9 +74,11 @@ def generate_random_text_file(filepath, size_mb=5):
 
     print(f"File created with size approximately {size_mb} MB")
 
+
 # cmd = "start-server.py -s ./tmp/server/ -H 10.0.0.1 -r saw -v"
 # cmd = "download.py -H 10.0.0.1 -d ./tmp/client/c.pdf -n c.pdf -r saw -v"
 # cmd = "upload.py -H 10.0.0.1 -s ./tmp/client/c.pdf -r saw -v"
+
 
 def print_outputs(server_log, client_log):
     print("\n=== SERVER OUTPUT ===")
@@ -83,6 +88,7 @@ def print_outputs(server_log, client_log):
     print("\n=== CLIENT OUTPUT ===")
     with open(client_log, "r") as f:
         print(f.read())
+
 
 def poll_results(server_log, client_log, client_success_msg, server_success_msg):
     was_client_successful = MutableVariable(False)
@@ -107,6 +113,7 @@ def poll_results(server_log, client_log, client_success_msg, server_success_msg)
 
     return was_client_successful, was_server_successful
 
+
 def net_setup():
     topo = LinearEndsTopo(client_number=1)
     net = Mininet(topo=topo, link=TCLink)
@@ -118,8 +125,9 @@ def net_setup():
 
     return net, h1, h2
 
+
 def hosts_setup(h1, h2):
-    tmp_path, timestamp = setup_directories(TESTS_DIR) 
+    tmp_path, timestamp = setup_directories(TESTS_DIR)
     filepath = f"{tmp_path}/test_file.txt"
     generate_random_text_file(filepath)
 
@@ -161,7 +169,10 @@ def operation_to_test(server_log, client_log, client_success_msg, server_success
 
     return was_client_successful, was_server_successful, start_time
 
-def shutdown(start_time, h1, h2, server_pid, client_pid, net, server_log, client_log, tmp_path):
+
+def shutdown(
+    start_time, h1, h2, server_pid, client_pid, net, server_log, client_log, tmp_path
+):
     elapsed = time() - start_time
     print(f"Test finished after {elapsed:.1f}s")
 
