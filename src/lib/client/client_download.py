@@ -108,7 +108,7 @@ class DownloadClient(Client):
         chunk_number: int = 1
         packet = self.receive_single_chunk(chunk_number)
 
-        if self.protocol_version == GO_BACK_N_PROTOCOL_TYPE and packet.sequence_number == 1:
+        if self.protocol_version == GO_BACK_N_PROTOCOL_TYPE and packet.sequence_number == self.expected_sqn_number:
             self.expected_sqn_number += 1
             self.sequence_number += 1
 
