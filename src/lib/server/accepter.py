@@ -9,9 +9,10 @@ from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.message_not_syn import MessageIsNotSyn
 from lib.common.logger import Logger
-from lib.common.packet import Packet
+from lib.common.packet.packet import Packet
 from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_saw import SocketSaw
+from lib.server.accepter_protocol import AccepterProtocol
 from lib.server.client_manager import ClientManager
 from lib.server.client_pool import ClientPool
 from lib.server.exceptions.cannot_bind_socket import CannotBindSocket
@@ -19,7 +20,6 @@ from lib.server.exceptions.client_already_connected import ClientAlreadyConnecte
 from lib.server.exceptions.protocol_mismatch import ProtocolMismatch
 from lib.common.file_handler import FileHandler
 from lib.server.protocol import (
-    ServerProtocol,
     MissingClientAddress,
     SocketShutdown,
 )
@@ -55,7 +55,7 @@ class Accepter:
 
         self.welcoming_socket: SocketSaw = SocketSaw(welcoming_socket, self.logger)
 
-        self.protocol: ServerProtocol = ServerProtocol(
+        self.protocol: AccepterProtocol = AccepterProtocol(
             self.logger, self.welcoming_socket, self.adress, protocol, self.clients
         )
 
@@ -73,7 +73,7 @@ class Accepter:
 
         try:
             self.logger.debug(f"Waiting for connection on {self.adress}")
-            packet, client_address = self.protocol.accept_connection()
+            packet, packet_type, client_address = self.protocol.accept_connection()
 
             connection_socket, connection_address, sequence_number = self.handshake(
                 packet, client_address
@@ -132,7 +132,7 @@ class Accepter:
             packet, client_address, connection_address
         )
 
-        packet, _ = self.protocol.expect_handshake_completion()
+        packet, packet_type, _ = self.protocol.expect_handshake_completion()
         self.logger.debug("Handhsake completed")
 
         return (

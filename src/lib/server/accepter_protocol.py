@@ -7,6 +7,7 @@ from lib.common.constants import (
     FULL_BUFFER_SIZE,
     ZERO_BYTES,
     INT_DESERIALIZATION_BYTEORDER,
+    STOP_AND_WAIT_PROTOCOL_TYPE,
 )
 from lib.common.exceptions.message_not_syn import MessageIsNotSyn
 from lib.common.logger import Logger
@@ -27,7 +28,7 @@ from lib.server.exceptions.client_already_connected import ClientAlreadyConnecte
 from lib.server.exceptions.missing_client_address import MissingClientAddress
 
 
-class ServerProtocol:
+class AccepterProtocol:
     def __init__(
         self,
         logger: Logger,
@@ -53,12 +54,16 @@ class ServerProtocol:
         return raw_packet, client_address_tuple
 
     def socket_send_to(self, packet_to_send: Packet, client_address: Address):
-        packet_bin: bytes = PacketParser.compose_packet_saw_for_net(packet_to_send)
+        if self.protocol_version == STOP_AND_WAIT_PROTOCOL_TYPE:
+            packet_bin: bytes = PacketParser.compose_packet_saw_for_net(packet_to_send)
+        else:
+            packet_bin: bytes = PacketParser.compose_packet_gbn_for_net(packet_to_send)
+
         self.socket.sendto(packet_bin, client_address)
 
     def validate_inbound_packet(
         self, raw_packet, client_address_tuple
-    ) -> tuple[Packet, Address]:
+    ) -> tuple[Packet, str, Address]:
         if len(raw_packet) == 0:
             raise SocketShutdown()
 
@@ -70,12 +75,12 @@ class ServerProtocol:
         )
         packet, packet_type = PacketParser.get_packet_from_bytes(raw_packet)
 
-        return packet, client_address
+        return packet, packet_type, client_address
 
     def validate_inbound_ack(
         self, raw_packet, client_address_tuple
-    ) -> tuple[Packet, Address]:
-        packet, client_address = self.validate_inbound_packet(
+    ) -> tuple[Packet, str, Address]:
+        packet, packet_type, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
         )
 
@@ -85,7 +90,7 @@ class ServerProtocol:
         if packet.is_fin:
             raise UnexpectedFinMessage()
 
-        return packet, client_address
+        return packet, packet_type, client_address
 
     def validate_sequence_number(
         self, packet: Packet, sequence_number: SequenceNumber
@@ -93,12 +98,12 @@ class ServerProtocol:
         if sequence_number.value != packet.sequence_number:
             raise InvalidSequenceNumber()
 
-    def accept_connection(self) -> tuple[Packet, Address]:
+    def accept_connection(self) -> tuple[Packet, str, Address]:
         raw_packet, client_address_tuple = self.socket_receive_from(
             COMMS_BUFFER_SIZE, should_retransmit=False, do_not_timeout=True
         )
 
-        packet, client_address = self.validate_inbound_packet(
+        packet, packet_type, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
         )
 
@@ -108,7 +113,7 @@ class ServerProtocol:
         if self.clients.is_client_connected(client_address):
             raise ClientAlreadyConnected()
 
-        return packet, client_address
+        return packet, packet_type, client_address
 
     def reject_connection(self, packet: Packet, client_address: Address) -> None:
         packet_to_send: Packet = Packet(
@@ -141,23 +146,23 @@ class ServerProtocol:
         self.socket_send_to(packet_to_send, client_address)
 
     @re_listen_if_failed()
-    def expect_handshake_completion(self) -> tuple[Packet, Address]:
+    def expect_handshake_completion(self) -> tuple[Packet, str, Address]:
         raw_packet, client_address_tuple = self.socket_receive_from(
             COMMS_BUFFER_SIZE, should_retransmit=True
         )
 
-        packet, client_address = self.validate_inbound_ack(
+        packet, packet_type, client_address = self.validate_inbound_ack(
             raw_packet, client_address_tuple
         )
 
-        return packet, client_address
+        return packet, packet_type, client_address
 
     @re_listen_if_failed()
     def receive_operation_intention(self) -> tuple[int, SequenceNumber]:
         raw_packet, client_address_tuple = self.socket_receive_from(
             COMMS_BUFFER_SIZE, should_retransmit=True
         )
-        packet, client_address = self.validate_inbound_packet(
+        packet, packet_type, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
         )
 
@@ -232,7 +237,7 @@ class ServerProtocol:
         raw_packet, client_address_tuple = self.socket_receive_from(
             FULL_BUFFER_SIZE, should_retransmit=True
         )
-        packet, client_address = self.validate_inbound_packet(
+        packet, packet_type, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
         )
         filename: str = packet.data.decode(STRING_ENCODING_FORMAT)
@@ -247,7 +252,7 @@ class ServerProtocol:
         raw_packet, client_address_tuple = self.socket_receive_from(
             COMMS_BUFFER_SIZE, should_retransmit=True
         )
-        packet, client_address = self.validate_inbound_packet(
+        packet, packet_type, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
         )
         filesize: int = int.from_bytes(packet.data, INT_DESERIALIZATION_BYTEORDER)
@@ -263,7 +268,7 @@ class ServerProtocol:
             FULL_BUFFER_SIZE, should_retransmit=True
         )
 
-        packet, client_address = self.validate_inbound_packet(
+        packet, packet_type, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
         )
         self.validate_sequence_number(packet, sequence_number)
@@ -278,7 +283,7 @@ class ServerProtocol:
         except OSError:
             raise ConnectionLost()
 
-        packet, client_address = self.validate_inbound_ack(
+        packet, packet_type, client_address = self.validate_inbound_ack(
             raw_packet, client_address_tuple
         )
         self.validate_sequence_number(packet, sequence_number)
@@ -313,7 +318,7 @@ class ServerProtocol:
         except ConnectionLost:
             raise ConnectionLost()
 
-        packet, client_address = self.validate_inbound_packet(
+        packet, packet_type, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
         )
         self.validate_sequence_number(packet, sequence_number)

@@ -8,6 +8,7 @@ from lib.common.constants import (
     UPLOAD_OPERATION,
     ERROR_EXIT_CODE,
     FILE_CHUNK_SIZE,
+    GO_BACK_N_PROTOCOL_TYPE,
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.invalid_filename import InvalidFilename
@@ -15,12 +16,16 @@ from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.file_handler import FileHandler
 from lib.common.logger import Logger
+from lib.server.exceptions.protocol_mismatch import ProtocolMismatch
 
 
 class UploadClient(Client):
     def __init__(
         self, logger: Logger, host: str, port: int, src: str, name: str, protocol: str
     ):
+        if protocol == GO_BACK_N_PROTOCOL_TYPE:
+            raise ProtocolMismatch()
+
         self.src_filepath: str = src
         self.filename_in_server: str = name
 
@@ -62,7 +67,7 @@ class UploadClient(Client):
             self.file_cleanup_after_error()
 
     def inform_filename(self):
-        self.sequence_number.flip()
+        self.sequence_number.step()
         self.logger.debug(f"Informing filename: {self.filename_in_server}")
         self.protocol.inform_filename(self.sequence_number, self.filename_in_server)
 
@@ -77,7 +82,7 @@ class UploadClient(Client):
             raise FileAlreadyExists()
 
     def inform_filesize(self):
-        self.sequence_number.flip()
+        self.sequence_number.step()
         self.logger.debug(f"Informing filesize: {self.filesize} bytes")
         self.protocol.inform_filesize(self.sequence_number, self.filesize)
 
@@ -116,7 +121,7 @@ class UploadClient(Client):
             if chunk_number == total_chunks:
                 is_last_chunk = True
 
-            self.sequence_number.flip()
+            self.sequence_number.step()
             self.protocol.send_file_chunk(
                 self.sequence_number, chunk, chunk_len, is_last_chunk
             )
@@ -136,7 +141,7 @@ class UploadClient(Client):
         self.file_handler.close(self.file)
 
     def closing_handshake(self) -> None:
-        self.sequence_number.flip()
+        self.sequence_number.step()
         self.protocol.send_ack(self.sequence_number)
         self.logger.debug("Connection closed")
 

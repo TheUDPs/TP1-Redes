@@ -6,7 +6,7 @@ class ClientPool:
         self.clients = {}
 
     # value: ClientConnection
-    def add(self, key: tuple[str, int], value):
+    def add(self, key: str, value):
         self.clients[key] = value
 
     def remove(self, client_to_remove: Address):

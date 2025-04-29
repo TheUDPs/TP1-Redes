@@ -7,6 +7,7 @@ from lib.common.constants import (
     COMMS_BUFFER_SIZE,
     ZERO_BYTES,
     INT_DESERIALIZATION_BYTEORDER,
+    STOP_AND_WAIT_PROTOCOL_TYPE,
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
@@ -16,7 +17,7 @@ from lib.common.exceptions.message_not_fin_ack import MessageIsNotFinAck
 from lib.common.exceptions.message_not_syn import MessageIsNotSyn
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.logger import Logger
-from lib.common.packet import Packet, PacketParser
+from lib.common.packet.packet import Packet, PacketParser
 from lib.common.re_listen_decorator import re_listen_if_failed
 from lib.common.sequence_number import SequenceNumber
 from lib.common.exceptions.socket_shutdown import SocketShutdown
@@ -40,22 +41,28 @@ class ClientProtocol:
         self.my_address: Address = my_address
         self.protocol_version: str = protocol_version
 
-    def socket_receive_from(self, buffer_size: int, should_retransmit: bool):
-        raw_packet, server_address_tuple = self.socket.recvfrom(
-            buffer_size, should_retransmit
+    def socket_receive_from(
+        self, buffer_size: int, should_retransmit: bool, do_not_timeout: bool = False
+    ):
+        raw_packet, client_address_tuple = self.socket.recvfrom(
+            buffer_size, should_retransmit, do_not_timeout
         )
-        return raw_packet, server_address_tuple
+        return raw_packet, client_address_tuple
 
-    def socket_send_to(self, packet_to_send: Packet, server_address_tuple: Address):
-        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
-        self.socket.sendto(packet_bin, server_address_tuple)
+    def socket_send_to(self, packet_to_send: Packet, client_address: Address):
+        if self.protocol_version == STOP_AND_WAIT_PROTOCOL_TYPE:
+            packet_bin: bytes = PacketParser.compose_packet_saw_for_net(packet_to_send)
+        else:
+            packet_bin: bytes = PacketParser.compose_packet_gbn_for_net(packet_to_send)
+
+        self.socket.sendto(packet_bin, client_address)
 
     def update_server_address(self, server_address: Address):
         self.server_address = server_address
 
     def validate_inbound_packet(
         self, raw_packet, server_address_tuple
-    ) -> tuple[Packet, Address]:
+    ) -> tuple[Packet, str, Address]:
         if len(raw_packet) == 0:
             raise SocketShutdown()
 
@@ -65,21 +72,21 @@ class ClientProtocol:
         server_address: Address = Address(
             server_address_tuple[0], server_address_tuple[1]
         )
-        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
+        packet, packet_type = PacketParser.get_packet_from_bytes(raw_packet)
 
-        return packet, server_address
+        return packet, packet_type, server_address
 
     def validate_inbound_ack(
         self, raw_packet, server_address_tuple
-    ) -> tuple[Packet, Address]:
-        packet, server_address = self.validate_inbound_packet(
+    ) -> tuple[Packet, str, Address]:
+        packet, packet_type, server_address = self.validate_inbound_packet(
             raw_packet, server_address_tuple
         )
 
         if not packet.is_ack:
             raise MessageIsNotAck()
 
-        return packet, server_address
+        return packet, packet_type, server_address
 
     def validate_fin(self, packet: Packet):
         if not packet.is_fin:
@@ -119,7 +126,7 @@ class ClientProtocol:
         except ConnectionLost:
             raise ConnectionRefused()
 
-        packet, server_address = self.validate_inbound_ack(
+        packet, packet_type, server_address = self.validate_inbound_ack(
             raw_packet, server_address_tuple
         )
         self.validate_not_fin(packet)
@@ -173,7 +180,7 @@ class ClientProtocol:
         except ConnectionLost:
             raise ConnectionLost()
 
-        packet, server_address = self.validate_inbound_ack(
+        packet, packet_type, server_address = self.validate_inbound_ack(
             raw_packet, server_address_tuple
         )
         self.validate_not_fin(packet)
@@ -205,7 +212,7 @@ class ClientProtocol:
             COMMS_BUFFER_SIZE, should_retransmit=True
         )
 
-        packet, server_address = self.validate_inbound_ack(
+        packet, packet_type, server_address = self.validate_inbound_ack(
             raw_packet, server_address_tuple
         )
         self.validate_not_fin(packet)
@@ -217,7 +224,7 @@ class ClientProtocol:
             COMMS_BUFFER_SIZE, should_retransmit=True
         )
 
-        packet, server_address = self.validate_inbound_packet(
+        packet, packet_type, server_address = self.validate_inbound_packet(
             raw_packet, server_address_tuple
         )
         self.validate_sequence_number(packet, sequence_number)
@@ -311,7 +318,7 @@ class ClientProtocol:
             FULL_BUFFER_SIZE, should_retransmit=True
         )
 
-        packet, server_address = self.validate_inbound_packet(
+        packet, packet_type, server_address = self.validate_inbound_packet(
             raw_packet, server_address_tuple
         )
 

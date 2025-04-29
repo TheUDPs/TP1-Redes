@@ -7,17 +7,25 @@ from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.logger import Logger
-from lib.common.constants import DOWNLOAD_OPERATION, ERROR_EXIT_CODE
+from lib.common.constants import (
+    DOWNLOAD_OPERATION,
+    ERROR_EXIT_CODE,
+    GO_BACK_N_PROTOCOL_TYPE,
+)
 from lib.common.exceptions.invalid_filename import InvalidFilename
 from lib.common.file_handler import FileHandler
 from lib.common.mutable_variable import MutableVariable
-from lib.common.packet import Packet
+from lib.common.packet.packet import Packet
+from lib.server.exceptions.protocol_mismatch import ProtocolMismatch
 
 
 class DownloadClient(Client):
     def __init__(
         self, logger: Logger, host: str, port: int, dst: str, name: str, protocol: str
     ):
+        if protocol == GO_BACK_N_PROTOCOL_TYPE:
+            raise ProtocolMismatch()
+
         self.file_destination: str = dst
         self.filename_for_download: str = name
 
@@ -54,7 +62,7 @@ class DownloadClient(Client):
             self.file_cleanup_after_error()
 
     def inform_name_to_download(self):
-        self.sequence_number.flip()
+        self.sequence_number.step()
         self.logger.debug(
             f"Informing filename to download: {self.filename_for_download}"
         )
@@ -71,7 +79,7 @@ class DownloadClient(Client):
             raise FileDoesNotExist()
 
     def receive_single_chunk(self, chunk_number: int) -> Packet:
-        self.sequence_number.flip()
+        self.sequence_number.step()
         self.sequence_number, packet = self.protocol.receive_file_chunk(
             self.sequence_number
         )
@@ -99,7 +107,7 @@ class DownloadClient(Client):
         self.file_handler.close(self.file)
 
     def closing_handshake(self) -> None:
-        self.sequence_number.flip()
+        self.sequence_number.step()
         self.protocol.wait_for_ack(self.sequence_number)
         self.logger.debug("Connection closed")
 
