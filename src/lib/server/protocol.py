@@ -53,7 +53,7 @@ class ServerProtocol:
         return raw_packet, client_address_tuple
 
     def socket_send_to(self, packet_to_send: Packet, client_address: Address):
-        packet_bin: bytes = PacketParser.compose_packet_for_net(packet_to_send)
+        packet_bin: bytes = PacketParser.compose_packet_saw_for_net(packet_to_send)
         self.socket.sendto(packet_bin, client_address)
 
     def validate_inbound_packet(
@@ -68,7 +68,7 @@ class ServerProtocol:
         client_address: Address = Address(
             client_address_tuple[0], client_address_tuple[1]
         )
-        packet: Packet = PacketParser.get_packet_from_bytes(raw_packet)
+        packet, packet_type = PacketParser.get_packet_from_bytes(raw_packet)
 
         return packet, client_address
 

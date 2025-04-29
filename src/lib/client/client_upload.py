@@ -8,6 +8,7 @@ from lib.common.constants import (
     UPLOAD_OPERATION,
     ERROR_EXIT_CODE,
     FILE_CHUNK_SIZE,
+    GO_BACK_N_PROTOCOL_TYPE,
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.invalid_filename import InvalidFilename
@@ -15,12 +16,16 @@ from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.file_handler import FileHandler
 from lib.common.logger import Logger
+from lib.server.exceptions.protocol_mismatch import ProtocolMismatch
 
 
 class UploadClient(Client):
     def __init__(
         self, logger: Logger, host: str, port: int, src: str, name: str, protocol: str
     ):
+        if protocol == GO_BACK_N_PROTOCOL_TYPE:
+            raise ProtocolMismatch()
+
         self.src_filepath: str = src
         self.filename_in_server: str = name
 

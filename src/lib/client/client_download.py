@@ -7,17 +7,25 @@ from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.logger import Logger
-from lib.common.constants import DOWNLOAD_OPERATION, ERROR_EXIT_CODE
+from lib.common.constants import (
+    DOWNLOAD_OPERATION,
+    ERROR_EXIT_CODE,
+    GO_BACK_N_PROTOCOL_TYPE,
+)
 from lib.common.exceptions.invalid_filename import InvalidFilename
 from lib.common.file_handler import FileHandler
 from lib.common.mutable_variable import MutableVariable
 from lib.common.packet.packet import Packet
+from lib.server.exceptions.protocol_mismatch import ProtocolMismatch
 
 
 class DownloadClient(Client):
     def __init__(
         self, logger: Logger, host: str, port: int, dst: str, name: str, protocol: str
     ):
+        if protocol == GO_BACK_N_PROTOCOL_TYPE:
+            raise ProtocolMismatch()
+
         self.file_destination: str = dst
         self.filename_for_download: str = name
 

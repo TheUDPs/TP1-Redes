@@ -73,7 +73,7 @@ class Accepter:
 
         try:
             self.logger.debug(f"Waiting for connection on {self.adress}")
-            packet, client_address = self.protocol.accept_connection()
+            packet, packet_type, client_address = self.protocol.accept_connection()
 
             connection_socket, connection_address, sequence_number = self.handshake(
                 packet, client_address
@@ -132,7 +132,7 @@ class Accepter:
             packet, client_address, connection_address
         )
 
-        packet, _ = self.protocol.expect_handshake_completion()
+        packet, packet_type, _ = self.protocol.expect_handshake_completion()
         self.logger.debug("Handhsake completed")
 
         return (
