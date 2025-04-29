@@ -12,7 +12,7 @@ from lib.common.constants import (
 
 from lib.client.exceptions.file_does_not_exist import FileDoesNotExist
 from lib.common.exceptions.connection_lost import ConnectionLost
-from lib.common.packet_gbn import PacketGBN
+from lib.common.packet.packet import PacketGbn
 
 
 class DownloadClientGbn(Client):
@@ -77,34 +77,28 @@ class DownloadClientGbn(Client):
         self.download_completed = True
         self.file_handler.close(self.file)
 
-    def receive_single_chunk_gbn(self, chunk_number: int) -> PacketGBN:
-        # packet: PacketGBN = self.perform_download_gbn()
+    def receive_single_chunk_gbn(self, chunk_number: int) -> PacketGbn:
+        sequence_number, packet = self.protocol.receive_file_chunk(self.sequence_number)
 
-        # To do: Quitar la dependencia que tiene el procotolo del sequence number
-        # sequence_number, packet = self.protocol.receive_file_chunk(
-        #     self.sequence_number
-        # )
-        #
-        # if not self.expected_sqn_number == sequence_number:
-        #     self.protocol.send_ack(self.sequence_number)
-        #     return packet
-        #
-        # self.expected_sqn_number += 1
-        # self.sequence_number += 1
-        #
-        # if packet.is_fin:
-        #     self.protocol.send_fin_ack(self.sequence_number)
-        # else:
-        #     self.protocol.send_ack(self.sequence_number)
-        #
-        # self.logger.debug(f"Received chunk {chunk_number}")
-        # self.file_handler.append_to_file(self.file, packet)
+        if not self.expected_sqn_number == sequence_number:
+            self.protocol.send_ack(self.sequence_number)
+            return packet
 
-        # return packet
-        pass
+        self.expected_sqn_number += 1
+        self.sequence_number += 1
+
+        if packet.is_fin:
+            self.protocol.send_fin_ack(self.sequence_number)
+        else:
+            self.protocol.send_ack(self.sequence_number)
+
+        self.logger.debug(f"Received chunk {chunk_number}")
+        self.file_handler.append_to_file(self.file, packet)
+
+        return packet
 
     def closing_handshake_gbn(self) -> None:
-        # self.protocol.wait_for_ack(self.sequence_number)
+        self.protocol.wait_for_ack(self.sequence_number)
         self.logger.debug("Connection closed")
 
     def file_cleanup_after_error(self):
