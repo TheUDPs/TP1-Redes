@@ -1,0 +1,45 @@
+name: Run Python Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  pytest:
+    runs-on: ubuntu-24.04
+
+    # Important: need privileged mode for Mininet!
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install system dependencies (Mininet, etc.)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mininet iproute2 iputils-ping net-tools sudo
+          sudo mn --clean  # clean any leftover mininet networks
+
+      - name: Set up virtualenv
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install pytest pytest-xdist pytest-randomly
+
+      - name: Run tests
+        run: |
+          source .venv/bin/activate
+          pytest
+        shell: bash
