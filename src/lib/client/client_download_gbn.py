@@ -13,6 +13,8 @@ from lib.common.constants import (
 from lib.client.exceptions.file_does_not_exist import FileDoesNotExist
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.packet.packet import PacketGbn
+from lib.common.exceptions.message_not_ack import MessageIsNotAck
+from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 
 
 class DownloadClientGbn(Client):
@@ -116,4 +118,18 @@ class DownloadClientGbn(Client):
         )
 
     def inform_name_to_download(self):
-        pass
+        self.sequence_number.step()
+        self.logger.debug(
+            f"Informing filename to download: {self.filename_for_download}"
+        )
+        self.protocol.inform_filename(self.sequence_number, self.filename_for_download)
+
+        self.logger.debug("Waiting for filename confirmation")
+        try:
+            self.protocol.wait_for_ack(
+                self.sequence_number,
+                exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
+            )
+        except (UnexpectedFinMessage, MessageIsNotAck):
+            self.logger.debug("Filename confirmation failed")
+            raise FileDoesNotExist()
