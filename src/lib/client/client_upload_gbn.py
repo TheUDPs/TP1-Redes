@@ -1,4 +1,5 @@
 from os import getcwd, path
+from typing import List
 
 from lib.client.abstract_client import Client
 from lib.client.exceptions.file_already_exists import FileAlreadyExists
@@ -98,10 +99,23 @@ class UploadClient(Client):
             raise FileTooBig()
 
     def send_file(self) -> None:
+        self.logger.debug(f"Sending file {self.src_filepath}")
+
+        chunks: List[bytes] = self.separeta_file_to_chunks()
+
+        base: int = 0
+        end: int = self.windows_size
+
+        while True:
+            self.transmit_chunk_phase(base, end, chunks)
+
+        self.logger.force_info("File transfer complete")
+        self.file_handler.close(self.file)
+
+    def separeta_file_to_chunks(self) -> List[bytes]:
         total_chunks: int = self.file_handler.get_number_of_chunks(
             self.filesize, FILE_CHUNK_SIZE
         )
-
         # To do: es la mejor forma ?? Leo todos los chuncks no tener que releer el archivo en caso de retransmision
         chunk_list: list[bytes] = []
 
@@ -109,14 +123,17 @@ class UploadClient(Client):
             chunk = self.file_handler.read(self.file, FILE_CHUNK_SIZE)
             chunk_list.append(chunk)
 
-        self.logger.force_info("File transfer complete")
-        self.file_handler.close(self.file)
+        return chunk_list
 
-    def transmit_chunk_phase():
+    def transmit_chunk_phase(self, base: int, end: int, chunks: list[bytes]) -> None:
         # si puedo paso el chuck
         # paso la cantidad que tenga la posibilidad de compartir windows size - on fly
         # si no puedo continuo
-        pass
+
+        # Creo que esta bien ni idea (?)
+        for i in range(base, end + 1):
+            self.sequence_number.step()
+            self.protocol.send_chunk(self.sequence_number, chunks[i])
 
     def await_ack_phase():
         # espero el ack
