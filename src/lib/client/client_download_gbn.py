@@ -78,7 +78,7 @@ class DownloadClientGbn(Client):
         self.file_handler.close(self.file)
 
     def receive_single_chunk_gbn(self, chunk_number: int) -> PacketGBN:
-        packet: PacketGBN = None
+        # packet: PacketGBN = self.perform_download_gbn()
 
         # To do: Quitar la dependencia que tiene el procotolo del sequence number
         # sequence_number, packet = self.protocol.receive_file_chunk(
@@ -100,7 +100,8 @@ class DownloadClientGbn(Client):
         # self.logger.debug(f"Received chunk {chunk_number}")
         # self.file_handler.append_to_file(self.file, packet)
 
-        return packet
+        # return packet
+        pass
 
     def closing_handshake_gbn(self) -> None:
         # self.protocol.wait_for_ack(self.sequence_number)
