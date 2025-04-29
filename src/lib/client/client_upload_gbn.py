@@ -7,12 +7,15 @@ from lib.client.exceptions.file_too_big import FileTooBig
 from lib.common.constants import (
     ERROR_EXIT_CODE,
     FILE_CHUNK_SIZE,
+    MAX_ACK_REPEATED,
     UPLOAD_OPERATION,
     WINDOWS_SIZE,
+    MAXIMUM_RETRANSMISSION_ATTEMPTS,
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.invalid_filename import InvalidFilename
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
+from lib.common.exceptions.max_retransmission_attempts import MaxRetransmissionAttempts
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.file_handler import FileHandler
 from lib.common.logger import Logger
@@ -26,6 +29,8 @@ class UploadClient(Client):
         self.src_filepath: str = src
         self.filename_in_server: str = name
         self.windows_size: int = WINDOWS_SIZE
+        self.curr_sqn_number: int = 0
+        self.expected_sqn_number: int = 1
         try:
             self.file_handler: FileHandler = FileHandler(getcwd(), logger)
             self.file = self.file_handler.open_file_read_mode(
@@ -108,6 +113,10 @@ class UploadClient(Client):
 
         while True:
             self.transmit_chunk_phase(base, end, chunks)
+            self.await_ack_phase()
+            if base == len(chunks) - 1:
+                # enviar ultimo paquete y enviar a dormir
+                break
 
         self.logger.force_info("File transfer complete")
         self.file_handler.close(self.file)
@@ -131,11 +140,16 @@ class UploadClient(Client):
         # si no puedo continuo
 
         # Creo que esta bien ni idea (?)
+
+        if base == end:
+            self.logger.debug("all chunks sent")
+            return
+
         for i in range(base, end + 1):
             self.sequence_number.step()
             self.protocol.send_chunk(self.sequence_number, chunks[i])
 
-    def await_ack_phase():
+    def await_ack_phase(self):
         # espero el ack
         # si no llegaa
         # hago time out y reenvio todo desde la base de la windows
@@ -143,7 +157,29 @@ class UploadClient(Client):
         # si es nuevo ack registro y continuo
         # si no es nuevo ack (es ack repetido) amplio la cuenta hasta llegar a 4. Si llega a 4 retransmitir toda la ventada
 
-        pass
+        counter: int = 0
+        global_counter: int = 0
+        ## Esto no va a andar, necesito algo que simplemente reciba un ack
+        sequence_number, packet = self.protocol.wait_for_ack(
+            self.sequence_number,
+            exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
+        )
+
+        if sequence_number != self.expected_sqn_number:
+            self.logger.debug(f"Received repeated ack {counter} ")
+
+            if counter == MAX_ACK_REPEATED:
+                if MAXIMUM_RETRANSMISSION_ATTEMPTS == global_counter:
+                    raise MaxRetransmissionAttempts()
+
+                self.logger.debug(f"Received repeated ack {self.expected_sqn_number} ")
+                self.retransmit_phase()
+        else:
+            self.logger.debug(f"Received ack {self.expected_sqn_number} ")
+            self.expected_sqn_number += 1
+            self.curr_sqn_number += 1
+
+        return
 
     def closing_handshake(self) -> None:
         self.sequence_number.step()
