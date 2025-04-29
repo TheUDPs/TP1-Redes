@@ -1,0 +1,602 @@
+#!/usr/bin/env python3
+
+import os
+import random
+import shutil
+import string
+import subprocess
+
+import pytest
+import hashlib
+from time import time_ns, time, sleep
+
+from src.lib.common.mutable_variable import MutableVariable
+from mininet_topo.linear_ends_topo import LinearEndsTopo
+from mininet.link import TCLink
+from mininet.net import Mininet
+
+
+PACKET_LOSS_PERCENTAGE = 10
+
+RANDOM_SEED = 100
+
+TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(TESTS_DIR)
+
+
+def compute_sha256(path):
+    hasher = hashlib.sha256()
+    try:
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                hasher.update(chunk)
+        return hasher.hexdigest()
+    except Exception as e:
+        print(f"Error computing hash for {path}: {e}")
+        return None
+
+
+def kill_process(node, pid):
+    node.cmd(f"kill -9 {pid}")
+    sleep(1)
+
+
+def setup_directories(tests_dir):
+    timestamp = time_ns()
+
+    tmp_path = os.path.join(tests_dir, f"tmp_{timestamp}")
+
+    shutil.rmtree(tmp_path, ignore_errors=True)
+    os.makedirs(tmp_path, exist_ok=True)
+    os.chmod(tmp_path, 0o777)
+
+    # Create client and server subdirectories
+    client_path = os.path.join(tmp_path, "client")
+    server_path = os.path.join(tmp_path, "server")
+
+    os.makedirs(client_path, exist_ok=True)
+    os.makedirs(server_path, exist_ok=True)
+
+    os.chmod(client_path, 0o777)
+    os.chmod(server_path, 0o777)
+
+    return tmp_path, timestamp
+
+
+def start_server(host, tmp_path, port):
+    log_file = f"{tmp_path}/server_output.log"
+    pid = host.cmd(
+        f"{PROJECT_ROOT}/src/start-server.py -p {port} -s {tmp_path}/server/ -H 10.0.0.1 -r saw > {log_file} 2>&1 & echo $!"
+    )
+    return pid.strip(), log_file
+
+
+def start_upload_client(host, tmp_path, port, file_to_upload):
+    log_file = f"{tmp_path}/client_output.log"
+    pid = host.cmd(
+        f"{PROJECT_ROOT}/src/upload.py -H 10.0.0.1 -p {port} -s {file_to_upload} -r saw > {log_file} 2>&1 & echo $!"
+    )
+    return pid.strip(), log_file
+
+
+def start_download_client(host, tmp_path, port, file_to_download):
+    log_file = f"{tmp_path}/client_output.log"
+    downloaded_filepath = f"{tmp_path}/client/{file_to_download}"
+    pid = host.cmd(
+        f"{PROJECT_ROOT}/src/download.py -H 10.0.0.1 -p {port} -d {downloaded_filepath} -n {file_to_download} -r saw -q > {log_file} 2>&1 & echo $!"
+    )
+    return pid.strip(), log_file
+
+
+def teardown_directories(tmp_path):
+    shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def generate_random_text_file(filepath, size_mb=5):
+    random.seed(RANDOM_SEED)
+    size_bytes = size_mb * 1024 * 1024
+    chars = string.ascii_letters + string.digits + "\n "
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        written = 0
+        chunk_size = 4096
+
+        while written < size_bytes:
+            to_write = "".join(random.choices(chars, k=chunk_size))
+            f.write(to_write)
+            written += chunk_size
+
+    print(f"File created with size approximately {size_mb} MB")
+
+
+# cmd = "start-server.py -s ./tmp/server/ -H 10.0.0.1 -r saw -v"
+# cmd = "download.py -H 10.0.0.1 -d ./tmp/client/c.pdf -n c.pdf -r saw -v"
+# cmd = "upload.py -H 10.0.0.1 -s ./tmp/client/c.pdf -r saw -v"
+
+
+def print_outputs(server_log, client_log):
+    print("\n=== SERVER OUTPUT ===")
+    try:
+        if server_log is not None:
+            with open(server_log, "r") as f:
+                print(f.read())
+    except Exception as e:
+        print(f"Error reading server log: {e}")
+
+    print("\n=== CLIENT OUTPUT ===")
+    try:
+        if client_log is not None:
+            with open(client_log, "r") as f:
+                print(f.read())
+    except Exception as e:
+        print(f"Error reading client log: {e}")
+
+
+class ErrorDetected(Exception):
+    pass
+
+
+def poll_results(
+    server_log, client_log, server_message_expected, client_message_expected
+):
+    was_client_successful = MutableVariable(False)
+    was_server_successful = MutableVariable(False)
+
+    error_prefix = "ERROR"
+
+    try:
+        try:
+            if client_log is not None:
+                with open(client_log, "r", encoding="utf-8") as f:
+                    output = f.read()
+                    for message in client_message_expected:
+                        if message in output:
+                            was_client_successful.value = True
+                            print(f"Found client success message: '{message}'")
+                            break
+
+                    if error_prefix in output and not was_client_successful.value:
+                        raise ErrorDetected()
+        except Exception as e:
+            print(f"Error reading client log: {e}")
+            if e.__class__ == ErrorDetected:
+                raise e
+
+        try:
+            if server_log is None:
+                return was_client_successful, was_server_successful
+
+            with open(server_log, "r", encoding="utf-8") as f:
+                output = f.read()
+                for message in server_message_expected:
+                    if message in output:
+                        was_server_successful.value = True
+                        print(f"Found server success message: '{message}'")
+                        break
+
+                if error_prefix in output and not was_server_successful.value:
+                    raise ErrorDetected()
+        except Exception as e:
+            print(f"Error reading server log: {e}")
+            if e.__class__ == ErrorDetected:
+                raise e
+    except Exception as e:
+        print(f"Error in poll_results: {e}")
+        if e.__class__ == ErrorDetected:
+            raise e
+
+    return was_client_successful, was_server_successful
+
+
+def emergency_directory_teardown():
+    prefix = "tmp_"
+    for name in os.listdir(TESTS_DIR):
+        full_path = os.path.join(TESTS_DIR, name)
+        if os.path.isdir(full_path) and name.startswith(prefix):
+            shutil.rmtree(full_path)
+            print(f"Deleted undeleted dir: {full_path}")
+
+
+@pytest.fixture(scope="session", params=[0, 10, 40])
+def mininet_net_setup(request):
+    packet_loss_percentage = request.param
+
+    topo = LinearEndsTopo(
+        client_number=1, packet_loss_percentage=packet_loss_percentage
+    )
+    net = Mininet(topo=topo, link=TCLink)
+    print(
+        f"[Fixture] Starting Mininet network with p_loss={packet_loss_percentage}%..."
+    )
+    net.start()
+
+    yield net
+    print("[Fixture] Stopping Mininet network...")
+    net.stop()
+    subprocess.run(["sudo", "mn", "-c"], check=False)
+    emergency_directory_teardown()
+
+
+def check_results(
+    was_client_successful,
+    was_server_successful,
+    client_log,
+    server_log,
+    server_message_expected,
+    client_message_expected,
+):
+    TEST_TIMEOUT = 30
+    TEST_POLLING_TIME = 1
+
+    print(f"Waiting up to {TEST_TIMEOUT} seconds for file transfer to complete...")
+
+    start_time = time()
+    end_time = start_time + TEST_TIMEOUT
+
+    while time() < end_time:
+        sleep(TEST_POLLING_TIME)
+        print(f"Polling results at {time() - start_time:.1f}s...")
+
+        try:
+            (
+                _was_client_successful,
+                _was_server_successful,
+            ) = poll_results(
+                server_log=server_log,
+                client_log=client_log,
+                server_message_expected=server_message_expected,
+                client_message_expected=client_message_expected,
+            )
+        except ErrorDetected:
+            print("Failure: error detected.")
+            break
+
+        was_client_successful.value = _was_client_successful.value
+        was_server_successful.value = _was_server_successful.value
+
+        if server_log is None:
+            if was_client_successful.value:
+                print("Success! Client reported completion.")
+                break
+        elif client_log is None:
+            if was_server_successful.value:
+                print("Success! Client reported completion.")
+                break
+        else:
+            if was_client_successful.value and was_server_successful.value:
+                print("Success! Both client and server reported completion.")
+                break
+
+    elapsed = time() - start_time
+    print(f"Test finished after {elapsed:.1f}s")
+
+
+def create_empty_file_with_name(filepath):
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write("Just some empty text. It's important that is has the same name\n")
+
+
+USED_PORTS = set()
+
+
+def get_random_port():
+    port = random.randint(1024, 65535)
+
+    while port in USED_PORTS:
+        port = random.randint(7000, 65000)
+
+    USED_PORTS.add(port)
+    return port
+
+
+def test_01_upload_is_correct(mininet_net_setup):
+    h1 = mininet_net_setup.get("h1")
+    h2 = mininet_net_setup.get("h2")
+
+    tmp_path, timestamp = setup_directories(TESTS_DIR)
+    filepath = f"{tmp_path}/test_file.txt"
+    generate_random_text_file(filepath)
+
+    port = get_random_port()
+
+    print(f"Starting server on {h1.name}...")
+    server_pid, server_log = start_server(h1, tmp_path, port)
+
+    sleep(1)  # wait for server start
+
+    print(f"Starting client on {h2.name}...")
+    client_pid, client_log = start_upload_client(
+        h2, tmp_path, port, file_to_upload=filepath
+    )
+
+    was_client_successful = MutableVariable(False)
+    was_server_successful = MutableVariable(False)
+
+    client_message_expected = ["Upload completed"]
+    server_message_expected = ["Upload completed from client"]
+    check_results(
+        was_client_successful=was_client_successful,
+        was_server_successful=was_server_successful,
+        client_log=client_log,
+        server_log=server_log,
+        server_message_expected=server_message_expected,
+        client_message_expected=client_message_expected,
+    )
+
+    print("Cleaning up processes...")
+    kill_process(h1, server_pid)
+    kill_process(h2, client_pid)
+
+    print_outputs(server_log, client_log)
+
+    teardown_directories(tmp_path)
+
+    assert was_client_successful.value
+    assert was_server_successful.value
+
+    if os.path.exists(client_log) and os.path.exists(server_log):
+        hash_client = compute_sha256(client_log)
+        hash_server = compute_sha256(server_log)
+
+        print(f"Client file hash: {hash_client}")
+        print(f"Server file hash: {hash_server}")
+
+        assert hash_client == hash_server, (
+            "SHA256 mismatch: uploaded file is not identical to the original"
+        )
+
+
+def test_02_upload_fails_when_is_already_present_in_server(mininet_net_setup):
+    h1 = mininet_net_setup.get("h1")
+    h2 = mininet_net_setup.get("h2")
+
+    tmp_path, timestamp = setup_directories(TESTS_DIR)
+    filepath = f"{tmp_path}/test_file.txt"
+    generate_random_text_file(filepath)
+
+    port = get_random_port()
+    print(f"Starting server on {h1.name}...")
+    server_pid, server_log = start_server(h1, tmp_path, port)
+
+    sleep(1)  # wait for server start
+
+    create_empty_file_with_name(f"{tmp_path}/server/test_file.txt")
+
+    print(f"Starting client on {h2.name}...")
+    client_pid, client_log = start_upload_client(
+        h2, tmp_path, port, file_to_upload=filepath
+    )
+
+    was_client_successful = MutableVariable(False)
+    was_server_successful = MutableVariable(False)
+
+    client_message_expected = [
+        "File in server already exists",
+        "connection lost",
+        "Connection was lost",
+    ]
+    server_message_expected = ["already existing in the server"]
+    check_results(
+        was_client_successful=was_client_successful,
+        was_server_successful=was_server_successful,
+        client_log=client_log,
+        server_log=server_log,
+        server_message_expected=server_message_expected,
+        client_message_expected=client_message_expected,
+    )
+
+    print("Cleaning up processes...")
+    kill_process(h1, server_pid)
+    kill_process(h2, client_pid)
+
+    print_outputs(server_log, client_log)
+
+    teardown_directories(tmp_path)
+
+    assert was_client_successful.value
+    assert was_server_successful.value
+
+
+def test_03_upload_fails_when_file_to_upload_does_not_exist(mininet_net_setup):
+    h2 = mininet_net_setup.get("h2")
+
+    tmp_path, timestamp = setup_directories(TESTS_DIR)
+    filepath = f"{tmp_path}/test_file.txt"
+
+    port = get_random_port()
+    print(f"Starting client on {h2.name}...")
+    client_pid, client_log = start_upload_client(
+        h2, tmp_path, port, file_to_upload=filepath
+    )
+
+    was_client_successful = MutableVariable(False)
+    was_server_successful = MutableVariable(False)
+
+    client_message_expected = ["Could not find or open file"]
+    check_results(
+        was_client_successful=was_client_successful,
+        was_server_successful=was_server_successful,
+        client_log=client_log,
+        server_log=None,
+        server_message_expected="",
+        client_message_expected=client_message_expected,
+    )
+
+    print("Cleaning up processes...")
+    kill_process(h2, client_pid)
+
+    teardown_directories(tmp_path)
+
+    assert was_client_successful.value
+
+
+def test_04_download_is_correct(mininet_net_setup):
+    h1 = mininet_net_setup.get("h1")
+    h2 = mininet_net_setup.get("h2")
+
+    tmp_path, timestamp = setup_directories(TESTS_DIR)
+    filepath = f"{tmp_path}/server/test_file.txt"
+    generate_random_text_file(filepath)
+
+    port = get_random_port()
+    print(f"Starting server on {h1.name}...")
+    server_pid, server_log = start_server(h1, tmp_path, port)
+
+    sleep(1)  # wait for server start
+
+    print(f"Starting client on {h2.name}...")
+    client_pid, client_log = start_download_client(
+        h2, tmp_path, port, file_to_download="test_file.txt"
+    )
+
+    was_client_successful = MutableVariable(False)
+    was_server_successful = MutableVariable(False)
+
+    client_message_expected = ["Download completed"]
+    server_message_expected = ["Download completed to client"]
+    check_results(
+        was_client_successful=was_client_successful,
+        was_server_successful=was_server_successful,
+        client_log=client_log,
+        server_log=server_log,
+        server_message_expected=server_message_expected,
+        client_message_expected=client_message_expected,
+    )
+
+    print("Cleaning up processes...")
+    kill_process(h1, server_pid)
+    kill_process(h2, client_pid)
+
+    print_outputs(server_log, client_log)
+
+    teardown_directories(tmp_path)
+
+    assert was_client_successful.value
+    assert was_server_successful.value
+
+    if os.path.exists(client_log) and os.path.exists(server_log):
+        hash_client = compute_sha256(f"{tmp_path}/client/test_file.txt")
+        hash_server = compute_sha256(filepath)
+
+        print(f"Client file hash: {hash_client}")
+        print(f"Server file hash: {hash_server}")
+
+        assert hash_client == hash_server, (
+            "SHA256 mismatch: downloaded file is not identical to the original"
+        )
+
+
+def test_05_download_fails_when_is_not_present_in_server(mininet_net_setup):
+    h1 = mininet_net_setup.get("h1")
+    h2 = mininet_net_setup.get("h2")
+
+    tmp_path, timestamp = setup_directories(TESTS_DIR)
+
+    port = get_random_port()
+    print(f"Starting server on {h1.name}...")
+    server_pid, server_log = start_server(h1, tmp_path, port)
+
+    sleep(1)  # wait for server start
+
+    print(f"Starting client on {h2.name}...")
+    client_pid, client_log = start_download_client(
+        h2, tmp_path, port, file_to_download="test_file.txt"
+    )
+    was_client_successful = MutableVariable(False)
+    was_server_successful = MutableVariable(False)
+
+    client_message_expected = [
+        "File in server does not exist",
+        "connection lost",
+        "Connection was lost",
+    ]
+    server_message_expected = ["not existing in server for download"]
+
+    check_results(
+        was_client_successful=was_client_successful,
+        was_server_successful=was_server_successful,
+        client_log=client_log,
+        server_log=server_log,
+        server_message_expected=server_message_expected,
+        client_message_expected=client_message_expected,
+    )
+
+    print("Cleaning up processes...")
+    kill_process(h1, server_pid)
+    kill_process(h2, client_pid)
+
+    print_outputs(server_log, client_log)
+
+    teardown_directories(tmp_path)
+
+    assert was_client_successful.value
+    assert was_server_successful.value
+
+
+def test_06_download_fails_when_file_already_exists_in_client(mininet_net_setup):
+    h2 = mininet_net_setup.get("h2")
+
+    tmp_path, timestamp = setup_directories(TESTS_DIR)
+    create_empty_file_with_name(f"{tmp_path}/client/test_file.txt")
+
+    port = get_random_port()
+    print(f"Starting client on {h2.name}...")
+    client_pid, client_log = start_download_client(
+        h2, tmp_path, port, file_to_download=f"{tmp_path}/client/test_file.txt"
+    )
+
+    was_client_successful = MutableVariable(False)
+    was_server_successful = MutableVariable(False)
+
+    client_message_expected = ["already exists"]
+    check_results(
+        was_client_successful=was_client_successful,
+        was_server_successful=was_server_successful,
+        client_log=client_log,
+        server_log=None,
+        server_message_expected="",
+        client_message_expected=client_message_expected,
+    )
+
+    print("Cleaning up processes...")
+    kill_process(h2, client_pid)
+
+    teardown_directories(tmp_path)
+
+    assert was_client_successful.value
+
+
+def test_07_cannot_boot_server_with_invalid_storage(mininet_net_setup):
+    h1 = mininet_net_setup.get("h1")
+
+    tmp_path, timestamp = setup_directories(TESTS_DIR)
+    shutil.rmtree(f"{tmp_path}/server")
+
+    port = get_random_port()
+    print(f"Starting server on {h1.name}...")
+    server_pid, server_log = start_server(h1, tmp_path, port)
+
+    sleep(1)  # wait for server start
+
+    was_client_successful = MutableVariable(False)
+    was_server_successful = MutableVariable(False)
+
+    client_message_expected = None
+    server_message_expected = ["Error opening storage directory"]
+    check_results(
+        was_client_successful=was_client_successful,
+        was_server_successful=was_server_successful,
+        client_log=None,
+        server_log=server_log,
+        server_message_expected=server_message_expected,
+        client_message_expected=client_message_expected,
+    )
+
+    print("Cleaning up processes...")
+    kill_process(h1, server_pid)
+
+    print_outputs(server_log, None)
+
+    teardown_directories(tmp_path)
+
+    assert was_server_successful.value
