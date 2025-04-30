@@ -56,7 +56,7 @@ class ClientConnection:
         self.logger: Logger = logger
         self.logger.set_prefix(f"[CONN:{connection_address.port}]")
         self.initial_sequence_number: SequenceNumber = SequenceNumber(
-            packet.sequence_number
+            packet.sequence_number, protocol
         )
         self.initial_packet = packet
 
@@ -234,7 +234,9 @@ class ClientConnection:
         filesize_for_upload = MutableVariable(None)
         filename_for_download = MutableVariable(None)
         sequence_number = MutableVariable(
-            SequenceNumber(self.initial_sequence_number.value)
+            SequenceNumber(
+                self.initial_sequence_number.value, self.protocol.protocol_version
+            )
         )
 
         try:

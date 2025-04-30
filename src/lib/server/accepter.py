@@ -128,7 +128,7 @@ class Accepter:
 
         self.logger.debug(f"Accepting connection for {client_address}")
 
-        sequence_number = SequenceNumber(packet.sequence_number)
+        sequence_number = SequenceNumber(packet.sequence_number, packet.protocol)
 
         self.protocol.send_connection_accepted(
             sequence_number, client_address, connection_address

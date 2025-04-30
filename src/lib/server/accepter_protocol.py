@@ -174,7 +174,7 @@ class AccepterProtocol:
         if op_code != UPLOAD_OPERATION and op_code != DOWNLOAD_OPERATION:
             raise UnexpectedOperation()
 
-        return op_code, SequenceNumber(packet.sequence_number)
+        return op_code, SequenceNumber(packet.sequence_number, self.protocol_version)
 
     def send_ack(
         self,
@@ -246,7 +246,7 @@ class AccepterProtocol:
         filename: str = packet.data.decode(STRING_ENCODING_FORMAT)
 
         self.validate_sequence_number(packet, sequence_number)
-        return SequenceNumber(packet.sequence_number), filename
+        return SequenceNumber(packet.sequence_number, self.protocol_version), filename
 
     @re_listen_if_failed()
     def receive_filesize(
@@ -261,7 +261,7 @@ class AccepterProtocol:
         filesize: int = int.from_bytes(packet.data, INT_DESERIALIZATION_BYTEORDER)
 
         self.validate_sequence_number(packet, sequence_number)
-        return SequenceNumber(packet.sequence_number), filesize
+        return SequenceNumber(packet.sequence_number, self.protocol_version), filesize
 
     @re_listen_if_failed()
     def receive_file_chunk(
@@ -275,7 +275,7 @@ class AccepterProtocol:
             raw_packet, client_address_tuple
         )
         self.validate_sequence_number(packet, sequence_number)
-        return SequenceNumber(packet.sequence_number), packet
+        return SequenceNumber(packet.sequence_number, self.protocol_version), packet
 
     @re_listen_if_failed()
     def wait_for_ack(self, sequence_number: SequenceNumber) -> None:

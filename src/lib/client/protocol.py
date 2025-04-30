@@ -323,4 +323,4 @@ class ClientProtocol:
         )
 
         self.validate_sequence_number(packet, sequence_number)
-        return SequenceNumber(packet.sequence_number), packet
+        return SequenceNumber(packet.sequence_number, self.protocol_version), packet

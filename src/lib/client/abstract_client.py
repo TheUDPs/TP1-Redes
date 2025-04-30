@@ -46,7 +46,9 @@ class Client:
         )
 
         self.stopped = False
-        self.sequence_number: SequenceNumber = SequenceNumber(0)
+        self.sequence_number: SequenceNumber = SequenceNumber(
+            0, self.protocol.protocol_version
+        )
 
         self.logger.debug(f"Running on {self.my_address}")
 
