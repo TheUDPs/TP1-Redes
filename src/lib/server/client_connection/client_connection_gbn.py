@@ -1,7 +1,7 @@
 from lib.common.address import Address
 from lib.common.logger import Logger
 from lib.common.mutable_variable import MutableVariable
-from lib.common.sequence_number import SequenceNumber
+from lib.common.packet.packet import Packet
 from lib.common.socket_saw import SocketSaw
 from lib.server.client_connection.abstract_client_connection import ClientConnection
 from lib.common.file_handler import FileHandler
@@ -16,7 +16,7 @@ class ClientConnectionGbn(ClientConnection):
         protocol: str,
         logger: Logger,
         file_handler: FileHandler,
-        initial_sequence_number: SequenceNumber,
+        packet: Packet,
     ):
         super().__init__(
             connection_socket,
@@ -25,7 +25,7 @@ class ClientConnectionGbn(ClientConnection):
             protocol,
             logger,
             file_handler,
-            initial_sequence_number,
+            packet,
         )
 
     def perform_upload(

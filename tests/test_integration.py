@@ -66,7 +66,7 @@ def setup_directories(tests_dir):
 def start_server(host, tmp_path, port):
     log_file = f"{tmp_path}/server_output.log"
     pid = host.cmd(
-        f"{PROJECT_ROOT}/src/start-server.py -p {port} -s {tmp_path}/server/ -H 10.0.0.1 -r saw > {log_file} 2>&1 & echo $!"
+        f"{PROJECT_ROOT}/src/start-server.py -p {port} -s {tmp_path}/server/ -H 10.0.0.1 -r saw -q > {log_file} 2>&1 & echo $!"
     )
     return pid.strip(), log_file
 
@@ -74,7 +74,7 @@ def start_server(host, tmp_path, port):
 def start_upload_client(host, tmp_path, port, file_to_upload):
     log_file = f"{tmp_path}/client_output.log"
     pid = host.cmd(
-        f"{PROJECT_ROOT}/src/upload.py -H 10.0.0.1 -p {port} -s {file_to_upload} -r saw > {log_file} 2>&1 & echo $!"
+        f"{PROJECT_ROOT}/src/upload.py -H 10.0.0.1 -p {port} -s {file_to_upload} -r saw -q > {log_file} 2>&1 & echo $!"
     )
     return pid.strip(), log_file
 
@@ -107,11 +107,6 @@ def generate_random_text_file(filepath, size_mb=5):
             written += chunk_size
 
     print(f"File created with size approximately {size_mb} MB")
-
-
-# cmd = "start-server.py -s ./tmp/server/ -H 10.0.0.1 -r saw -v"
-# cmd = "download.py -H 10.0.0.1 -d ./tmp/client/c.pdf -n c.pdf -r saw -v"
-# cmd = "upload.py -H 10.0.0.1 -s ./tmp/client/c.pdf -r saw -v"
 
 
 def print_outputs(server_log, client_log):
@@ -197,9 +192,13 @@ def emergency_directory_teardown():
             print(f"Deleted undeleted dir: {full_path}")
 
 
+P_LOSS = [0]
+
+
 @pytest.fixture(scope="session", params=[0, 10, 40])
 def mininet_net_setup(request):
     packet_loss_percentage = request.param
+    P_LOSS[0] = packet_loss_percentage
 
     topo = LinearEndsTopo(
         client_number=1, packet_loss_percentage=packet_loss_percentage
@@ -208,6 +207,7 @@ def mininet_net_setup(request):
     print(
         f"[Fixture] Starting Mininet network with p_loss={packet_loss_percentage}%..."
     )
+
     net.start()
 
     yield net
@@ -224,14 +224,20 @@ def check_results(
     server_log,
     server_message_expected,
     client_message_expected,
+    p_loss,
 ):
     TEST_TIMEOUT = 30
     TEST_POLLING_TIME = 1
-
-    print(f"Waiting up to {TEST_TIMEOUT} seconds for file transfer to complete...")
-
     start_time = time()
-    end_time = start_time + TEST_TIMEOUT
+
+    timeout_coefficient = p_loss / 20
+    # 0 -> 0
+    # 10 -> 0.5
+    # 40 -> 2
+    total_timeout = TEST_TIMEOUT + (TEST_TIMEOUT * timeout_coefficient)
+
+    end_time = start_time + total_timeout
+    print(f"Waiting up to {end_time} seconds for file transfer to complete...")
 
     while time() < end_time:
         sleep(TEST_POLLING_TIME)
@@ -293,6 +299,8 @@ def test_01_upload_is_correct(mininet_net_setup):
     h1 = mininet_net_setup.get("h1")
     h2 = mininet_net_setup.get("h2")
 
+    p_loss = P_LOSS[0]
+
     tmp_path, timestamp = setup_directories(TESTS_DIR)
     filepath = f"{tmp_path}/test_file.txt"
     generate_random_text_file(filepath)
@@ -321,6 +329,7 @@ def test_01_upload_is_correct(mininet_net_setup):
         server_log=server_log,
         server_message_expected=server_message_expected,
         client_message_expected=client_message_expected,
+        p_loss=p_loss,
     )
 
     print("Cleaning up processes...")
@@ -349,6 +358,7 @@ def test_01_upload_is_correct(mininet_net_setup):
 def test_02_upload_fails_when_is_already_present_in_server(mininet_net_setup):
     h1 = mininet_net_setup.get("h1")
     h2 = mininet_net_setup.get("h2")
+    p_loss = P_LOSS[0]
 
     tmp_path, timestamp = setup_directories(TESTS_DIR)
     filepath = f"{tmp_path}/test_file.txt"
@@ -383,6 +393,7 @@ def test_02_upload_fails_when_is_already_present_in_server(mininet_net_setup):
         server_log=server_log,
         server_message_expected=server_message_expected,
         client_message_expected=client_message_expected,
+        p_loss=p_loss,
     )
 
     print("Cleaning up processes...")
@@ -399,6 +410,8 @@ def test_02_upload_fails_when_is_already_present_in_server(mininet_net_setup):
 
 def test_03_upload_fails_when_file_to_upload_does_not_exist(mininet_net_setup):
     h2 = mininet_net_setup.get("h2")
+    print(mininet_net_setup.topo)
+    p_loss = P_LOSS[0]
 
     tmp_path, timestamp = setup_directories(TESTS_DIR)
     filepath = f"{tmp_path}/test_file.txt"
@@ -420,6 +433,7 @@ def test_03_upload_fails_when_file_to_upload_does_not_exist(mininet_net_setup):
         server_log=None,
         server_message_expected="",
         client_message_expected=client_message_expected,
+        p_loss=p_loss,
     )
 
     print("Cleaning up processes...")
@@ -433,6 +447,7 @@ def test_03_upload_fails_when_file_to_upload_does_not_exist(mininet_net_setup):
 def test_04_download_is_correct(mininet_net_setup):
     h1 = mininet_net_setup.get("h1")
     h2 = mininet_net_setup.get("h2")
+    p_loss = P_LOSS[0]
 
     tmp_path, timestamp = setup_directories(TESTS_DIR)
     filepath = f"{tmp_path}/server/test_file.txt"
@@ -461,6 +476,7 @@ def test_04_download_is_correct(mininet_net_setup):
         server_log=server_log,
         server_message_expected=server_message_expected,
         client_message_expected=client_message_expected,
+        p_loss=p_loss,
     )
 
     print("Cleaning up processes...")
@@ -489,6 +505,7 @@ def test_04_download_is_correct(mininet_net_setup):
 def test_05_download_fails_when_is_not_present_in_server(mininet_net_setup):
     h1 = mininet_net_setup.get("h1")
     h2 = mininet_net_setup.get("h2")
+    p_loss = P_LOSS[0]
 
     tmp_path, timestamp = setup_directories(TESTS_DIR)
 
@@ -519,6 +536,7 @@ def test_05_download_fails_when_is_not_present_in_server(mininet_net_setup):
         server_log=server_log,
         server_message_expected=server_message_expected,
         client_message_expected=client_message_expected,
+        p_loss=p_loss,
     )
 
     print("Cleaning up processes...")
@@ -535,6 +553,7 @@ def test_05_download_fails_when_is_not_present_in_server(mininet_net_setup):
 
 def test_06_download_fails_when_file_already_exists_in_client(mininet_net_setup):
     h2 = mininet_net_setup.get("h2")
+    p_loss = P_LOSS[0]
 
     tmp_path, timestamp = setup_directories(TESTS_DIR)
     create_empty_file_with_name(f"{tmp_path}/client/test_file.txt")
@@ -556,6 +575,7 @@ def test_06_download_fails_when_file_already_exists_in_client(mininet_net_setup)
         server_log=None,
         server_message_expected="",
         client_message_expected=client_message_expected,
+        p_loss=p_loss,
     )
 
     print("Cleaning up processes...")
@@ -568,6 +588,7 @@ def test_06_download_fails_when_file_already_exists_in_client(mininet_net_setup)
 
 def test_07_cannot_boot_server_with_invalid_storage(mininet_net_setup):
     h1 = mininet_net_setup.get("h1")
+    p_loss = P_LOSS[0]
 
     tmp_path, timestamp = setup_directories(TESTS_DIR)
     shutil.rmtree(f"{tmp_path}/server")
@@ -590,6 +611,7 @@ def test_07_cannot_boot_server_with_invalid_storage(mininet_net_setup):
         server_log=server_log,
         server_message_expected=server_message_expected,
         client_message_expected=client_message_expected,
+        p_loss=p_loss,
     )
 
     print("Cleaning up processes...")

@@ -158,7 +158,7 @@ class ClientProtocol:
 
         packet_to_send: Packet = Packet(
             protocol=self.protocol_version,
-            is_ack=False,
+            is_ack=True,
             is_syn=False,
             is_fin=False,
             port=self.my_address.port,

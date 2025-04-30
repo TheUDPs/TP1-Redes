@@ -130,7 +130,10 @@ class AccepterProtocol:
         self.socket_send_to(packet_to_send, client_address)
 
     def send_connection_accepted(
-        self, packet: Packet, client_address: Address, connection_address: Address
+        self,
+        sequence_number: SequenceNumber,
+        client_address: Address,
+        connection_address: Address,
     ) -> None:
         packet_to_send: Packet = Packet(
             protocol=self.protocol_version,
@@ -139,7 +142,7 @@ class AccepterProtocol:
             is_fin=False,
             port=connection_address.port,
             payload_length=0,
-            sequence_number=packet.sequence_number,
+            sequence_number=sequence_number.value,
             data=ZERO_BYTES,
         )
 
