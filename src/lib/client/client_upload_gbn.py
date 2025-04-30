@@ -72,7 +72,7 @@ class UploadClient(Client):
         self.inform_filesize()
 
     def inform_filename(self):
-        self.sequence_number.step()
+        self.sequence_number.step(GO_BACK_N_PROTOCOL_TYPE)
         self.logger.debug(f"Informing filename: {self.filename_in_server}")
         self.protocol.inform_filename(self.sequence_number, self.filename_in_server)
 
@@ -87,7 +87,7 @@ class UploadClient(Client):
             raise FileAlreadyExists()
 
     def inform_filesize(self):
-        self.sequence_number.step()
+        self.sequence_number.step(GO_BACK_N_PROTOCOL_TYPE)
         self.logger.debug(f"Informing filesize: {self.filesize} bytes")
         self.protocol.inform_filesize(self.sequence_number, self.filesize)
 
@@ -113,9 +113,9 @@ class UploadClient(Client):
         # Propuesta:
         # self.protocol.start_timer()
         # o sino manejar el timer acá
-        while base < total_chunks:
+        while self.base < total_chunks:
             # MIEntras aun quede data que enviar, enviamos los paquetes dentro de la ventana
-            while next_seq_num < base + self.windows_size and next_seq_num < total_chunks:
+            while next_seq_num < self.base + self.windows_size and next_seq_num < total_chunks:
                 is_last_chunk = (next_seq_num == total_chunks - 1)
                 chunk = chunks[next_seq_num]
                 self.protocol.send_file_chunk(
@@ -179,7 +179,7 @@ class UploadClient(Client):
         return chunk_list
 
     def closing_handshake(self) -> None:
-        self.sequence_number.step()
+        self.sequence_number.step(GO_BACK_N_PROTOCOL_TYPE)
         self.protocol.send_ack(self.sequence_number)
         self.logger.debug("Connection closed")
 
