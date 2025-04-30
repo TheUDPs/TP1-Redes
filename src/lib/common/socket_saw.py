@@ -123,3 +123,7 @@ class SocketSaw:
 
     def close(self):
         self.socket.close()
+
+    def reset_state(self):
+        self.last_address = None
+        self.last_raw_packet = None

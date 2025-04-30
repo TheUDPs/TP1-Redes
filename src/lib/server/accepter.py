@@ -73,6 +73,7 @@ class Accepter:
 
         try:
             self.logger.debug(f"Waiting for connection on {self.adress}")
+            self.welcoming_socket.reset_state()
             packet, packet_type, client_address = self.protocol.accept_connection()
 
             packet, connection_socket, connection_address = self.handshake(
@@ -125,9 +126,7 @@ class Accepter:
 
         connection_socket: SocketSaw = SocketSaw(connection_socket_raw, self.logger)
 
-        self.logger.debug(
-            f"Accepting connection for {client_address}. Transferred to {connection_address}"
-        )
+        self.logger.debug(f"Accepting connection for {client_address}")
 
         sequence_number = SequenceNumber(packet.sequence_number)
 
@@ -136,6 +135,7 @@ class Accepter:
         )
 
         packet, packet_type, _ = self.protocol.expect_handshake_completion()
+        self.logger.debug(f"Transferred to {connection_address}")
         self.logger.debug("Handhsake completed")
 
         return (

@@ -66,7 +66,7 @@ def setup_directories(tests_dir):
 def start_server(host, tmp_path, port):
     log_file = f"{tmp_path}/server_output.log"
     pid = host.cmd(
-        f"{PROJECT_ROOT}/src/start-server.py -p {port} -s {tmp_path}/server/ -H 10.0.0.1 -r saw -q > {log_file} 2>&1 & echo $!"
+        f"{PROJECT_ROOT}/src/start-server.py -p {port} -s {tmp_path}/server/ -H 10.0.0.1 -r saw > {log_file} 2>&1 & echo $!"
     )
     return pid.strip(), log_file
 
@@ -74,7 +74,7 @@ def start_server(host, tmp_path, port):
 def start_upload_client(host, tmp_path, port, file_to_upload):
     log_file = f"{tmp_path}/client_output.log"
     pid = host.cmd(
-        f"{PROJECT_ROOT}/src/upload.py -H 10.0.0.1 -p {port} -s {file_to_upload} -r saw -q > {log_file} 2>&1 & echo $!"
+        f"{PROJECT_ROOT}/src/upload.py -H 10.0.0.1 -p {port} -s {file_to_upload} -r saw > {log_file} 2>&1 & echo $!"
     )
     return pid.strip(), log_file
 
@@ -230,6 +230,7 @@ def check_results(
     TEST_POLLING_TIME = 1
     start_time = time()
 
+    # To increase the time allow to pass before timeout taking into account package loss
     timeout_coefficient = p_loss / 20
     # 0 -> 0
     # 10 -> 0.5
@@ -237,7 +238,7 @@ def check_results(
     total_timeout = TEST_TIMEOUT + (TEST_TIMEOUT * timeout_coefficient)
 
     end_time = start_time + total_timeout
-    print(f"Waiting up to {end_time} seconds for file transfer to complete...")
+    print(f"Waiting up to {total_timeout} seconds for file transfer to complete...")
 
     while time() < end_time:
         sleep(TEST_POLLING_TIME)
