@@ -110,12 +110,14 @@ class UploadClient(Client):
         base: int = 0
         next_seq_num: int = 0
         total_chunks: int = len(chunks)
-        retransmission_attempts: int = 0
 
+        # Propuesta:
+        # self.protocol.start_timer()
+        # o sino manejar el timer acá
         while base < total_chunks:
             # MIEntras aun quede data que enviar, enviamos los paquetes dentro de la ventana
             while next_seq_num < base + self.windows_size and next_seq_num < total_chunks:
-                is_last_chunk = next_seq_num == total_chunks - 1
+                is_last_chunk = (next_seq_num == total_chunks - 1)
                 chunk = chunks[next_seq_num]
                 self.protocol.send_file_chunk(
                     self.sequence_number, chunk, len(chunk), is_last_chunk
@@ -125,33 +127,50 @@ class UploadClient(Client):
                 next_seq_num += 1
 
             try:
-                # TODO: ver bien tema de timeout, verificar que lo que recibo es ack, y revisar todo
-                ack_seq_num, ack_packet = self.protocol.wait_for_ack(
-                    self.sequence_number,
-                    exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
-                )
-
-                if ack_seq_num >= base:
-                    self.logger.debug(f"ACK received for chunk {ack_seq_num}")
-                    base = ack_seq_num + 1
-                    retransmission_attempts = 0
-                else:
-                    self.logger.debug(f"Duplicate ACK received for chunk {ack_seq_num}")
+                self.await_ack_phase()
             except TimeoutError:
-                self.logger.debug("Timeout occurred, retransmitting window")
-                retransmission_attempts += 1
-                if retransmission_attempts > MAXIMUM_RETRANSMISSION_ATTEMPTS:
-                    raise MaxRetransmissionAttempts()
-                next_seq_num = base
+                raise MaxRetransmissionAttempts()
 
         self.logger.force_info("File transfer complete")
         self.file_handler.close(self.file)
+
+    def await_ack_phase(self):
+        # espero el ack
+        # si no llegaa
+        # hago time out y reenvio todo desde la base de la windows
+        # si llega el ack
+        # si es nuevo ack registro y continuo
+        # si no es nuevo ack (es ack repetido) amplio la cuenta hasta llegar a 4. Si llega a 4 retransmitir toda la ventada
+
+        counter: int = 0
+        global_counter: int = 0
+        ## Esto no va a andar, necesito algo que simplemente reciba un ack
+        ack_seq_num, packet = self.protocol.wait_for_ack(
+            self.sequence_number,
+            exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
+        )
+
+        if ack_seq_num != self.expected_sqn_number:
+            self.logger.debug(f"Received repeated ack {counter} ")
+
+            if counter == MAX_ACK_REPEATED:
+                if MAXIMUM_RETRANSMISSION_ATTEMPTS == global_counter:
+                    raise MaxRetransmissionAttempts()
+
+                self.logger.debug(f"Received repeated ack {self.expected_sqn_number} ")
+                self.retransmit_phase()
+        else:
+            self.logger.debug(f"Received ack {self.expected_sqn_number} ")
+            self.expected_sqn_number += 1
+            self.curr_sqn_number += 1
+
+        return
 
     def separete_file_to_chunks(self) -> List[bytes]:
         total_chunks: int = self.file_handler.get_number_of_chunks(
             self.filesize, FILE_CHUNK_SIZE
         )
-        # Todo: modificar para no levantar todo el file en memoria, mejor ir levantando de a ventanas en memoria
+        # TODO: modificar para no levantar todo el file en memoria, mejor ir levantando de a ventanas en memoria
         chunk_list: list[bytes] = []
 
         for _ in range(total_chunks):
