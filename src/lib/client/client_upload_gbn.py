@@ -28,7 +28,7 @@ class UploadClient(Client):
         self.src_filepath: str = src
         self.filename_in_server: str = name
         self.windows_size: int = WINDOWS_SIZE
-        self.curr_sqn_number: int = 0
+        self.base: int = 0
         self.expected_sqn_number: int = 1
         try:
             self.file_handler: FileHandler = FileHandler(getcwd(), logger)
@@ -107,8 +107,7 @@ class UploadClient(Client):
 
         chunks: List[bytes] = self.separete_file_to_chunks()
 
-        base: int = 0
-        next_seq_num: int = 0
+        next_seq_num: int = 1   # Número de sqn que le vamos a asignar al próximo paquete a enviar
         total_chunks: int = len(chunks)
 
         # Propuesta:
@@ -162,7 +161,7 @@ class UploadClient(Client):
         else:
             self.logger.debug(f"Received ack {self.expected_sqn_number} ")
             self.expected_sqn_number += 1
-            self.curr_sqn_number += 1
+            self.base += 1
 
         return
 
