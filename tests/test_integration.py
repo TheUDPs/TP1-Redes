@@ -12,9 +12,9 @@ from mininet.link import TCLink
 from mininet.net import Mininet
 
 from tests.common import (
+    TESTS_DIR,
     emergency_directory_teardown,
     setup_directories,
-    TESTS_DIR,
     generate_random_text_file,
     get_random_port,
     start_server,
@@ -31,12 +31,18 @@ from tests.common import (
 PACKET_LOSS_PERCENTAGE = 10
 
 P_LOSS = MutableVariable(0)
+PROTOCOL = MutableVariable("saw")
 
 
-@pytest.fixture(scope="session", params=[0, 10, 40])
+@pytest.fixture(
+    scope="module", params=["saw;0", "saw;10", "saw;40"]
+)  # Pending to add: "gbn;0", "gbn;10", "gbn;40"
 def mininet_net_setup(request):
-    packet_loss_percentage = request.param
+    protocol = request.param.split(";")[0]
+    packet_loss_percentage = int(request.param.split(";")[1])
+
     P_LOSS.value = packet_loss_percentage
+    PROTOCOL.value = protocol
 
     topo = LinearEndsTopo(
         client_number=1, packet_loss_percentage=packet_loss_percentage
@@ -61,20 +67,20 @@ def test_01_upload_is_correct(mininet_net_setup):
 
     p_loss = P_LOSS.value
 
-    tmp_path, timestamp = setup_directories(TESTS_DIR)
-    filepath = f"{tmp_path}/test_file.txt"
+    tmp_dirpath, timestamp = setup_directories(TESTS_DIR)
+    filepath = f"{tmp_dirpath}/test_file.txt"
     generate_random_text_file(filepath)
 
     port = get_random_port()
 
     print(f"Starting server on {h1.name}...")
-    server_pid, server_log = start_server(h1, tmp_path, port)
+    server_pid, server_log = start_server(h1, tmp_dirpath, port, PROTOCOL.value)
 
     sleep(1)  # wait for server start
 
     print(f"Starting client on {h2.name}...")
     client_pid, client_log = start_upload_client(
-        h2, tmp_path, port, file_to_upload=filepath
+        h2, tmp_dirpath, port, PROTOCOL.value, file_to_upload=filepath
     )
 
     was_client_successful = MutableVariable(False)
@@ -98,7 +104,7 @@ def test_01_upload_is_correct(mininet_net_setup):
 
     print_outputs(server_log, client_log)
 
-    teardown_directories(tmp_path)
+    teardown_directories(tmp_dirpath)
 
     assert was_client_successful.value
     assert was_server_successful.value
@@ -120,31 +126,27 @@ def test_02_upload_fails_when_is_already_present_in_server(mininet_net_setup):
     h2 = mininet_net_setup.get("h2")
     p_loss = P_LOSS.value
 
-    tmp_path, timestamp = setup_directories(TESTS_DIR)
-    filepath = f"{tmp_path}/test_file.txt"
+    tmp_dirpath, timestamp = setup_directories(TESTS_DIR)
+    filepath = f"{tmp_dirpath}/test_file.txt"
     generate_random_text_file(filepath)
 
     port = get_random_port()
     print(f"Starting server on {h1.name}...")
-    server_pid, server_log = start_server(h1, tmp_path, port)
+    server_pid, server_log = start_server(h1, tmp_dirpath, port, PROTOCOL.value)
 
     sleep(1)  # wait for server start
 
-    create_empty_file_with_name(f"{tmp_path}/server/test_file.txt")
+    create_empty_file_with_name(f"{tmp_dirpath}/server/test_file.txt")
 
     print(f"Starting client on {h2.name}...")
     client_pid, client_log = start_upload_client(
-        h2, tmp_path, port, file_to_upload=filepath
+        h2, tmp_dirpath, port, PROTOCOL.value, file_to_upload=filepath
     )
 
     was_client_successful = MutableVariable(False)
     was_server_successful = MutableVariable(False)
 
-    client_message_expected = [
-        "File in server already exists",
-        "connection lost",
-        "Connection was lost",
-    ]
+    client_message_expected = ["File in server already exists"]
     server_message_expected = ["already existing in the server"]
     check_results(
         was_client_successful=was_client_successful,
@@ -162,7 +164,7 @@ def test_02_upload_fails_when_is_already_present_in_server(mininet_net_setup):
 
     print_outputs(server_log, client_log)
 
-    teardown_directories(tmp_path)
+    teardown_directories(tmp_dirpath)
 
     assert was_client_successful.value
     assert was_server_successful.value
@@ -173,13 +175,13 @@ def test_03_upload_fails_when_file_to_upload_does_not_exist(mininet_net_setup):
     print(mininet_net_setup.topo)
     p_loss = P_LOSS.value
 
-    tmp_path, timestamp = setup_directories(TESTS_DIR)
-    filepath = f"{tmp_path}/test_file.txt"
+    tmp_dirpath, timestamp = setup_directories(TESTS_DIR)
+    filepath = f"{tmp_dirpath}/test_file.txt"
 
     port = get_random_port()
     print(f"Starting client on {h2.name}...")
     client_pid, client_log = start_upload_client(
-        h2, tmp_path, port, file_to_upload=filepath
+        h2, tmp_dirpath, port, PROTOCOL.value, file_to_upload=filepath
     )
 
     was_client_successful = MutableVariable(False)
@@ -199,7 +201,7 @@ def test_03_upload_fails_when_file_to_upload_does_not_exist(mininet_net_setup):
     print("Cleaning up processes...")
     kill_process(h2, client_pid)
 
-    teardown_directories(tmp_path)
+    teardown_directories(tmp_dirpath)
 
     assert was_client_successful.value
 
@@ -209,19 +211,19 @@ def test_04_download_is_correct(mininet_net_setup):
     h2 = mininet_net_setup.get("h2")
     p_loss = P_LOSS.value
 
-    tmp_path, timestamp = setup_directories(TESTS_DIR)
-    filepath = f"{tmp_path}/server/test_file.txt"
+    tmp_dirpath, timestamp = setup_directories(TESTS_DIR)
+    filepath = f"{tmp_dirpath}/server/test_file.txt"
     generate_random_text_file(filepath)
 
     port = get_random_port()
     print(f"Starting server on {h1.name}...")
-    server_pid, server_log = start_server(h1, tmp_path, port)
+    server_pid, server_log = start_server(h1, tmp_dirpath, port, PROTOCOL.value)
 
     sleep(1)  # wait for server start
 
     print(f"Starting client on {h2.name}...")
     client_pid, client_log = start_download_client(
-        h2, tmp_path, port, file_to_download="test_file.txt"
+        h2, tmp_dirpath, port, PROTOCOL.value, file_to_download="test_file.txt"
     )
 
     was_client_successful = MutableVariable(False)
@@ -245,13 +247,13 @@ def test_04_download_is_correct(mininet_net_setup):
 
     print_outputs(server_log, client_log)
 
-    teardown_directories(tmp_path)
+    teardown_directories(tmp_dirpath)
 
     assert was_client_successful.value
     assert was_server_successful.value
 
     if os.path.exists(client_log) and os.path.exists(server_log):
-        hash_client = compute_sha256(f"{tmp_path}/client/test_file.txt")
+        hash_client = compute_sha256(f"{tmp_dirpath}/client/test_file.txt")
         hash_server = compute_sha256(filepath)
 
         print(f"Client file hash: {hash_client}")
@@ -267,25 +269,23 @@ def test_05_download_fails_when_is_not_present_in_server(mininet_net_setup):
     h2 = mininet_net_setup.get("h2")
     p_loss = P_LOSS.value
 
-    tmp_path, timestamp = setup_directories(TESTS_DIR)
+    tmp_dirpath, timestamp = setup_directories(TESTS_DIR)
 
     port = get_random_port()
     print(f"Starting server on {h1.name}...")
-    server_pid, server_log = start_server(h1, tmp_path, port)
+    server_pid, server_log = start_server(h1, tmp_dirpath, port, PROTOCOL.value)
 
     sleep(1)  # wait for server start
 
     print(f"Starting client on {h2.name}...")
     client_pid, client_log = start_download_client(
-        h2, tmp_path, port, file_to_download="test_file.txt"
+        h2, tmp_dirpath, port, PROTOCOL.value, file_to_download="test_file.txt"
     )
     was_client_successful = MutableVariable(False)
     was_server_successful = MutableVariable(False)
 
     client_message_expected = [
         "File in server does not exist",
-        "connection lost",
-        "Connection was lost",
     ]
     server_message_expected = ["not existing in server for download"]
 
@@ -305,7 +305,7 @@ def test_05_download_fails_when_is_not_present_in_server(mininet_net_setup):
 
     print_outputs(server_log, client_log)
 
-    teardown_directories(tmp_path)
+    teardown_directories(tmp_dirpath)
 
     assert was_client_successful.value
     assert was_server_successful.value
@@ -315,13 +315,17 @@ def test_06_download_fails_when_file_already_exists_in_client(mininet_net_setup)
     h2 = mininet_net_setup.get("h2")
     p_loss = P_LOSS.value
 
-    tmp_path, timestamp = setup_directories(TESTS_DIR)
-    create_empty_file_with_name(f"{tmp_path}/client/test_file.txt")
+    tmp_dirpath, timestamp = setup_directories(TESTS_DIR)
+    create_empty_file_with_name(f"{tmp_dirpath}/client/test_file.txt")
 
     port = get_random_port()
     print(f"Starting client on {h2.name}...")
     client_pid, client_log = start_download_client(
-        h2, tmp_path, port, file_to_download=f"{tmp_path}/client/test_file.txt"
+        h2,
+        tmp_dirpath,
+        port,
+        PROTOCOL.value,
+        file_to_download=f"{tmp_dirpath}/client/test_file.txt",
     )
 
     was_client_successful = MutableVariable(False)
@@ -341,7 +345,7 @@ def test_06_download_fails_when_file_already_exists_in_client(mininet_net_setup)
     print("Cleaning up processes...")
     kill_process(h2, client_pid)
 
-    teardown_directories(tmp_path)
+    teardown_directories(tmp_dirpath)
 
     assert was_client_successful.value
 
@@ -350,12 +354,12 @@ def test_07_cannot_boot_server_with_invalid_storage(mininet_net_setup):
     h1 = mininet_net_setup.get("h1")
     p_loss = P_LOSS.value
 
-    tmp_path, timestamp = setup_directories(TESTS_DIR)
-    shutil.rmtree(f"{tmp_path}/server")
+    tmp_dirpath, timestamp = setup_directories(TESTS_DIR)
+    shutil.rmtree(f"{tmp_dirpath}/server")
 
     port = get_random_port()
     print(f"Starting server on {h1.name}...")
-    server_pid, server_log = start_server(h1, tmp_path, port)
+    server_pid, server_log = start_server(h1, tmp_dirpath, port, PROTOCOL.value)
 
     sleep(1)  # wait for server start
 
@@ -379,6 +383,6 @@ def test_07_cannot_boot_server_with_invalid_storage(mininet_net_setup):
 
     print_outputs(server_log, None)
 
-    teardown_directories(tmp_path)
+    teardown_directories(tmp_dirpath)
 
     assert was_server_successful.value
