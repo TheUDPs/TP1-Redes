@@ -10,6 +10,8 @@ from lib.common.constants import (
     ERROR_EXIT_CODE,
     FILE_CHUNK_SIZE,
     GO_BACK_N_PROTOCOL_TYPE,
+    STOP_AND_WAIT_PROTOCOL_TYPE
+
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.invalid_filename import InvalidFilename
@@ -17,18 +19,17 @@ from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.file_handler import FileHandler
 from lib.common.logger import Logger
-from lib.server.exceptions.protocol_mismatch import ProtocolMismatch
+from lib.client.go_back_n import GoBackN
 
 
 class UploadClient(Client):
     def __init__(
         self, logger: Logger, host: str, port: int, src: str, name: str, protocol: str
     ):
-        if protocol == GO_BACK_N_PROTOCOL_TYPE:
-            raise ProtocolMismatch()
 
         self.src_filepath: str = src
         self.filename_in_server: str = name
+        self.protocol_version: str = protocol
 
         try:
             self.file_handler: FileHandler = FileHandler(getcwd(), logger)
@@ -103,6 +104,16 @@ class UploadClient(Client):
         self.inform_filesize()
 
     def send_file(self) -> None:
+        if self.protocol_version == STOP_AND_WAIT_PROTOCOL_TYPE:
+            self.send_file_saw()
+        elif self.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
+            self.send_file_gbn()
+    
+    def send_file_gbn(self) -> None:
+        gbn_protocol = GoBackN(self.logger, self.protocol, self.sequence_number)
+        gbn_protocol.send_file(self.file)
+
+    def send_file_saw(self) -> None:
         chunk_number: int = 1
         total_chunks: int = self.file_handler.get_number_of_chunks(
             self.filesize, FILE_CHUNK_SIZE

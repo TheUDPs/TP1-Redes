@@ -1,7 +1,7 @@
 from lib.common.constants import STOP_AND_WAIT_PROTOCOL_TYPE
 
-MAX_SEQUENCE_NUMBER = 1_000_000
 
+MAX_SEQUENCE_NUMBER = 1_000_000
 
 class SequenceNumber:
     def __init__(self, first: int, protocol: str):
