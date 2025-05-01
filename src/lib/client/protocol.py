@@ -13,7 +13,7 @@ from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.message_not_fin import MessageIsNotFin
-from lib.common.exceptions.message_not_fin_ack import MessageIsNotFinAck
+from lib.common.exceptions.message_not_fin_nor_ack import MessageNotFinNorAck
 from lib.common.exceptions.message_not_syn import MessageIsNotSyn
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.logger import Logger
@@ -186,6 +186,8 @@ class ClientProtocol:
         self.validate_not_fin(packet)
         self.validate_sequence_number(packet, sequence_number)
 
+        return packet
+
     def send_file_chunk(
         self,
         sequence_number: SequenceNumber,
@@ -207,7 +209,7 @@ class ClientProtocol:
         self.socket_send_to(packet_to_send, self.server_address)
 
     @re_listen_if_failed()
-    def wait_for_ack(self, sequence_number: SequenceNumber) -> None:
+    def wait_for_ack(self, sequence_number: SequenceNumber) -> Packet:
         raw_packet, server_address_tuple = self.socket_receive_from(
             COMMS_BUFFER_SIZE, should_retransmit=True
         )
@@ -217,20 +219,7 @@ class ClientProtocol:
         )
         self.validate_not_fin(packet)
         self.validate_sequence_number(packet, sequence_number)
-
-    @re_listen_if_failed()
-    def wait_for_fin_ack(self, sequence_number: SequenceNumber) -> None:
-        raw_packet, server_address_tuple = self.socket_receive_from(
-            COMMS_BUFFER_SIZE, should_retransmit=True
-        )
-
-        packet, packet_type, server_address = self.validate_inbound_packet(
-            raw_packet, server_address_tuple
-        )
-        self.validate_sequence_number(packet, sequence_number)
-
-        if not (packet.is_ack and packet.is_fin):
-            raise MessageIsNotFinAck()
+        return packet
 
     def inform_filename(self, sequence_number: SequenceNumber, filename: str) -> None:
         data = filename.encode(STRING_ENCODING_FORMAT)
@@ -324,3 +313,20 @@ class ClientProtocol:
 
         self.validate_sequence_number(packet, sequence_number)
         return SequenceNumber(packet.sequence_number, self.protocol_version), packet
+
+    @re_listen_if_failed()
+    def wait_for_fin_or_ack(self, sequence_number: SequenceNumber) -> None:
+        try:
+            raw_packet, client_address_tuple = self.socket_receive_from(
+                COMMS_BUFFER_SIZE, should_retransmit=True
+            )
+        except OSError:
+            raise ConnectionLost()
+
+        packet, packet_type, server_address = self.validate_inbound_packet(
+            raw_packet, client_address_tuple
+        )
+        self.validate_sequence_number(packet, sequence_number)
+
+        if not packet.is_ack and not packet.is_fin:
+            raise MessageNotFinNorAck()

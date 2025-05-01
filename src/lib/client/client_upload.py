@@ -54,7 +54,7 @@ class UploadClient(Client):
             self.send_operation_intention(UPLOAD_OPERATION, server_address)
             self.inform_size_and_name()
             self.send_file()
-            self.closing_handshake()
+            self.initiate_close_connection()
 
         except (FileAlreadyExists, FileTooBig, ConnectionLost) as e:
             self.logger.error(f"{e.message}")
@@ -140,20 +140,12 @@ class UploadClient(Client):
                 f"Waiting confirmation for chunk {chunk_number}/{total_chunks}"
             )
 
-            if is_last_chunk:
-                self.protocol.wait_for_fin_ack(self.sequence_number)
-            else:
+            if not is_last_chunk:
                 self.protocol.wait_for_ack(self.sequence_number)
 
             chunk_number += 1
 
-        self.logger.force_info("Upload completed")
         self.file_handler.close(self.file)
-
-    def closing_handshake(self) -> None:
-        self.sequence_number.step()
-        self.protocol.send_ack(self.sequence_number)
-        self.logger.debug("Connection closed")
 
     def file_cleanup_after_error(self):
         if not self.file_handler.is_closed(self.file):

@@ -20,7 +20,6 @@ from lib.server.client_pool import ClientPool
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
-from lib.common.exceptions.message_not_fin_ack import MessageIsNotFinAck
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.server.exceptions.unexpected_operation import UnexpectedOperation
@@ -299,11 +298,12 @@ class ServerProtocol:
         chunk: bytes,
         chunk_len: int,
         is_last_chunk: bool,
+        is_first_chunk: bool,
         client_address: Address,
     ) -> None:
         packet_to_send: Packet = Packet(
             protocol=self.protocol_version,
-            is_ack=False,
+            is_ack=is_first_chunk,
             is_syn=False,
             is_fin=is_last_chunk,
             port=self.address.port,
@@ -313,20 +313,3 @@ class ServerProtocol:
         )
 
         self.socket_send_to(packet_to_send, client_address)
-
-    @re_listen_if_failed()
-    def wait_for_fin_ack(self, sequence_number: SequenceNumber) -> None:
-        try:
-            raw_packet, client_address_tuple = self.socket_receive_from(
-                COMMS_BUFFER_SIZE, should_retransmit=True
-            )
-        except ConnectionLost:
-            raise ConnectionLost()
-
-        packet, client_address = self.validate_inbound_packet(
-            raw_packet, client_address_tuple
-        )
-        self.validate_sequence_number(packet, sequence_number)
-
-        if not (packet.is_ack and packet.is_fin):
-            raise MessageIsNotFinAck()

@@ -2,9 +2,11 @@ from lib.common.address import Address
 from lib.common.constants import (
     FILE_CHUNK_SIZE,
 )
+from lib.common.exceptions.connection_lost import ConnectionLost
+from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.logger import Logger
 from lib.common.mutable_variable import MutableVariable
-from lib.common.packet.packet import Packet
+from lib.common.packet.packet import Packet, PacketParser
 from lib.common.socket_saw import SocketSaw
 from lib.server.client_connection.abstract_client_connection import ClientConnection
 from lib.server.connection_state import ConnectionState
@@ -32,17 +34,16 @@ class ClientConnectionSaw(ClientConnection):
             packet,
         )
 
+        raw_packet = PacketParser.compose_packet_saw_for_net(packet)
+        self.socket.save_state(raw_packet, self.client_address)
+
     def receive_single_chunk(
         self, sequence_number: MutableVariable, chunk_number: int
     ) -> Packet:
         _seq, packet = self.protocol.receive_file_chunk(sequence_number.value)
         sequence_number.value = _seq
 
-        if packet.is_fin:
-            self.protocol.send_fin_ack(
-                sequence_number.value, self.client_address, self.address
-            )
-        else:
+        if not packet.is_fin:
             self.protocol.send_ack(
                 sequence_number.value, self.client_address, self.address
             )
@@ -90,6 +91,7 @@ class ClientConnectionSaw(ClientConnection):
             filesize, FILE_CHUNK_SIZE
         )
         is_last_chunk: bool = False
+        is_first_chunk: bool = True
 
         self.logger.info(
             f"Sending file {filename.value} of {self.file_handler.bytes_to_megabytes(filesize)} MB"
@@ -104,36 +106,62 @@ class ClientConnectionSaw(ClientConnection):
             if chunk_number == total_chunks:
                 is_last_chunk = True
 
-            sequence_number.value.step()
+            if not is_first_chunk:
+                sequence_number.value.step()
+
             self.protocol.send_file_chunk(
                 sequence_number.value,
                 chunk,
                 chunk_len,
                 is_last_chunk,
+                is_first_chunk,
                 self.client_address,
             )
 
             self.logger.debug(f"Waiting confirmation for chunk {chunk_number}")
 
-            if is_last_chunk:
-                self.protocol.wait_for_fin_ack(sequence_number.value)
-            else:
+            if not is_last_chunk:
                 self.protocol.wait_for_ack(sequence_number.value)
 
             chunk_number += 1
+            is_first_chunk = False
 
         self.logger.info("File transfer complete")
 
     def closing_handshake_for_upload(self, sequence_number: MutableVariable):
-        sequence_number.value.step()
-        self.protocol.wait_for_ack(sequence_number.value)
-        self.logger.debug("Connection closed")
-        self.state = ConnectionState.DONE_READY_TO_DIE
+        try:
+            self.logger.debug("Connection finalization received. Confirming it")
+            self.protocol.send_ack(
+                sequence_number.value, self.client_address, self.address
+            )
+
+            self.logger.debug("Sending own connection finalization")
+            self.protocol.send_fin(
+                sequence_number.value, self.client_address, self.address
+            )
+
+            sequence_number.value.step()
+            try:
+                self.protocol.wait_for_ack(
+                    sequence_number.value, exceptions_to_let_through=[ConnectionLost]
+                )
+            except ConnectionLost:
+                pass
+
+            self.logger.info("Connection closed")
+        except SocketShutdown:
+            self.logger.info("Connection closed")
+        finally:
+            self.state = ConnectionState.DONE_READY_TO_DIE
 
     def closing_handshake_for_download(self, sequence_number: MutableVariable):
+        self.logger.debug("Waiting for confirmation of last packet")
+        self.protocol.wait_for_fin_or_ack(sequence_number.value)
+
+        self.logger.force_info("Upload completed")
+        self.logger.debug("Received connection finalization from server")
         sequence_number.value.step()
         self.protocol.send_ack(sequence_number.value, self.client_address, self.address)
-        self.logger.debug("Connection closed")
         self.state = ConnectionState.DONE_READY_TO_DIE
 
     def perform_upload(

@@ -252,7 +252,7 @@ nix profile install nixpkgs\#devenv
 
 Then, you can enter the development environment by running the following command:
 
-``` bash
+```bash
 devenv shell
 ```
 

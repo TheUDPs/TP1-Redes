@@ -89,10 +89,6 @@ class ClientConnection:
             self.logger.debug(f"Operation is: {OPERATION_STRING_FROM_CODE[op_code]}")
             self.logger.debug("Confirming operation")
 
-            self.protocol.send_ack(
-                sequence_number.value, self.client_address, self.address
-            )
-
             return op_code
 
         except MissingClientAddress as e:
@@ -173,9 +169,6 @@ class ClientConnection:
         sequence_number.value = _seq
 
         if self.is_filename_valid_for_download(filename):
-            self.protocol.send_ack(
-                sequence_number.value, self.client_address, self.address
-            )
             self.logger.debug("Filename received valid")
         else:
             self.protocol.send_fin(
@@ -186,7 +179,7 @@ class ClientConnection:
                 f"Client {self.client_address.to_combined()} shutdowned due to file '{filename}' not existing in server for download"
             )
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
-            raise SocketShutdown()
+            raise ConnectionClosingNeeded()
 
         filesize = self.file_handler.get_filesize(filename, is_path_complete=False)
 

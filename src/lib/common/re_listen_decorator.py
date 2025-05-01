@@ -51,7 +51,7 @@ def re_listen_if_failed(exceptions_to_let_through=None):
             want_to_catch = configure_wanted_exceptions_to_catch(
                 _exceptions_to_let_through
             )
-            self.logger.warn("a")
+
             listening_attempts = 0
             result = None
             exception_got = None

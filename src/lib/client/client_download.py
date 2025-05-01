@@ -49,9 +49,9 @@ class DownloadClient(Client):
     def perform_download(self, server_address: Address) -> None:
         try:
             self.send_operation_intention(DOWNLOAD_OPERATION, server_address)
-            self.inform_name_to_download()
-            self.receive_file()
-            self.closing_handshake()
+            packet = self.inform_name_to_download()
+            self.receive_file(packet)
+            self.handle_connection_finalization()
 
         except (FileDoesNotExist, ConnectionLost) as e:
             self.logger.error(f"{e.message}")
@@ -63,7 +63,7 @@ class DownloadClient(Client):
             self.logger.error(f"Error message: {err}")
             self.file_cleanup_after_error()
 
-    def inform_name_to_download(self):
+    def inform_name_to_download(self) -> Packet:
         self.sequence_number.step()
         self.logger.debug(
             f"Informing filename to download: {self.filename_for_download}"
@@ -72,10 +72,11 @@ class DownloadClient(Client):
 
         self.logger.debug("Waiting for filename confirmation")
         try:
-            self.protocol.wait_for_ack(
+            packet = self.protocol.wait_for_ack(
                 self.sequence_number,
                 exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
             )
+            return packet
         except (UnexpectedFinMessage, MessageIsNotAck):
             self.logger.debug("Filename confirmation failed")
             raise FileDoesNotExist()
@@ -97,9 +98,7 @@ class DownloadClient(Client):
 
             self._update_sqn_and_excpected()
 
-        if packet.is_fin:
-            self.protocol.send_fin_ack(self.sequence_number)
-        else:
+        if not packet.is_fin:
             self.protocol.send_ack(self.sequence_number)
 
         self.logger.debug(f"Received chunk {chunk_number}")
@@ -107,9 +106,15 @@ class DownloadClient(Client):
 
         return packet
 
-    def receive_file(self) -> None:
+    def receive_file(self, first_chunk_packet: Packet) -> None:
         chunk_number: int = 1
-        packet = self.receive_single_chunk(chunk_number)
+
+        packet = first_chunk_packet
+        if not packet.is_fin:
+            self.protocol.send_ack(self.sequence_number)
+
+        self.logger.debug(f"Received chunk {chunk_number}")
+        self.file_handler.append_to_file(self.file, packet)
 
         if (
             self.protocol_version == GO_BACK_N_PROTOCOL_TYPE
@@ -124,12 +129,6 @@ class DownloadClient(Client):
         self.logger.force_info("Download completed")
         self.download_completed = True
         self.file_handler.close(self.file)
-
-    def closing_handshake(self) -> None:
-        if self.protocol_version != GO_BACK_N_PROTOCOL_TYPE:
-            self.sequence_number.step()
-        self.protocol.wait_for_ack(self.sequence_number)
-        self.logger.debug("Connection closed")
 
     def file_cleanup_after_error(self):
         if not self.file_handler.is_closed(self.file):

@@ -101,7 +101,7 @@ class Accepter:
             )
 
         except (MessageIsNotSyn, MessageIsNotSyn, MessageIsNotAck) as e:
-            self.logger.info(f"{e.message}")
+            self.logger.debug(f"{e.message}")
 
         except SocketShutdown:
             self.logger.warn("Socket shutdown")
