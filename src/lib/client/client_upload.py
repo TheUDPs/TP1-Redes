@@ -9,6 +9,8 @@ from lib.common.constants import (
     ERROR_EXIT_CODE,
     FILE_CHUNK_SIZE,
     GO_BACK_N_PROTOCOL_TYPE,
+    STOP_AND_WAIT_PROTOCOL_TYPE
+
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.invalid_filename import InvalidFilename
@@ -100,9 +102,9 @@ class UploadClient(Client):
         self.inform_filesize()
 
     def send_file(self) -> None:
-        if self.protocol_version == "saw":
+        if self.protocol_version == STOP_AND_WAIT_PROTOCOL_TYPE:
             self.send_file_saw()
-        elif self.protocol_version == "gbn":
+        elif self.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
             self.send_file_gbn()
     
     def send_file_gbn(self) -> None:
