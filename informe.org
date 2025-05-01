@@ -225,12 +225,86 @@ _Mensajes para caso Upload_:
 * Pruebas
 * Preguntas a Responder
 ** Describa la arquitectura Cliente-Servidor.
+La arquitectura Cliente-Servidor es una de dos arquitecturas más comunes. En esta arquitectura hay un /host/ (/end system/) llamado /server/ que esta siempre encendido que pasivamente escucha /requests/ de otros /hosts/ llamados /clients/ que son agentes activos que inician la comunicación con el /server/.
+
+Un ejemplo de esta arquitectura es una aplicacion Web donde hay un /Web server/ que escucha /requests/ de navegadores web. El navegador web es el cliente que inicia la comunicación y el /Web server/ es el servidor que responde a los /requests/. Estos mensajes tienen el formato de Capa de Aplicación HTTP.
+
+*** Caracteristicas
+ - Los clientes son agentes activos que inician la comunicación.
+ - Los clientes no se comunican entre si.
+ - Los clientes no necesitan estar encendidos todo el tiempo ni tener una IP fija.
+ - Los servidores son pasivos y siempre están encendidos.
+ - Los servidores *deben* tener una IP fija bien conocida (/well-known IP address/) que se puede resolver con un nombre de dominio DNS (/domain name/).
+ - Los servidores pueden tener múltiples clientes conectados al mismo tiempo.
+ 
+*** Ventajas
+ - Diseño simple usando protocolos sin estado como HTTP donde el servidor no
+   necesita mantener informacion sobre clientes ya que se puede guardar
+   informacion del cliente en /cookies/ del cliente y estos se transmitidos en
+   /headers/ HTTP.
+ - Puede soportar un gran numero de clientes.
+ 
+*** Desventajas
+ - Un solo punto de falla. Si el servidor se cae, el servicio se cae.
+ - El servidor debe estar encendido todo el tiempo.
+ - Gran costo para escalar, ya que a medida de que el servicio tiene mas
+   usuarios, el servidor debe tambien aumentar su capacidad de procesar mas
+   clientes.
+
 ** ¿Cuál es la función de un protocolo de capa de aplicación?
-** Detalle el protocolo de aplicación desarrollado en este trabajo.
+
+Un protocolo de capa de aplicación especifica cómo los procesos de una aplicación, que se ejecutan en diferentes sistemas finales, intercambian mensajes entre sí. Este tipo de protocolo define:
+
+- Los tipos de mensajes que se envían, como mensajes de solicitud y de respuesta.
+
+- La sintaxis de los mensajes, es decir, la estructura de los campos dentro de cada mensaje y cómo se separan o identifican esos campos.
+
+- La semántica de los campos, indicando qué significa la información contenida en cada uno.
+
+- Las reglas de comunicación, que establecen cuándo un proceso debe enviar un mensaje y cómo debe reaccionar al recibir uno.
+
+En resumen, los protocolos de capa de aplicación aseguran que las aplicaciones puedan comunicarse correctamente y coordinarse en la red, haciendo posible servicios como el correo electrónico, la web o la transferencia de archivos.
+
+* Detalle el protocolo de aplicación desarrollado en este trabajo.
+
 ** La capa de transporte del stack TCP/IP ofrece dos protocolos: TCP y UDP.
+
 *** ¿Qué servicios proveen dichos protocolos?
+
+Ambos protocolos proveen los siguientes servicios:
+
+- *Multiplexación/Demultiplexación*: son los mecanismos que permiten extender el servicio de entrega de IP entre dos end systems a un servicio de entrega entre dos procesos que se ejecutan en esos sistemas. Dichos mecanismos permiten identificar a qué proceso pertenece cada ssegmento recibido.
+- *Chequeo de integridad*: se verifica que no haya errores en los datos mediante un campo de checksum en los headers de ambos protocolos.
+
+UDP no realiza ninguna otra función extra. Por lo tanto, su servicio es:
+- *No confiable*: no garantiza que la entrega de los paquetes sea exitosa, ni tampoco que lleguen en orden.
+- *Sin conexión*: 
+
+Por su parte, TCP ofrece las siguientes funcionalidades adicionales: 
+- *Orientado a la conexión*: antes de que un proceso de aplicación pueda comenzar a enviar datos a otro, ambos procesos deben comunicarse entre sí; es decir, deben enviarse algunos segmentos preliminares para establecer los parámetros de la transferencia de datos subsiguiente. Se trata de una conexión lógica con un estado en común que reside en TCP de los hosts.
+- *Transferencia de datos confiable*: garantiza la entrega, el orden y la no corrupción de los datos. Esto lo logra mediante timers, numeros de secuencia y ACKs (flags que indican que un paquete fue entregado correctamente).
+- *Control de congestión*: festiona que no se saturen los enlaces. Es más bien un servicio para la red.
+- *Control de flujo*: para eliminar la posibilidad de que el remitente desborde el búfer del receptor. Hace coincidir la velocidad a la que el remitente envía con la velocidad a la que la aplicación receptora lee.
+
 *** ¿Cuáles son sus características?
+
+Algunas de las características de UPD son las siguientes:
+- *Pequeño overhead de header por paquete*: UDP posee un header pequeño (8 bytes) en comparación con TCP (20 bytes)
+- *Sin estado de conexión*: UDP no mantiene un estado de conexión en los end systems, por lo que no rastrea ningún parámetro. Por esta razón, un servidor dedicado a una aplicación específica generalmente puede admitir muchos más clientes activos cuando la aplicación se ejecuta mediante UDP en lugar de TCP.
+- *Sin retraso por conexión*: UDP no induce ningún retraso para establecer una conexión, a diferencia de TCP que posee un handshake de tres pasos.
+
+Por su parte, TPC posee las siguientes características:
+
+- *Full-duplex*: dada una conexión TCP entre dos hosts, digamos A y B, la información puede fluir de A a B al mismo tiempo que fluye información de B a A.
+- *Conexión point-to-point*: la conexión de TCP únicamente se puede establecer entre un único remitente y un único receptor, no admite multicasting.
+- *Three-Way Handshake*: para establecer la conexión mencionada anteriormente se realiza un procedimiento donde se envían tres segmentos.
+
 *** ¿Cuando es apropiado utilizar cada uno?
+
+Ninguno de estos protocolos es mejor que el otro. Para decidir cuál de ellos utilizar, se deben tener en cuenta las necesidades de la aplicación.
+Debido a las características mencionadas anteriormente, UDP resulta más apropiado para aplicaciones que requieran mayor velocidad sin que sea tan sensible a algunas pérdidas de paquetes, por ejemplo plataformas de streaming, y si se tiene un servidor dedicado a una aplicación específica que necesita poder admitir muchos más clientes activos.
+Por otro lado, TCP es más ventajoso para las aplicaciones que necesitan un transporte confiable de los datos. Algunos ejemplos son el email y la web.
+
 * Dificultades Encontradas
 * Conclusion
 * Anexo: Fragmentacion IPv4
