@@ -31,13 +31,17 @@ class ClientConnectionGbn(ClientConnection):
     def perform_upload(
         self,
         sequence_number: MutableVariable,
+        ack_number: MutableVariable,
         filename_for_upload: MutableVariable,
         filesize_for_upload: MutableVariable,
     ):
         pass
 
     def perform_download(
-        self, sequence_number: MutableVariable, filename_for_download: MutableVariable
+        self,
+        sequence_number: MutableVariable,
+        ack_number: MutableVariable,
+        filename_for_download: MutableVariable,
     ):
         pass
 

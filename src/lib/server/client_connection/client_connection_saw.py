@@ -6,11 +6,13 @@ from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.logger import Logger
 from lib.common.mutable_variable import MutableVariable
-from lib.common.packet.packet import Packet, PacketParser
+from lib.common.packet.packet import Packet
 from lib.common.socket_saw import SocketSaw
 from lib.server.client_connection.abstract_client_connection import ClientConnection
 from lib.server.connection_state import ConnectionState
 from lib.common.file_handler import FileHandler
+
+NO_ACK_NUMBER = MutableVariable(None)
 
 
 class ClientConnectionSaw(ClientConnection):
@@ -34,8 +36,7 @@ class ClientConnectionSaw(ClientConnection):
             packet,
         )
 
-        raw_packet = PacketParser.compose_packet_saw_for_net(packet)
-        self.socket.save_state(raw_packet, self.client_address)
+        self.socket.reset_state()
 
     def receive_single_chunk(
         self, sequence_number: MutableVariable, chunk_number: int
@@ -45,7 +46,10 @@ class ClientConnectionSaw(ClientConnection):
 
         if not packet.is_fin:
             self.protocol.send_ack(
-                sequence_number.value, self.client_address, self.address
+                sequence_number.value,
+                NO_ACK_NUMBER.value,
+                self.client_address,
+                self.address,
             )
 
         self.logger.debug(f"Received chunk {chunk_number}")
@@ -59,7 +63,9 @@ class ClientConnectionSaw(ClientConnection):
         filename: MutableVariable,
         filesize: MutableVariable,
     ):
-        _filename, _filesize = self.receive_file_info_for_upload(sequence_number)
+        _filename, _filesize = self.receive_file_info_for_upload(
+            sequence_number, NO_ACK_NUMBER
+        )
         filename.value = _filename
         filesize.value = _filesize
 
@@ -81,7 +87,9 @@ class ClientConnectionSaw(ClientConnection):
     def transmit_file(
         self, sequence_number: MutableVariable, filename: MutableVariable
     ):
-        _filename, filesize = self.receive_file_info_for_download(sequence_number)
+        _filename, filesize = self.receive_file_info_for_download(
+            sequence_number, NO_ACK_NUMBER
+        )
         filename.value = _filename
 
         self.logger.debug(f"Ready to transmit to {self.client_address}")
@@ -132,12 +140,18 @@ class ClientConnectionSaw(ClientConnection):
         try:
             self.logger.debug("Connection finalization received. Confirming it")
             self.protocol.send_ack(
-                sequence_number.value, self.client_address, self.address
+                sequence_number.value,
+                NO_ACK_NUMBER.value,
+                self.client_address,
+                self.address,
             )
 
             self.logger.debug("Sending own connection finalization")
             self.protocol.send_fin(
-                sequence_number.value, self.client_address, self.address
+                sequence_number.value,
+                NO_ACK_NUMBER.value,
+                self.client_address,
+                self.address,
             )
 
             sequence_number.value.step()
@@ -161,12 +175,18 @@ class ClientConnectionSaw(ClientConnection):
         self.logger.force_info("Upload completed")
         self.logger.debug("Received connection finalization from server")
         sequence_number.value.step()
-        self.protocol.send_ack(sequence_number.value, self.client_address, self.address)
+        self.protocol.send_ack(
+            sequence_number.value,
+            NO_ACK_NUMBER.value,
+            self.client_address,
+            self.address,
+        )
         self.state = ConnectionState.DONE_READY_TO_DIE
 
     def perform_upload(
         self,
         sequence_number: MutableVariable,
+        ack_number: MutableVariable,
         filename_for_upload: MutableVariable,
         filesize_for_upload: MutableVariable,
     ):
@@ -174,7 +194,10 @@ class ClientConnectionSaw(ClientConnection):
         self.closing_handshake_for_upload(sequence_number)
 
     def perform_download(
-        self, sequence_number: MutableVariable, filename_for_download: MutableVariable
+        self,
+        sequence_number: MutableVariable,
+        ack_number: MutableVariable,
+        filename_for_download: MutableVariable,
     ):
         self.transmit_file(sequence_number, filename_for_download)
         self.closing_handshake_for_download(sequence_number)

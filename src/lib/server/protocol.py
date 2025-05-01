@@ -7,11 +7,13 @@ from lib.common.constants import (
     FULL_BUFFER_SIZE,
     ZERO_BYTES,
     INT_DESERIALIZATION_BYTEORDER,
+    GO_BACK_N_PROTOCOL_TYPE,
+    STOP_AND_WAIT_PROTOCOL_TYPE,
 )
 from lib.common.exceptions.message_not_fin_nor_ack import MessageNotFinNorAck
 from lib.common.exceptions.message_not_syn import MessageIsNotSyn
 from lib.common.logger import Logger
-from lib.common.packet.packet import Packet, PacketParser
+from lib.common.packet.packet import Packet, PacketParser, PacketGbn, PacketSaw
 from lib.common.re_listen_decorator import re_listen_if_failed
 from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_saw import SocketSaw
@@ -93,6 +95,42 @@ class ServerProtocol:
         if sequence_number.value != packet.sequence_number:
             raise InvalidSequenceNumber()
 
+    def build_packet(
+        self,
+        protocol: str,
+        sequence_number: SequenceNumber,
+        ack_number: SequenceNumber,
+        is_ack: bool,
+        is_syn: bool,
+        is_fin: bool,
+        port: int,
+        payload_length: int,
+        data: bytes,
+    ) -> Packet:
+        if protocol == STOP_AND_WAIT_PROTOCOL_TYPE:
+            return PacketSaw(
+                protocol=protocol,
+                is_ack=is_ack,
+                is_syn=is_syn,
+                is_fin=is_fin,
+                port=port,
+                payload_length=payload_length,
+                sequence_number=sequence_number.value,
+                data=data,
+            )
+        else:  # if protocol == GO_BACK_N_PROTOCOL_TYPE
+            return PacketGbn(
+                protocol=protocol,
+                is_ack=is_ack,
+                is_syn=is_syn,
+                is_fin=is_fin,
+                port=port,
+                payload_length=payload_length,
+                sequence_number=sequence_number.value,
+                ack_number=ack_number.value,
+                data=data,
+            )
+
     def accept_connection(self) -> tuple[Packet, Address]:
         raw_packet, client_address_tuple = self.socket_receive_from(
             COMMS_BUFFER_SIZE, should_retransmit=False, do_not_timeout=True
@@ -152,28 +190,41 @@ class ServerProtocol:
 
         return packet, client_address
 
-    def process_operation_intention(self, packet: Packet) -> tuple[int, SequenceNumber]:
+    def process_operation_intention(
+        self, packet: Packet
+    ) -> tuple[int, SequenceNumber, SequenceNumber]:
         op_code: int = int.from_bytes(packet.data, INT_DESERIALIZATION_BYTEORDER)
 
         if op_code != UPLOAD_OPERATION and op_code != DOWNLOAD_OPERATION:
             raise UnexpectedOperation()
 
-        return op_code, SequenceNumber(packet.sequence_number, self.protocol_version)
+        ack_number = None
+        if self.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
+            _packet: PacketGbn = packet
+            ack_number = SequenceNumber(_packet.ack_number, self.protocol_version)
+
+        return (
+            op_code,
+            SequenceNumber(packet.sequence_number, self.protocol_version),
+            ack_number,
+        )
 
     def send_ack(
         self,
         sequence_number: SequenceNumber,
+        ack_number: SequenceNumber,
         client_address: Address,
         connection_address: Address,
     ) -> None:
-        packet_to_send: Packet = Packet(
+        packet_to_send: Packet = self.build_packet(
             protocol=self.protocol_version,
             is_ack=True,
             is_syn=False,
             is_fin=False,
             port=connection_address.port,
             payload_length=0,
-            sequence_number=sequence_number.value,
+            sequence_number=sequence_number,
+            ack_number=ack_number,
             data=ZERO_BYTES,
         )
 
@@ -182,17 +233,19 @@ class ServerProtocol:
     def send_fin(
         self,
         sequence_number: SequenceNumber,
+        ack_number: SequenceNumber,
         client_address: Address,
         connection_address: Address,
     ) -> None:
-        packet_to_send: Packet = Packet(
+        packet_to_send: Packet = self.build_packet(
             protocol=self.protocol_version,
             is_ack=False,
             is_syn=False,
             is_fin=True,
             port=connection_address.port,
             payload_length=0,
-            sequence_number=sequence_number.value,
+            sequence_number=sequence_number,
+            ack_number=ack_number,
             data=ZERO_BYTES,
         )
 
