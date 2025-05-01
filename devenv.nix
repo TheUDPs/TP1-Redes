@@ -23,6 +23,7 @@
     tex
     pandoc
     graphviz
+    xterm
   ] ++ (if stdenv.isLinux then [
     mininet
   ] else []);
@@ -48,8 +49,7 @@
   '';
 
   enterShell = ''
-    hello
-    git --version
+    xhost +SI:localuser:root
   '';
 
   # https://devenv.sh/tasks/
