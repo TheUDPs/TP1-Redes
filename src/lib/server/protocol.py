@@ -198,25 +198,6 @@ class ServerProtocol:
 
         self.socket_send_to(packet_to_send, client_address)
 
-    def send_fin_ack(
-        self,
-        sequence_number: SequenceNumber,
-        client_address: Address,
-        connection_address: Address,
-    ) -> None:
-        packet_to_send: Packet = Packet(
-            protocol=self.protocol_version,
-            is_ack=True,
-            is_syn=False,
-            is_fin=True,
-            port=connection_address.port,
-            payload_length=0,
-            sequence_number=sequence_number.value,
-            data=ZERO_BYTES,
-        )
-
-        self.socket_send_to(packet_to_send, client_address)
-
     @re_listen_if_failed()
     def receive_filename(
         self, sequence_number: SequenceNumber

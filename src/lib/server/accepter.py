@@ -4,7 +4,7 @@ from socket import AF_INET, SOCK_DGRAM, SHUT_RDWR
 from socket import timeout as SocketTimeout
 
 from lib.common.address import Address
-from lib.common.constants import USE_ANY_AVAILABLE_PORT
+from lib.common.constants import USE_ANY_AVAILABLE_PORT, GO_BACK_N_PROTOCOL_TYPE
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.message_not_syn import MessageIsNotSyn
@@ -129,12 +129,17 @@ class Accepter:
         self.logger.debug(f"Accepting connection for {client_address}")
 
         sequence_number = SequenceNumber(packet.sequence_number, packet.protocol)
-
-        self.protocol.send_connection_accepted(
-            sequence_number, client_address, connection_address
+        ack_number = (
+            SequenceNumber(packet.ack_number, self.protocol.protocol_version)
+            if packet.protocol == GO_BACK_N_PROTOCOL_TYPE
+            else None
         )
 
-        packet, packet_type, _ = self.protocol.expect_handshake_completion()
+        self.protocol.send_connection_accepted(
+            sequence_number, ack_number, client_address, connection_address
+        )
+
+        packet, packet_type, _ = self.protocol.expect_handshake_completion(ack_number)
         self.logger.debug(f"Transferred to {connection_address}")
         self.logger.debug("Handhsake completed")
 

@@ -144,6 +144,14 @@ class PacketParser:
             int(packet.ack_number),
         )
 
+        binary_string = "".join(f"{byte:08b}" for byte in header)
+
+        # Insert a space every 16 bits
+        spaced_binary = " ".join(
+            binary_string[i : i + 16] for i in range(0, len(binary_string), 16)
+        )
+        print(spaced_binary)
+
         return header + packet.data
 
     @staticmethod
@@ -185,12 +193,12 @@ class PacketParser:
         protocol: str, header: int, pos: int, packet: bytes
     ) -> PacketGbn:
         pos -= 1
-        is_syn = header >> pos & 0b1
-        is_syn = True if is_syn == 0b1 else False
-
-        pos -= 1
         is_ack = header >> pos & 0b1
         is_ack = True if is_ack == 0b1 else False
+
+        pos -= 1
+        is_syn = header >> pos & 0b1
+        is_syn = True if is_syn == 0b1 else False
 
         pos -= 1
         is_fin = header >> pos & 0b1

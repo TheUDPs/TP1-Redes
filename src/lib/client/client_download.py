@@ -59,7 +59,7 @@ class DownloadClient(Client):
             self.file_cleanup_after_error()
 
         except Exception as e:
-            err = e.message if e.message else e
+            err = e.message if hasattr(e, "message") else e
             self.logger.error(f"Error message: {err}")
             self.file_cleanup_after_error()
 
@@ -68,12 +68,15 @@ class DownloadClient(Client):
         self.logger.debug(
             f"Informing filename to download: {self.filename_for_download}"
         )
-        self.protocol.inform_filename(self.sequence_number, self.filename_for_download)
+        self.protocol.inform_filename(
+            self.sequence_number, self.ack_number, self.filename_for_download
+        )
 
         self.logger.debug("Waiting for filename confirmation")
         try:
             packet = self.protocol.wait_for_ack(
                 self.sequence_number,
+                self.ack_number,
                 exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
             )
             return packet
@@ -85,21 +88,21 @@ class DownloadClient(Client):
         if self.protocol_version != GO_BACK_N_PROTOCOL_TYPE:
             self.sequence_number.step()
 
-        self.sequence_number, packet = self.protocol.receive_file_chunk(
+        self.sequence_number, packet = self.protocol.receive_file_chunk_saw(
             self.sequence_number
         )
 
         if self.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
             if not self.expected_sqn_number == self.sequence_number:
                 self.protocol.send_ack(
-                    self.sequence_number
+                    self.sequence_number, self.ack_number
                 )  # We send the last in order ack
                 return packet
 
             self._update_sqn_and_excpected()
 
         if not packet.is_fin:
-            self.protocol.send_ack(self.sequence_number)
+            self.protocol.send_ack(self.sequence_number, self.ack_number)
 
         self.logger.debug(f"Received chunk {chunk_number}")
         self.file_handler.append_to_file(self.file, packet)
@@ -111,7 +114,7 @@ class DownloadClient(Client):
 
         packet = first_chunk_packet
         if not packet.is_fin:
-            self.protocol.send_ack(self.sequence_number)
+            self.protocol.send_ack(self.sequence_number, self.ack_number)
 
         self.logger.debug(f"Received chunk {chunk_number}")
         self.file_handler.append_to_file(self.file, packet)

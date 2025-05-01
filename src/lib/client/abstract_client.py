@@ -14,6 +14,7 @@ from lib.common.constants import (
     USE_ANY_AVAILABLE_PORT,
     USE_CURRENT_HOST,
     SOCKET_CONNECTION_LOST_TIMEOUT,
+    GO_BACK_N_PROTOCOL_TYPE,
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
@@ -50,16 +51,21 @@ class Client:
             0, self.protocol.protocol_version
         )
 
+        self.ack_number = None
+        if self.protocol.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
+            self.ack_number = SequenceNumber(0, self.protocol.protocol_version)
+
         self.logger.debug(f"Running on {self.my_address}")
 
     def handshake(self) -> Address:
         self.logger.debug("Starting handshake")
         self.logger.debug(f"Requesting connection to {self.server_address}")
 
-        self.protocol.request_connection(self.sequence_number)
+        self.protocol.request_connection(self.sequence_number, self.ack_number)
         try:
             server_address = self.protocol.wait_for_connection_request_answer(
                 self.sequence_number,
+                self.ack_number,
                 exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
             )
         except (UnexpectedFinMessage, MessageIsNotAck):
@@ -82,8 +88,6 @@ class Client:
             self.logger.error(f"{e.message}")
         except ConnectionLost:
             self.logger.error("Connection closed")
-            self.sequence_number.step()
-            self.protocol.send_fin(self.sequence_number)
         finally:
             should_stop_event.set()
 
@@ -125,11 +129,15 @@ class Client:
             self.logger.debug("Sending operation intention")
 
             self.sequence_number.step()
-            self.protocol.send_operation_intention(self.sequence_number, op_code)
+            self.protocol.send_operation_intention(
+                self.sequence_number, self.ack_number, op_code
+            )
 
             self.logger.debug("Waiting for operation confirmation")
             self.protocol.wait_for_operation_confirmation(
-                self.sequence_number, exceptions_to_let_through=[UnexpectedFinMessage]
+                self.sequence_number,
+                self.ack_number,
+                exceptions_to_let_through=[UnexpectedFinMessage],
             )
             self.logger.debug("Operation accepted")
 
@@ -144,15 +152,17 @@ class Client:
     def handle_connection_finalization(self):
         try:
             self.logger.debug("Connection finalization received. Confirming it")
-            self.protocol.send_ack(self.sequence_number)
+            self.protocol.send_ack(self.sequence_number, self.ack_number)
 
             self.logger.debug("Sending own connection finalization")
-            self.protocol.send_fin(self.sequence_number)
+            self.protocol.send_fin(self.sequence_number, self.ack_number)
 
             self.sequence_number.step()
             try:
                 self.protocol.wait_for_ack(
-                    self.sequence_number, exceptions_to_let_through=[ConnectionLost]
+                    self.sequence_number,
+                    self.ack_number,
+                    exceptions_to_let_through=[ConnectionLost],
                 )
             except ConnectionLost:
                 pass
@@ -163,12 +173,12 @@ class Client:
 
     def initiate_close_connection(self):
         self.logger.debug("Waiting for confirmation of last packet")
-        self.protocol.wait_for_fin_or_ack(self.sequence_number)
+        self.protocol.wait_for_fin_or_ack(self.sequence_number, self.ack_number)
 
         self.logger.force_info("Upload completed")
         self.logger.debug("Received connection finalization from server")
         self.sequence_number.step()
-        self.protocol.send_ack(self.sequence_number)
+        self.protocol.send_ack(self.sequence_number, self.ack_number)
 
     def run(self) -> None:
         self.logger.info("Client started for upload")

@@ -197,15 +197,24 @@ class ClientConnection:
             )
 
     def initiate_close_connection(self, sequence_number: MutableVariable):
-        self.logger.debug("Initiating connection close")
-        sequence_number.value.step()
-        self.protocol.send_fin(sequence_number.value, self.client_address, self.address)
+        try:
+            self.logger.debug("Initiating connection close")
+            sequence_number.value.step()
+            self.protocol.send_fin(
+                sequence_number.value, self.client_address, self.address
+            )
 
-        self.protocol.wait_for_fin_or_ack(sequence_number.value)
-        self.logger.debug("Received connection finalization from client")
+            sequence_number.value.step()
+            self.protocol.wait_for_fin_or_ack(sequence_number.value)
+            self.logger.debug("Received connection finalization from client")
 
-        sequence_number.value.step()
-        self.protocol.send_ack(sequence_number.value, self.client_address, self.address)
+            sequence_number.value.step()
+            self.protocol.send_ack(
+                sequence_number.value, self.client_address, self.address
+            )
+        except Exception as e:
+            err = e.message if hasattr(e, "message") else e
+            self.logger.debug(err)
 
     @abstractmethod
     def perform_upload(

@@ -4,6 +4,7 @@ from sys import exit
 from lib.client.abstract_client import Client
 from lib.client.exceptions.file_already_exists import FileAlreadyExists
 from lib.client.exceptions.file_too_big import FileTooBig
+from lib.client.protocol_gbn import ClientProtocolGbn
 from lib.common.address import Address
 from lib.common.constants import (
     UPLOAD_OPERATION,
@@ -18,7 +19,8 @@ from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.file_handler import FileHandler
 from lib.common.logger import Logger
-from lib.client.go_back_n import GoBackN
+from lib.client.go_back_n_sender import GoBackNSender
+from lib.common.socket_gbn import SocketGbn
 
 
 class UploadClient(Client):
@@ -62,19 +64,22 @@ class UploadClient(Client):
             self.file_cleanup_after_error()
 
         except Exception as e:
-            err = e.message if e.message else e
+            err = e.message if hasattr(e, "message") else e
             self.logger.error(f"Error message: {err}")
             self.file_cleanup_after_error()
 
     def inform_filename(self):
         self.sequence_number.step()
         self.logger.debug(f"Informing filename: {self.filename_in_server}")
-        self.protocol.inform_filename(self.sequence_number, self.filename_in_server)
+        self.protocol.inform_filename(
+            self.sequence_number, self.ack_number, self.filename_in_server
+        )
 
         self.logger.debug("Waiting for filename confirmation")
         try:
             self.protocol.wait_for_ack(
                 self.sequence_number,
+                self.ack_number,
                 exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
             )
         except (UnexpectedFinMessage, MessageIsNotAck):
@@ -84,13 +89,16 @@ class UploadClient(Client):
     def inform_filesize(self):
         self.sequence_number.step()
         self.logger.debug(f"Informing filesize: {self.filesize} bytes")
-        self.protocol.inform_filesize(self.sequence_number, self.filesize)
+        self.protocol.inform_filesize(
+            self.sequence_number, self.ack_number, self.filesize
+        )
 
         self.logger.debug("Waiting for filesize confirmation")
 
         try:
             self.protocol.wait_for_ack(
                 self.sequence_number,
+                self.ack_number,
                 exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
             )
         except (UnexpectedFinMessage, MessageIsNotAck):
@@ -108,8 +116,20 @@ class UploadClient(Client):
             self.send_file_gbn()
 
     def send_file_gbn(self) -> None:
-        gbn_protocol = GoBackN(self.logger, self.protocol, self.sequence_number)
-        gbn_protocol.send_file(self.file)
+        self.socket.reset_state()
+        socket_gbn = SocketGbn(self.socket.socket, self.logger)
+        gbn_protocol = ClientProtocolGbn(
+            self.logger,
+            socket_gbn,
+            self.server_address,
+            self.my_address,
+            self.protocol.protocol_version,
+        )
+
+        gbn_sender = GoBackNSender(self.logger, gbn_protocol, self.sequence_number)
+        gbn_sender.send_file(self.file)
+        self.logger.force_info("File transfer complete")
+        self.file_handler.close(self.file)
 
     def send_file_saw(self) -> None:
         chunk_number: int = 1
@@ -132,7 +152,7 @@ class UploadClient(Client):
                 is_last_chunk = True
 
             self.sequence_number.step()
-            self.protocol.send_file_chunk(
+            self.protocol.send_file_chunk_saw(
                 self.sequence_number, chunk, chunk_len, is_last_chunk
             )
 
@@ -141,7 +161,10 @@ class UploadClient(Client):
             )
 
             if not is_last_chunk:
-                self.protocol.wait_for_ack(self.sequence_number)
+                self.protocol.wait_for_ack(
+                    self.sequence_number,
+                    self.ack_number,
+                )
 
             chunk_number += 1
 
