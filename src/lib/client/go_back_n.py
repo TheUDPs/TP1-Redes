@@ -4,7 +4,6 @@ from lib.common.constants import (
     WINDOWS_SIZE,
     MAXIMUM_RETRANSMISSION_ATTEMPTS,
 )
-from lib.common.file_handler import FileHandler
 from lib.common.logger import Logger
 from lib.client.protocol import ClientProtocol
 from typing import List
@@ -13,8 +12,11 @@ from lib.common.exceptions.max_retransmission_attempts import MaxRetransmissionA
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.sequence_number import SequenceNumber
 
+
 class GoBackN:
-    def __init__(self, logger: Logger, protocol: ClientProtocol, sequence_number: SequenceNumber) -> None:
+    def __init__(
+        self, logger: Logger, protocol: ClientProtocol, sequence_number: SequenceNumber
+    ) -> None:
         self.windows_size: int = WINDOWS_SIZE
         self.base: int = 0
         self.expected_sqn_number: int = 1
@@ -27,7 +29,9 @@ class GoBackN:
 
         chunks: List[bytes] = self.separete_file_to_chunks()
 
-        next_seq_num: int = 1   # Número de sqn que le vamos a asignar al próximo paquete a enviar
+        next_seq_num: int = (
+            1  # Número de sqn que le vamos a asignar al próximo paquete a enviar
+        )
         total_chunks: int = len(chunks)
 
         # Propuesta:
@@ -35,8 +39,11 @@ class GoBackN:
         # o sino manejar el timer acá
         while self.base < total_chunks:
             # MIEntras aun quede data que enviar, enviamos los paquetes dentro de la ventana
-            while next_seq_num < self.base + self.windows_size and next_seq_num < total_chunks:
-                is_last_chunk = (next_seq_num == total_chunks - 1)
+            while (
+                next_seq_num < self.base + self.windows_size
+                and next_seq_num < total_chunks
+            ):
+                is_last_chunk = next_seq_num == total_chunks - 1
                 chunk = chunks[next_seq_num]
                 self.protocol.send_file_chunk(
                     self.sequence_number, chunk, len(chunk), is_last_chunk
@@ -97,4 +104,3 @@ class GoBackN:
             chunk_list.append(chunk)
 
         return chunk_list
-    
