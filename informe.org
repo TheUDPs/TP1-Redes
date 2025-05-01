@@ -214,6 +214,32 @@ _Mensajes para caso Upload_:
 * Pruebas
 * Preguntas a Responder
 ** Describa la arquitectura Cliente-Servidor.
+La arquitectura Cliente-Servidor es una de dos arquitecturas más comunes. En esta arquitectura hay un /host/ (/end system/) llamado /server/ que esta siempre encendido que pasivamente escucha /requests/ de otros /hosts/ llamados /clients/ que son agentes activos que inician la comunicación con el /server/.
+
+Un ejemplo de esta arquitectura es una aplicacion Web donde hay un /Web server/ que escucha /requests/ de navegadores web. El navegador web es el cliente que inicia la comunicación y el /Web server/ es el servidor que responde a los /requests/. Estos mensajes tienen el formato de Capa de Aplicación HTTP.
+
+*** Caracteristicas
+ - Los clientes son agentes activos que inician la comunicación.
+ - Los clientes no se comunican entre si.
+ - Los clientes no necesitan estar encendidos todo el tiempo ni tener una IP fija.
+ - Los servidores son pasivos y siempre están encendidos.
+ - Los servidores *deben* tener una IP fija bien conocida (/well-known IP address/) que se puede resolver con un nombre de dominio DNS (/domain name/).
+ - Los servidores pueden tener múltiples clientes conectados al mismo tiempo.
+ 
+*** Ventajas
+ - Diseño simple usando protocolos sin estado como HTTP donde el servidor no
+   necesita mantener informacion sobre clientes ya que se puede guardar
+   informacion del cliente en /cookies/ del cliente y estos se transmitidos en
+   /headers/ HTTP.
+ - Puede soportar un gran numero de clientes.
+ 
+*** Desventajas
+ - Un solo punto de falla. Si el servidor se cae, el servicio se cae.
+ - El servidor debe estar encendido todo el tiempo.
+ - Gran costo para escalar, ya que a medida de que el servicio tiene mas
+   usuarios, el servidor debe tambien aumentar su capacidad de procesar mas
+   clientes.
+
 ** ¿Cuál es la función de un protocolo de capa de aplicación?
 
 Un protocolo de capa de aplicación especifica cómo los procesos de una aplicación, que se ejecutan en diferentes sistemas finales, intercambian mensajes entre sí. Este tipo de protocolo define:
