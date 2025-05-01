@@ -1,7 +1,7 @@
 from lib.common.address import Address
 from lib.common.constants import STOP_AND_WAIT_PROTOCOL_TYPE
 from lib.common.logger import Logger
-from lib.common.sequence_number import SequenceNumber
+from lib.common.packet.packet import Packet
 from lib.common.socket_saw import SocketSaw
 from lib.server.client_connection.abstract_client_connection import ClientConnection
 from lib.server.client_connection.client_connection_gbn import ClientConnectionGbn
@@ -22,7 +22,7 @@ class ClientManager:
         connection_address: Address,
         client_address: Address,
         file_handler: FileHandler,
-        sequence_number: SequenceNumber,
+        packet: Packet,
     ) -> None:
         self.rip_finished_clients()
 
@@ -31,7 +31,7 @@ class ClientManager:
             connection_address,
             client_address,
             file_handler,
-            sequence_number,
+            packet,
         )
         self.clients.add(key=connection_address.to_combined(), value=client_connection)
         client_connection.start()
@@ -60,7 +60,7 @@ class ClientManager:
         connection_address: Address,
         client_address: Address,
         file_handler: FileHandler,
-        sequence_number: SequenceNumber,
+        packet: Packet,
     ) -> ClientConnection:
         if self.protocol == STOP_AND_WAIT_PROTOCOL_TYPE:
             new_connection: ClientConnectionSaw = ClientConnectionSaw(
@@ -70,7 +70,7 @@ class ClientManager:
                 self.protocol,
                 self.logger.clone(),
                 file_handler,
-                sequence_number,
+                packet,
             )
         else:  # if self.protocol == GO_BACK_N_PROTOCOL_TYPE:
             new_connection: ClientConnectionGbn = ClientConnectionGbn(
@@ -80,7 +80,7 @@ class ClientManager:
                 self.protocol,
                 self.logger.clone(),
                 file_handler,
-                sequence_number,
+                packet,
             )
 
         return new_connection

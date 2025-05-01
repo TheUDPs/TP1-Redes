@@ -4,6 +4,7 @@ from sys import exit
 from lib.client.abstract_client import Client
 from lib.client.exceptions.file_already_exists import FileAlreadyExists
 from lib.client.exceptions.file_too_big import FileTooBig
+from lib.common.address import Address
 from lib.common.constants import (
     UPLOAD_OPERATION,
     ERROR_EXIT_CODE,
@@ -47,18 +48,19 @@ class UploadClient(Client):
 
         super().__init__(logger, host, port, protocol)
 
-    def perform_operation(self) -> None:
-        self.perform_upload()
+    def perform_operation(self, server_address: Address) -> None:
+        self.perform_upload(server_address)
 
-    def perform_upload(self) -> None:
+    def perform_upload(self, server_address: Address) -> None:
         try:
-            self.send_operation_intention(UPLOAD_OPERATION)
+            self.send_operation_intention(UPLOAD_OPERATION, server_address)
             self.inform_size_and_name()
             self.send_file()
             self.closing_handshake()
 
         except (FileAlreadyExists, FileTooBig, ConnectionLost) as e:
             self.logger.error(f"{e.message}")
+            self.handle_connection_finalization()
             self.file_cleanup_after_error()
 
         except Exception as e:

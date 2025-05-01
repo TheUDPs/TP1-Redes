@@ -8,6 +8,7 @@ from lib.common.constants import (
     ZERO_BYTES,
     INT_DESERIALIZATION_BYTEORDER,
 )
+from lib.common.exceptions.message_not_fin_nor_ack import MessageNotFinNorAck
 from lib.common.exceptions.message_not_syn import MessageIsNotSyn
 from lib.common.logger import Logger
 from lib.common.packet.packet import Packet, PacketParser
@@ -152,21 +153,13 @@ class ServerProtocol:
 
         return packet, client_address
 
-    @re_listen_if_failed()
-    def receive_operation_intention(self) -> tuple[int, SequenceNumber]:
-        raw_packet, client_address_tuple = self.socket_receive_from(
-            COMMS_BUFFER_SIZE, should_retransmit=True
-        )
-        packet, client_address = self.validate_inbound_packet(
-            raw_packet, client_address_tuple
-        )
-
+    def process_operation_intention(self, packet: Packet) -> tuple[int, SequenceNumber]:
         op_code: int = int.from_bytes(packet.data, INT_DESERIALIZATION_BYTEORDER)
 
         if op_code != UPLOAD_OPERATION and op_code != DOWNLOAD_OPERATION:
             raise UnexpectedOperation()
 
-        return op_code, SequenceNumber(packet.sequence_number)
+        return op_code, SequenceNumber(packet.sequence_number, self.protocol_version)
 
     def send_ack(
         self,
@@ -238,7 +231,7 @@ class ServerProtocol:
         filename: str = packet.data.decode(STRING_ENCODING_FORMAT)
 
         self.validate_sequence_number(packet, sequence_number)
-        return SequenceNumber(packet.sequence_number), filename
+        return SequenceNumber(packet.sequence_number, self.protocol_version), filename
 
     @re_listen_if_failed()
     def receive_filesize(
@@ -253,7 +246,7 @@ class ServerProtocol:
         filesize: int = int.from_bytes(packet.data, INT_DESERIALIZATION_BYTEORDER)
 
         self.validate_sequence_number(packet, sequence_number)
-        return SequenceNumber(packet.sequence_number), filesize
+        return SequenceNumber(packet.sequence_number, self.protocol_version), filesize
 
     @re_listen_if_failed()
     def receive_file_chunk(
@@ -267,7 +260,7 @@ class ServerProtocol:
             raw_packet, client_address_tuple
         )
         self.validate_sequence_number(packet, sequence_number)
-        return SequenceNumber(packet.sequence_number), packet
+        return SequenceNumber(packet.sequence_number, self.protocol_version), packet
 
     @re_listen_if_failed()
     def wait_for_ack(self, sequence_number: SequenceNumber) -> None:
@@ -282,6 +275,23 @@ class ServerProtocol:
             raw_packet, client_address_tuple
         )
         self.validate_sequence_number(packet, sequence_number)
+
+    @re_listen_if_failed()
+    def wait_for_fin_or_ack(self, sequence_number: SequenceNumber) -> None:
+        try:
+            raw_packet, client_address_tuple = self.socket_receive_from(
+                COMMS_BUFFER_SIZE, should_retransmit=True
+            )
+        except OSError:
+            raise ConnectionLost()
+
+        packet, client_address = self.validate_inbound_packet(
+            raw_packet, client_address_tuple
+        )
+        self.validate_sequence_number(packet, sequence_number)
+
+        if not packet.is_ack and not packet.is_fin:
+            raise MessageNotFinNorAck()
 
     def send_file_chunk(
         self,

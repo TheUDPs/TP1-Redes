@@ -17,6 +17,7 @@ from lib.common.constants import (
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
+from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.logger import Logger
 from lib.common.sequence_number import SequenceNumber
@@ -45,11 +46,13 @@ class Client:
         )
 
         self.stopped = False
-        self.sequence_number: SequenceNumber = SequenceNumber(0)
+        self.sequence_number: SequenceNumber = SequenceNumber(
+            0, self.protocol.protocol_version
+        )
 
         self.logger.debug(f"Running on {self.my_address}")
 
-    def handshake(self) -> None:
+    def handshake(self) -> Address:
         self.logger.debug("Starting handshake")
         self.logger.debug(f"Requesting connection to {self.server_address}")
 
@@ -65,21 +68,16 @@ class Client:
 
         self.logger.debug("Connection request accepted")
         self.logger.debug(f"Completing handshake with {self.server_address}")
-        self.protocol.send_hanshake_completion(self.sequence_number)
 
-        # Update server address to update the server connection's port
-        self.server_address: Address = server_address
-        self.protocol.update_server_address(server_address)
-
-        self.logger.debug("Connection established")
+        return server_address
 
     def client_start(self, should_stop_event: Event) -> None:
         self.logger.debug("UDP socket ready")
 
         try:
             if not should_stop_event.is_set():
-                self.handshake()
-                self.perform_operation()
+                server_address = self.handshake()
+                self.perform_operation(server_address)
         except ConnectionRefused as e:
             self.logger.error(f"{e.message}")
         except ConnectionLost:
@@ -119,18 +117,50 @@ class Client:
             self.stopped = True
 
     @abstractmethod
-    def perform_operation(self):
+    def perform_operation(self, server_address: Address):
         pass
 
-    def send_operation_intention(self, op_code: int) -> None:
-        self.logger.debug("Sending operation intention")
+    def send_operation_intention(self, op_code: int, server_address: Address) -> None:
+        try:
+            self.logger.debug("Sending operation intention")
 
-        self.sequence_number.step()
-        self.protocol.send_operation_intention(self.sequence_number, op_code)
+            self.sequence_number.step()
+            self.protocol.send_operation_intention(self.sequence_number, op_code)
 
-        self.logger.debug("Waiting for operation confirmation")
-        self.protocol.wait_for_operation_confirmation(self.sequence_number)
-        self.logger.debug("Operation accepted")
+            self.logger.debug("Waiting for operation confirmation")
+            self.protocol.wait_for_operation_confirmation(
+                self.sequence_number, exceptions_to_let_through=[UnexpectedFinMessage]
+            )
+            self.logger.debug("Operation accepted")
+
+            # Update server address to update the server connection's port
+            self.server_address: Address = server_address
+            self.protocol.update_server_address(server_address)
+
+            self.logger.debug("Connection established")
+        except UnexpectedFinMessage:
+            self.handle_connection_finalization()
+
+    def handle_connection_finalization(self):
+        try:
+            self.sequence_number.step()
+            self.logger.debug("Connection finalization received. Confirming it")
+            self.protocol.send_ack(self.sequence_number)
+
+            self.logger.debug("Sending own connection finalization")
+            self.protocol.send_fin(self.sequence_number)
+
+            self.sequence_number.step()
+            try:
+                self.protocol.wait_for_ack(
+                    self.sequence_number, exceptions_to_let_through=[ConnectionLost]
+                )
+            except ConnectionLost:
+                pass
+
+            self.logger.info("Connection closed")
+        except SocketShutdown:
+            self.logger.info("Connection closed")
 
     def run(self) -> None:
         self.logger.info("Client started for upload")

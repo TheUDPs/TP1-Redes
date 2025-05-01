@@ -73,9 +73,10 @@ class Accepter:
 
         try:
             self.logger.debug(f"Waiting for connection on {self.adress}")
+            self.welcoming_socket.reset_state()
             packet, packet_type, client_address = self.protocol.accept_connection()
 
-            connection_socket, connection_address, sequence_number = self.handshake(
+            packet, connection_socket, connection_address = self.handshake(
                 packet, client_address
             )
             self.client_manager.add_client(
@@ -83,7 +84,7 @@ class Accepter:
                 connection_address,
                 client_address,
                 self.file_handler,
-                sequence_number,
+                packet,
             )
 
         except MissingClientAddress:
@@ -108,7 +109,7 @@ class Accepter:
 
     def handshake(
         self, packet: Packet, client_address: Address
-    ) -> tuple[SocketSaw, Address, SequenceNumber]:
+    ) -> tuple[Packet, SocketSaw, Address]:
         if self.clients.is_client_connected(client_address):
             raise ClientAlreadyConnected()
 
@@ -125,20 +126,22 @@ class Accepter:
 
         connection_socket: SocketSaw = SocketSaw(connection_socket_raw, self.logger)
 
-        self.logger.debug(
-            f"Accepting connection for {client_address}. Transferred to {connection_address}"
-        )
+        self.logger.debug(f"Accepting connection for {client_address}")
+
+        sequence_number = SequenceNumber(packet.sequence_number, packet.protocol)
+
         self.protocol.send_connection_accepted(
-            packet, client_address, connection_address
+            sequence_number, client_address, connection_address
         )
 
         packet, packet_type, _ = self.protocol.expect_handshake_completion()
+        self.logger.debug(f"Transferred to {connection_address}")
         self.logger.debug("Handhsake completed")
 
         return (
+            packet,
             connection_socket,
             connection_address,
-            SequenceNumber(packet.sequence_number),
         )
 
     def stop(self) -> None:

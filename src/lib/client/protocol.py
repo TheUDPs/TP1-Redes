@@ -158,7 +158,7 @@ class ClientProtocol:
 
         packet_to_send: Packet = Packet(
             protocol=self.protocol_version,
-            is_ack=False,
+            is_ack=True,
             is_syn=False,
             is_fin=False,
             port=self.my_address.port,
@@ -323,4 +323,4 @@ class ClientProtocol:
         )
 
         self.validate_sequence_number(packet, sequence_number)
-        return SequenceNumber(packet.sequence_number), packet
+        return SequenceNumber(packet.sequence_number, self.protocol_version), packet

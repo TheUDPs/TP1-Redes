@@ -3,6 +3,7 @@ from sys import exit
 
 from lib.client.abstract_client import Client
 from lib.client.exceptions.file_does_not_exist import FileDoesNotExist
+from lib.common.address import Address
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
@@ -45,15 +46,16 @@ class DownloadClient(Client):
     def perform_operation(self) -> None:
         self.perform_download()
 
-    def perform_download(self) -> None:
+    def perform_download(self, server_address: Address) -> None:
         try:
-            self.send_operation_intention(DOWNLOAD_OPERATION)
+            self.send_operation_intention(DOWNLOAD_OPERATION, server_address)
             self.inform_name_to_download()
             self.receive_file()
             self.closing_handshake()
 
         except (FileDoesNotExist, ConnectionLost) as e:
             self.logger.error(f"{e.message}")
+            self.handle_connection_finalization()
             self.file_cleanup_after_error()
 
         except Exception as e:

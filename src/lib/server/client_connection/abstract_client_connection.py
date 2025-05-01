@@ -16,6 +16,7 @@ from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.logger import Logger
 from lib.common.mutable_variable import MutableVariable
+from lib.common.packet.packet import Packet
 from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_saw import SocketSaw
 from lib.server.client_pool import ClientPool
@@ -29,6 +30,15 @@ from lib.common.file_handler import FileHandler
 from lib.server.protocol import ServerProtocol
 
 
+class ConnectionClosingNeeded(Exception):
+    def __init__(self, message="Client is already connect", sequence_number=None):
+        self.message = message
+        self.sequence_number = sequence_number
+
+    def __repr__(self):
+        return f"ClientAlreadyConnected: {self.message})"
+
+
 class ClientConnection:
     def __init__(
         self,
@@ -38,14 +48,17 @@ class ClientConnection:
         protocol: str,
         logger: Logger,
         file_handler: FileHandler,
-        initial_sequence_number: SequenceNumber,
+        packet: Packet,
     ):
         self.socket: SocketSaw = connection_socket
         self.address: Address = connection_address
         self.client_address: Address = client_address
         self.logger: Logger = logger
         self.logger.set_prefix(f"[CONN:{connection_address.port}]")
-        self.initial_sequence_number: SequenceNumber = initial_sequence_number
+        self.initial_sequence_number: SequenceNumber = SequenceNumber(
+            packet.sequence_number, protocol
+        )
+        self.initial_packet = packet
 
         self.file_handler: FileHandler = file_handler
 
@@ -57,10 +70,12 @@ class ClientConnection:
         self.file = None
         self.killed = False
 
-    def receive_operation_intention(self, sequence_number: MutableVariable) -> int:
+    def process_operation_intention(self, sequence_number: MutableVariable) -> int:
         self.logger.debug("Waiting for operation intention")
         try:
-            op_code, _seq = self.protocol.receive_operation_intention()
+            op_code, _seq = self.protocol.process_operation_intention(
+                self.initial_packet
+            )
             sequence_number.value = _seq
 
             if op_code == UPLOAD_OPERATION:
@@ -110,15 +125,12 @@ class ClientConnection:
             )
             self.logger.debug(f"Filename received valid: {filename}")
         else:
-            self.protocol.send_fin(
-                sequence_number.value, self.client_address, self.address
-            )
             self.logger.warn("Filename received invalid")
             self.logger.error(
-                f"Client {self.client_address.to_combined()} shutdowned due to file '{filename}' already existing in the server"
+                f"Client {self.client_address.to_combined()} shutting down due to file '{filename}' already existing in the server"
             )
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
-            raise SocketShutdown()
+            raise ConnectionClosingNeeded(sequence_number=sequence_number)
 
         self.logger.debug("Validating filesize")
         sequence_number.value.step()
@@ -139,7 +151,7 @@ class ClientConnection:
                 f"Client {self.client_address.to_combined()} shutdowned due to file being too big"
             )
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
-            raise SocketShutdown()
+            raise ConnectionClosingNeeded(sequence_number=sequence_number)
 
         return filename, filesize
 
@@ -191,6 +203,17 @@ class ClientConnection:
                 filename_for_upload, filesize_for_upload, is_path_complete=False
             )
 
+    def initiate_close_connection(self, sequence_number: MutableVariable):
+        self.logger.debug("Initiating connection close")
+        sequence_number.value.step()
+        self.protocol.send_fin(sequence_number.value, self.client_address, self.address)
+
+        self.protocol.wait_for_fin_or_ack(sequence_number.value)
+        self.logger.debug("Received connection finalization from client")
+
+        sequence_number.value.step()
+        self.protocol.send_ack(sequence_number.value, self.client_address, self.address)
+
     @abstractmethod
     def perform_upload(
         self,
@@ -211,12 +234,13 @@ class ClientConnection:
         filesize_for_upload = MutableVariable(None)
         filename_for_download = MutableVariable(None)
         sequence_number = MutableVariable(
-            SequenceNumber(self.initial_sequence_number.value)
+            SequenceNumber(
+                self.initial_sequence_number.value, self.protocol.protocol_version
+            )
         )
-        sequence_number.value.step()
 
         try:
-            op_code = self.receive_operation_intention(sequence_number)
+            op_code = self.process_operation_intention(sequence_number)
 
             if op_code == UPLOAD_OPERATION:
                 self.perform_upload(
@@ -237,6 +261,8 @@ class ClientConnection:
             self.logger.debug("Connection shutdown")
             self.file_cleanup_after_error(filename_for_upload, filesize_for_upload)
             self.kill()
+        except ConnectionClosingNeeded as e:
+            self.initiate_close_connection(e.sequence_number)
         except (
             MissingClientAddress,
             UnexpectedOperation,
