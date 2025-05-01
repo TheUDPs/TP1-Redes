@@ -11,6 +11,9 @@ on:
 jobs:
   integration-tests:
     runs-on: ubuntu-24.04
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
 
     # Important: need privileged mode for Mininet!
     permissions:
