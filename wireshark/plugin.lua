@@ -13,8 +13,6 @@ local fields = {
     unused = ProtoField.uint16("packetformat.unused", "Unused", base.HEX, nil, 0x3FF8),
     port = ProtoField.uint16("packetformat.port", "Port", base.DEC),
     payload_length = ProtoField.uint16("packetformat.payload_length", "Payload length", base.DEC),
-    sequence_number = ProtoField.uint32("packetformat.sequence_number", "Sequence Number (GBN)", base.DEC),
-    ack_number = ProtoField.uint32("packetformat.ack_number", "Acknowledge Number (GBN)", base.DEC),
     data = ProtoField.bytes("packetformat.data", "Data")
 }
 
@@ -23,9 +21,9 @@ p_format.fields = fields
 -- Define coloring rules
 local function set_color_filter_rules()
     local colorfilters = {
-        { "SYN packets", "packetformat.syn == 1", "Green",  "Black" },
-        { "ACK packets", "packetformat.ack == 1", "Yellow", "Black" },
-        { "FIN packets", "packetformat.fin == 1", "Red",    "Black" },
+        { "SAW SYN packets", "packetformat.syn == 1", "Green",  "Black" },
+        { "SAW ACK packets", "packetformat.ack == 1", "Yellow", "Black" },
+        { "SAW FIN packets", "packetformat.fin == 1", "Red",    "Black" },
     }
 
     -- Find and add the colorfilters file
@@ -45,7 +43,7 @@ local function set_color_filter_rules()
 end
 
 -- Register for initialization after Wireshark loads
-register_menu("Add Coloring Rules", set_color_filter_rules, MENU_TOOLS_UNSORTED)
+register_menu("Add SAW Coloring Rules", set_color_filter_rules, MENU_TOOLS_UNSORTED)
 
 function p_format.dissector(buffer, pinfo, tree)
     -- Verificación mínima de tamaño (header size is 8 bytes)
@@ -54,18 +52,16 @@ function p_format.dissector(buffer, pinfo, tree)
     end
 
     -- Crear árbol de protocolo
-    local protocol_type = bit.rshift(bit.band(buffer(0, 1):uint(), 0xC0), 6)
-    local protocol_name = protocol_type == 0 and "SAW" or "GBN"
-    local subtree = tree:add(p_format, buffer(), protocol_name)
+    local subtree = tree:add(p_format, buffer(), "SAW")
 
     -- Leer flags (primeros 2 bytes)
     local byte1 = buffer(0, 1):uint()
 
     -- Set protocol column
-    pinfo.cols.protocol = protocol_name
+    pinfo.cols.protocol = "SAW"
 
     -- Set info column with flags info for coloring
-    local info_string = protocol_name
+    local info_string = "SAW"
 
     -- Protocol type (bits 7-8)
     subtree:add(fields.protocol, buffer(0, 1))
@@ -106,27 +102,8 @@ function p_format.dissector(buffer, pinfo, tree)
         local plen = buffer(plen_start, 2):uint()
         subtree:add(fields.payload_length, buffer(plen_start, 2))
 
-        local data_start = 6
-
-        -- For GBN protocol, we need to handle sequence and ack numbers
-        if protocol_type == 1 then
-            if buffer:len() >= data_start + 8 then
-                subtree:add(fields.sequence_number, buffer(data_start, 4))
-                subtree:add(fields.ack_number, buffer(data_start + 4, 4))
-
-                local seq_num = buffer(data_start, 4):uint()
-                local ack_num = buffer(data_start + 4, 4):uint()
-                info_string = info_string .. " Seq=" .. seq_num
-                if is_ack then
-                    info_string = info_string .. " Ack=" .. ack_num
-                end
-
-                data_start = data_start + 8
-            else
-                subtree:add(fields.sequence_number, 0):append_text(" [MISSING]")
-                subtree:add(fields.ack_number, 0):append_text(" [MISSING]")
-            end
-        end
+        -- Check if there's payload data and we have enough bytes to show it
+        local data_start = 6  -- Data starts at byte 6 (not 8 as before)
 
         -- Show payload if it exists and we have enough bytes
         if plen > 0 and buffer:len() >= data_start + plen then
