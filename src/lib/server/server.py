@@ -79,6 +79,10 @@ class Server:
 
         self.accepter.start()
 
-        should_stop_event.wait()
+        try:
+            should_stop_event.wait()
+        except KeyboardInterrupt:
+            self.logger.info("KeyboardInterrupt received, shutting down...")
+            should_stop_event.set()
 
         self.stop(wait_for_quit_thread, quited)
