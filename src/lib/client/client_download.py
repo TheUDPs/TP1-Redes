@@ -149,4 +149,4 @@ class DownloadClient(Client):
 
     def _update_sqn_and_excpected(self) -> None:
         self.expected_sqn_number += 1
-        self.sequence_number.step(GO_BACK_N_PROTOCOL_TYPE)
+        self.sequence_number.step()

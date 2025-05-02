@@ -101,22 +101,22 @@ class SocketGbn:
     def recvfrom(
         self, buffer_size: int, should_retransmit: bool, do_not_timeout: bool = False
     ):
-        if not should_retransmit or self.last_raw_packet is None:
-            try:
-                if do_not_timeout:
-                    self.socket.settimeout(None)
-                else:
-                    self.socket.settimeout(SOCKET_CONNECTION_LOST_TIMEOUT)
+        # if not should_retransmit or self.last_raw_packet is None:
+        try:
+            if do_not_timeout:
+                self.socket.settimeout(None)
+            else:
+                self.socket.settimeout(SOCKET_CONNECTION_LOST_TIMEOUT)
 
-                raw_packet, server_address_tuple = self.socket.recvfrom(buffer_size)
-                return raw_packet, server_address_tuple
-            except OSError:
-                raise ConnectionLost()
+            raw_packet, server_address_tuple = self.socket.recvfrom(buffer_size)
+            return raw_packet, server_address_tuple
+        except OSError:
+            raise ConnectionLost()
 
-        raw_packet, server_address_tuple = self.recvfrom_with_retransmission(
-            buffer_size
-        )
-        return raw_packet, server_address_tuple
+        # raw_packet, server_address_tuple = self.recvfrom_with_retransmission(
+        #     buffer_size
+        # )
+        # return raw_packet, server_address_tuple
 
     def shutdown(self, shutdown_type):
         self.socket.shutdown(shutdown_type)

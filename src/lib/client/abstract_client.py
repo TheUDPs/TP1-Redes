@@ -168,7 +168,7 @@ class Client:
                     self.ack_number,
                     exceptions_to_let_through=[ConnectionLost],
                 )
-            except ConnectionLost:
+            except (ConnectionLost, MessageIsNotAck):
                 pass
 
             self.logger.info("Connection closed")
@@ -176,13 +176,16 @@ class Client:
             self.logger.info("Connection closed")
 
     def initiate_close_connection(self):
-        self.logger.debug("Waiting for confirmation of last packet")
-        self.protocol.wait_for_fin_or_ack(self.sequence_number, self.ack_number)
+        try:
+            self.logger.debug("Waiting for confirmation of last packet")
+            self.protocol.wait_for_fin_or_ack(self.sequence_number, self.ack_number)
 
-        self.logger.force_info("Upload completed")
-        self.logger.debug("Received connection finalization from server")
-        self.sequence_number.step()
-        self.protocol.send_ack(self.sequence_number, self.ack_number)
+            self.logger.force_info("Upload completed")
+            self.logger.debug("Received connection finalization from server")
+            self.sequence_number.step()
+            self.protocol.send_ack(self.sequence_number, self.ack_number)
+        except MessageIsNotAck:
+            self.logger.debug("Connection closed")
 
     def run(self) -> None:
         self.logger.info("Client started for upload")

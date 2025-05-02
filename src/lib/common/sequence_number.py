@@ -25,3 +25,6 @@ class SequenceNumber:
             self._step_saw()
         else:  # if self.protocol == GO_BACK_N_PROTOCOL_TYPE
             self._step_gbn()
+
+    def clone(self):
+        return SequenceNumber(self.value, self.protocol)

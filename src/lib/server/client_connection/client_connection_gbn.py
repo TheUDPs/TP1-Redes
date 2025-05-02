@@ -54,6 +54,7 @@ class ClientConnectionGbn(ClientConnection):
         gbn_protocol = ServerProtocolGbn(
             self.logger,
             socket_gbn,
+            self.client_address,
             self.address,
             self.protocol.protocol_version,
             self.protocol.clients,
