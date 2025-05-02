@@ -338,7 +338,7 @@ Ambos protocolos proveen los siguientes servicios:
 
 UDP no realiza ninguna otra función extra. Por lo tanto, su servicio es:
 - *No confiable*: no garantiza que la entrega de los paquetes sea exitosa, ni tampoco que lleguen en orden.
-- *Sin conexión*:
+- *Sin conexión*: cada paquete datagrama se envía de manera independiente, sin garantías de que el receptor esté listo o incluso disponible.
 
 Por su parte, TCP ofrece las siguientes funcionalidades adicionales:
 - *Orientado a la conexión*: antes de que un proceso de aplicación pueda comenzar a enviar datos a otro, ambos procesos deben comunicarse entre sí; es decir, deben enviarse algunos segmentos preliminares para establecer los parámetros de la transferencia de datos subsiguiente. Se trata de una conexión lógica con un estado en común que reside en TCP de los hosts.
