@@ -1,6 +1,6 @@
 from lib.common.address import Address
 from lib.common.constants import (
-    FILE_CHUNK_SIZE,
+    FILE_CHUNK_SIZE_SAW,
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.socket_shutdown import SocketShutdown
@@ -96,7 +96,7 @@ class ClientConnectionSaw(ClientConnection):
 
         chunk_number: int = 1
         total_chunks: int = self.file_handler.get_number_of_chunks(
-            filesize, FILE_CHUNK_SIZE
+            filesize, FILE_CHUNK_SIZE_SAW
         )
         is_last_chunk: bool = False
         is_first_chunk: bool = True
@@ -105,7 +105,7 @@ class ClientConnectionSaw(ClientConnection):
             f"Sending file {filename.value} of {self.file_handler.bytes_to_megabytes(filesize)} MB"
         )
 
-        while chunk := self.file_handler.read(self.file, FILE_CHUNK_SIZE):
+        while chunk := self.file_handler.read(self.file, FILE_CHUNK_SIZE_SAW):
             chunk_len = len(chunk)
             self.logger.debug(
                 f"Sending chunk {chunk_number}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB"

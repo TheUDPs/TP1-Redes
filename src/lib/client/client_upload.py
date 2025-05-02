@@ -9,7 +9,7 @@ from lib.common.address import Address
 from lib.common.constants import (
     UPLOAD_OPERATION,
     ERROR_EXIT_CODE,
-    FILE_CHUNK_SIZE,
+    FILE_CHUNK_SIZE_SAW,
     GO_BACK_N_PROTOCOL_TYPE,
     STOP_AND_WAIT_PROTOCOL_TYPE,
 )
@@ -71,6 +71,10 @@ class UploadClient(Client):
     def inform_filename(self):
         self.sequence_number.step()
         self.logger.debug(f"Informing filename: {self.filename_in_server}")
+
+        if self.protocol.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
+            self.ack_number.step()
+
         self.protocol.inform_filename(
             self.sequence_number, self.ack_number, self.filename_in_server
         )
@@ -89,6 +93,10 @@ class UploadClient(Client):
     def inform_filesize(self):
         self.sequence_number.step()
         self.logger.debug(f"Informing filesize: {self.filesize} bytes")
+
+        if self.protocol.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
+            self.ack_number.step()
+
         self.protocol.inform_filesize(
             self.sequence_number, self.ack_number, self.filesize
         )
@@ -118,6 +126,7 @@ class UploadClient(Client):
     def send_file_gbn(self) -> None:
         self.socket.reset_state()
         socket_gbn = SocketGbn(self.socket.socket, self.logger)
+
         gbn_protocol = ClientProtocolGbn(
             self.logger,
             socket_gbn,
@@ -126,15 +135,22 @@ class UploadClient(Client):
             self.protocol.protocol_version,
         )
 
-        gbn_sender = GoBackNSender(self.logger, gbn_protocol, self.sequence_number)
-        gbn_sender.send_file(self.file)
+        gbn_sender = GoBackNSender(
+            self.logger,
+            gbn_protocol,
+            self.file_handler,
+            self.sequence_number,
+            self.ack_number,
+        )
+        gbn_sender.send_file(self.file, self.filesize)
+
         self.logger.force_info("File transfer complete")
         self.file_handler.close(self.file)
 
     def send_file_saw(self) -> None:
         chunk_number: int = 1
         total_chunks: int = self.file_handler.get_number_of_chunks(
-            self.filesize, FILE_CHUNK_SIZE
+            self.filesize, FILE_CHUNK_SIZE_SAW
         )
         is_last_chunk: bool = False
 
@@ -142,7 +158,7 @@ class UploadClient(Client):
             f"Sending file {self.filename_in_server} of {self.file_handler.bytes_to_megabytes(self.filesize)} MB"
         )
 
-        while chunk := self.file_handler.read(self.file, FILE_CHUNK_SIZE):
+        while chunk := self.file_handler.read(self.file, FILE_CHUNK_SIZE_SAW):
             chunk_len = len(chunk)
             self.logger.debug(
                 f"Sending chunk {chunk_number}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB"

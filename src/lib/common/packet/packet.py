@@ -6,6 +6,16 @@ from lib.common.constants import (
 )
 
 
+def print_packet(packet_binary: bytes):
+    binary_string = "".join(f"{byte:08b}" for byte in packet_binary)
+
+    spaced_binary = " ".join(
+        binary_string[i : i + 16] for i in range(0, len(binary_string), 16)
+    )
+
+    print(spaced_binary)
+
+
 class Packet:
     def __init__(
         self,
@@ -143,14 +153,6 @@ class PacketParser:
             int(packet.sequence_number),
             int(packet.ack_number),
         )
-
-        binary_string = "".join(f"{byte:08b}" for byte in header)
-
-        # Insert a space every 16 bits
-        spaced_binary = " ".join(
-            binary_string[i : i + 16] for i in range(0, len(binary_string), 16)
-        )
-        print(spaced_binary)
 
         return header + packet.data
 

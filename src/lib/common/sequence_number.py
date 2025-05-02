@@ -16,9 +16,9 @@ class SequenceNumber:
 
     def _step_gbn(self):
         if self.value <= MAX_SEQUENCE_NUMBER:
-            self.value = 1
-        else:
             self.value += 1
+        else:
+            self.value = 1
 
     def step(self):
         if self.protocol == STOP_AND_WAIT_PROTOCOL_TYPE:

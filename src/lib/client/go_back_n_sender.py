@@ -1,10 +1,11 @@
 from lib.client.protocol_gbn import ClientProtocolGbn
 from lib.common.constants import (
-    FILE_CHUNK_SIZE,
     MAX_ACK_REPEATED,
     MAXIMUM_RETRANSMISSION_ATTEMPTS,
     WINDOW_SIZE,
+    FILE_CHUNK_SIZE_GBN,
 )
+from lib.common.file_handler import FileHandler
 from lib.common.logger import Logger
 from typing import List
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
@@ -18,19 +19,23 @@ class GoBackNSender:
         self,
         logger: Logger,
         protocol: ClientProtocolGbn,
+        file_handler: FileHandler,
         sequence_number: SequenceNumber,
+        ack_number: SequenceNumber,
     ) -> None:
         # self.windows_size: int = WINDOWS_SIZE
         self.base: int = 0
         self.logger: Logger = logger
         self.protocol: ClientProtocolGbn = protocol
         self.sqn_number: SequenceNumber = sequence_number
+        self.ack_number: SequenceNumber = ack_number
         self.next_seq_num: int = 0
+        self.file_handler: FileHandler = file_handler
 
-    def send_file(self, src_filepath: str) -> None:
-        self.logger.debug(f"Sending file {src_filepath}")
+    def send_file(self, file, filesize: int) -> None:
+        self.logger.debug(f"Sending file {file}")
 
-        chunks: List[bytes] = self.separete_file_to_chunks()
+        chunks: List[bytes] = self.separete_file_to_chunks(file, filesize)
 
         total_chunks: int = len(chunks)
 
@@ -39,14 +44,16 @@ class GoBackNSender:
         # o sino manejar el timer acá
         while self.base < total_chunks:
             # MIEntras aun quede data que enviar, enviamos los paquetes dentro de la ventana
-            self.send_packets_in_window(total_chunks, chunks)
+            self.send_packets_in_window(total_chunks, chunks, filesize)
 
             try:
-                self.await_ack_phase(total_chunks, chunks)
+                self.await_ack_phase(total_chunks, chunks, filesize)
             except TimeoutError:
                 raise MaxRetransmissionAttempts()
 
-    def await_ack_phase(self, total_chunks: int, chunks: List[bytes]) -> None:
+    def await_ack_phase(
+        self, total_chunks: int, chunks: List[bytes], filesize: int
+    ) -> None:
         # espero el ack
         # si no llegaa
         # hago time out y reenvio todo desde la base de la windows
@@ -72,7 +79,7 @@ class GoBackNSender:
 
                 self.logger.debug(f"Received repeated ack {self.base} ")
                 self.base = ack_seq_num + 1
-                self.send_packets_in_window(total_chunks, chunks)
+                self.send_packets_in_window(total_chunks, chunks, filesize)
         else:  # CASO FELIZ
             self.logger.debug(f"Received ack {self.base} ")
             # self.expected_sqn_number += 1
@@ -86,7 +93,9 @@ class GoBackNSender:
 
         return
 
-    def send_packets_in_window(self, total_chunks: int, chunks: List[bytes]) -> None:
+    def send_packets_in_window(
+        self, total_chunks: int, chunks: List[bytes], filesize
+    ) -> None:
         while (
             self.next_seq_num < self.base + WINDOW_SIZE
             and self.next_seq_num < total_chunks
@@ -107,15 +116,16 @@ class GoBackNSender:
         # REFUSE DATA
         pass
 
-    def separete_file_to_chunks(self) -> List[bytes]:
+    # Could read window instead of full file
+    def separete_file_to_chunks(self, file, filesize) -> List[bytes]:
         total_chunks: int = self.file_handler.get_number_of_chunks(
-            self.filesize, FILE_CHUNK_SIZE
+            filesize, FILE_CHUNK_SIZE_GBN
         )
-        # TODO: modificar para no levantar todo el file en memoria, mejor ir levantando de a ventanas en memoria
+
         chunk_list: list[bytes] = []
 
         for _ in range(total_chunks):
-            chunk = self.file_handler.read(self.file, FILE_CHUNK_SIZE)
+            chunk = self.file_handler.read(file, FILE_CHUNK_SIZE_GBN)
             chunk_list.append(chunk)
 
         return chunk_list

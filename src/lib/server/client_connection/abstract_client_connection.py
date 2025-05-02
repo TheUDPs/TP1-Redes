@@ -169,12 +169,6 @@ class ClientConnection:
             )
             self.logger.debug(f"Filesize received valid: {filesize} bytes")
         else:
-            self.protocol.send_fin(
-                sequence_number.value,
-                ack_number.value,
-                self.client_address,
-                self.address,
-            )
             self.logger.warn("Filesize received invalid")
             self.logger.error(
                 f"Client {self.client_address.to_combined()} shutdowned due to file being too big"

@@ -139,6 +139,9 @@ class Accepter:
             sequence_number, ack_number, client_address, connection_address
         )
 
+        if ack_number is not None:
+            ack_number.step()
+
         packet, packet_type, _ = self.protocol.expect_handshake_completion(ack_number)
         self.logger.debug(f"Transferred to {connection_address}")
         self.logger.debug("Handhsake completed")
