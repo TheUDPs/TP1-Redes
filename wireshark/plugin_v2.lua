@@ -22,11 +22,11 @@ local fields_gbn = {
         [0] = "Stop-and-Wait",
         [1] = "Go-Back-N"
     }, 0xC0),
-    syn = ProtoField.bool("packetformatgbn.syn", "SYN flag", 8, nil, 0x08),  
-    ack = ProtoField.bool("packetformatgbn.ack", "ACK flag", 8, nil, 0x10),  
-    fin = ProtoField.bool("packetformatgbn.fin", "FIN flag", 8, nil, 0x04),  
+    syn = ProtoField.bool("packetformatgbn.syn", "SYN flag", 8, nil, 0x08),
+    ack = ProtoField.bool("packetformatgbn.ack", "ACK flag", 8, nil, 0x10),
+    fin = ProtoField.bool("packetformatgbn.fin", "FIN flag", 8, nil, 0x04),
     unused = ProtoField.uint16("packetformatgbn.unused", "Unused", base.HEX, nil, 0x3FE0),  -- Bits 5-15 (00111111 11100000)
-    port = ProtoField.uint16("packetformatgbn.port", "Port", base.DEC),  
+    port = ProtoField.uint16("packetformatgbn.port", "Port", base.DEC),
     payload_length = ProtoField.uint32("packetformatgbn.payload_length", "Payload length", base.DEC),
     sequence_number = ProtoField.uint32("packetformatgbn.sequence_number", "Sequence Number (GBN)", base.DEC),
     ack_number = ProtoField.uint32("packetformatgbn.ack_number", "Acknowledge Number (GBN)", base.DEC),
@@ -148,13 +148,13 @@ end
 -- GBN Protocol Dissector Implementation
 function p_format_gbn.dissector(buffer, pinfo, tree)
     if buffer:len() < 6 then
-        return false  
+        return false
     end
 
     -- Check protocol type in the first byte (bits 7-8)
     local byte1 = buffer(0, 1):uint()
     local protocol_type = bit.rshift(bit.band(byte1, 0xC0), 6)
-    
+
     -- Only process if it's a GBN packet (protocol = 1)
     if protocol_type ~= 1 then
         return false
@@ -235,11 +235,11 @@ local function protocol_dissector(buffer, pinfo, tree)
     if buffer:len() < 1 then
         return false
     end
-    
+
     -- Check protocol type in the first byte (bits 7-8)
     local byte1 = buffer(0, 1):uint()
     local protocol_type = bit.rshift(bit.band(byte1, 0xC0), 6)
-    
+
     if protocol_type == 0 then
         return p_format.dissector(buffer, pinfo, tree)
     elseif protocol_type == 1 then

@@ -53,7 +53,7 @@ class Client:
 
         self.ack_number = None
         if self.protocol.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
-            self.ack_number = SequenceNumber(2, self.protocol.protocol_version)
+            self.ack_number = SequenceNumber(0, self.protocol.protocol_version)
 
         self.logger.debug(f"Running on {self.my_address}")
 
