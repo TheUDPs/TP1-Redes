@@ -28,6 +28,8 @@
 #+LATEX_HEADER_EXTRA: \usepackage{fancyvrb}
 #+LATEX_HEADER_EXTRA: \fvset{framesep=1mm,fontfamily=courier,fontsize=\scriptsize,numbers=left,framerule=.3mm,numbersep=1mm}
 #+LATEX_HEADER_EXTRA: \usepackage[nottoc]{tocbibind}
+#+LATEX_HEADER_EXTRA: \usepackage{amsmath}
+#+LATEX_HEADER_EXTRA: \usepackage{changepage}
 
 #+NAME: setup
 #+BEGIN_SRC emacs-lisp :results silent :exports none
@@ -63,73 +65,70 @@
 
 * Introduccion
 
-\color{red}
+* Hipótesis y suposiciones realizadas
+
 - La carga/descarga no va a conservar la metadata del archivo. Es decir, si yo descargo un archivo, ese archivo va a tener metadata como si yo hubiera creado el archivo desde cero usando `touch archivo`.
-- Si el cliente utiliza otro protocolo para comunicarse con el server, el server debe rechazar este pedido. (PROTOCOL_MISSMATCH). El header tendra un campo dedicado a esto.
+- Si el cliente utiliza otro protocolo para comunicarse con el server, el server debe rechazar este pedido. (PROTOCOL MISSMATCH). El header tendra un campo dedicado a esto.
 - El argumento de FILENAME sera opcional, en caso de no estar, se utiliza el nombre original del archivo.
 - Por simplicidad, vamos a guardar todos los archivos en DIRPATH sin ningun nivel de subdirectorios.
 - Por simplicidad, vamos a tener un tamaño maximo de 2GB para la subida y descarga de archivos.
 - Los archivos en proceso de escritura se van a escribir en una ubicacion temporal para evitar que se corrompan en la ubicacion que el cliente pidio.
 - Usar seek y bufferear para leer el archivo. Leer con slices del buffer.
-Caso borde:
-Dos clientes cargando y descargando el mismo archivo al mismo tiempo.
-\color{black}
 
 * Implementacion
 ** Topología
 
-#+BEGIN_SRC dot :file docs/imgs/topology.png :exports results
-graph mininet {
-    rankdir=TB;
-
-    { rank=source; h1 }
-    { rank=same; s1 }
-    { rank=same; s2 }
-    { rank=same; s3 }
-    { rank=sink; h2; h3; h4 }
-
-    h1 [shape=box];
-    h2 [shape=box];
-    h3 [shape=box];
-    h4 [shape=box];
-    s1 [shape=circle];
-    s2 [shape=circle];
-    s3 [shape=circle];
-
-    h1 -- s1;
-    s1 -- s2;
-    s2 -- s3;
-    h2 -- s3;
-    h3 -- s3;
-    h4 -- s3;
-}
-#+END_SRC
-
-#+RESULTS:
-#+ATTR_LATEX: :width 0.5\textwidth
-[[file:docs/imgs/topology.png]]
-
-#+ATTR_LATEX: :width 0.5\textwidth
-[[file:docs/imgs/linear_ends_1_client.png]]
-
-#+ATTR_LATEX: :width 0.5\textwidth
-[[file:docs/imgs/linear_ends_multiple_clients.png]]
-
 #+ATTR_LATEX: :width 0.5\textwidth
 [[file:docs/imgs/linear_ends_multiple_clients_with_loss.png]]
+
+La topología es una red lineal con 1 host servidor conectado a 3 switches en serie cuyo ultimo switch esta conectado a n hosts clientes. El primer enlace (el conectado entre el servidor y el primero switch) tiene configurado un packet loss del 10\% configurado de forma simetrica 5% de cada lado del enlace.
 
 ** Especificación del protocolo Stop-and-Wait
 
 *** General
 
-Tamaño máximo de payload de: 61440 Bytes (60kB).
-Este número se obtiene teniendo en cuenta que el header de UDP posee un tamaño máximo de payload de 65535 (64kB), dejando espacio para los headers.
+**** Tamaño maximo de payload
 
-Se usa la nomenclatura S para mencionar al servidor y C para el cliente.
+El tamaño máximo de payload es el tamaño máximo de un datagrama UDP menos el tamaño de los headers de IP, UDP y SAW.
+
+Como el MTU que usamos en mininet es 1500, el tamaño máximo de payload es:
+
+\begin{align*}
+  \text{HISTORICAL\_MTU} &= 1500 \\
+  \text{MAX\_IP\_HEADER\_SIZE} &= 60 \\
+  \text{UDP\_HEADER\_SIZE} &= 8 \\
+  \text{SAW\_PROTOCOL\_HEADER\_SIZE} &= 6 \\
+\end{align*}
+
+\begin{align*}
+\text{FILE\_CHUNK\_SIZE} = \text{HISTORICAL\_MTU} - \text{MAX\_IP\_HEADER\_SIZE} \\
+                        -\ \text{UDP\_HEADER\_SIZE} - \text{SAW\_PROTOCOL\_HEADER\_SIZE}
+\end{align*}
 
 *** Handshake
 
+#+BEGIN_SRC plantuml :file docs/imgs/connection-handshake.png :exports results
+@startuml
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 100
+scale 2.0
+participant Client
+participant Server
+
+Client ->(10) Server : SYN, seq 0
+Server ->(10) Client : SYN, ACK, seq 1
+Client ->(10) Server : ACK, OP_CODE (piggybacked)
+Server ->(10) Client : ACK
+@enduml
+#+END_SRC
+
+#+ATTR_LATEX: :width 0.5\textwidth
+#+RESULTS:
+[[file:docs/imgs/connection-handshake.png]]
+
 La idea es usar este handshake para inicialización de recursos del servidor y check de protocolo. \\
+
+Se usa la nomenclatura S para mencionar al servidor y C para el cliente.
 
 _Mensajes para caso Download y caso Upload_:
 
@@ -199,19 +198,91 @@ _Continuación de mensajes para caso Upload_:
 
 El flag FIN va piggybacked con la última data para que sea más eficiente. El receptor confirma con un ACK + FIN para que el emisor sepa que le llego la informacion, y por si este se pierde está el último ACK para confirmar el cierre de parte del emisor. \\
 
-_Mensajes para caso Download_:
+**** Mensajes para caso Download
+
+#+BEGIN_SRC plantuml :file docs/imgs/download.png :exports results
+@startuml
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 100
+scale 2.0
+participant Client
+participant Server
+
+Client ->(10) Server : Filename
+Server ->(10) Client : ACK, Data Chunk 1 (piggybacked)
+Client ->(10) Server : ACK of Data Chunk 1
+Server ->(10) Client : Data Chunk 2
+Client ->(10) Server : ACK of Data Chunk 2
+Server ->(10) Client : ...
+Client ->(10) Server : ...
+Server ->(10) Client : FIN, Data Chunk n
+Client ->(10) Server : FIN, ACK of Data Chunk n
+@enduml
+#+END_SRC
+
+#+ATTR_LATEX: :width 0.5\textwidth
+#+RESULTS:
+[[file:docs/imgs/download.png]]
 
 1. S \rightarrow C: ultima data, va piggybacked el flag FIN
 2. C \rightarrow S: ACK + FIN
 3. S \rightarrow C: ACK
 
-_Mensajes para caso Upload_:
+**** Mensajes para caso Upload:
+
+#+BEGIN_SRC plantuml :file docs/imgs/upload.png :exports results
+@startuml
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 100
+scale 2.0
+participant Client
+participant Server
+
+Client ->(10) Server : Filename
+Server ->(10) Client : ACK
+Client ->(10) Server : Filesize
+Server ->(10) Client : ACK
+Client ->(10) Server : Data
+@enduml
+#+END_SRC
+
+#+ATTR_LATEX: :width 0.5\textwidth
+#+RESULTS:
+[[file:docs/imgs/upload.png]]
 
 1. C \rightarrow S: ultima data, va piggybacked el flag FIN
 2. S \rightarrow C: ACK + FIN
 3. C \rightarrow S: ACK
 
 * Pruebas
+
+| No | Time       | Src       | Dst       | Proto | Len | Type           | SEQ | ACK  | SYN  | FIN  | SrcPort | DstPort | Info                       |
+|----+------------+-----------+-----------+-------+-----+----------------+-----+------+-------+------+---------+---------+-----------------------------|
+| 1  | 0.000000000 | 10.0.1.1  | 10.0.0.1  | SAW   | 48  | Stop-and-Wait  | 0   | False | True  | False | 52515   | 0       | SAW SEQ=0 SYN               |
+| 2  | 0.000191297 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 0   | True  | True  | False | 41367   | 0       | SAW SEQ=0 SYN ACK           |
+| 3  | 0.002208402 | 10.0.1.1  | 10.0.0.1  | SAW   | 50  | Stop-and-Wait  | 1   | True  | False | False | 52515   | 2       | SAW SEQ=1 ACK Data(2)       |
+| 4  | 0.002801150 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 1   | True  | False | False | 41367   | 0       | SAW SEQ=1 ACK               |
+| 5  | 0.004355272 | 10.0.1.1  | 10.0.0.1  | SAW   | 53  | Stop-and-Wait  | 0   | False | False | False | 52515   | 5       | SAW SEQ=0 Data(5)           |
+| 6  | 0.004722710 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 0   | True  | False | False | 41367   | 0       | SAW SEQ=0 ACK               |
+| 7  | 0.005754904 | 10.0.1.1  | 10.0.0.1  | SAW   | 52  | Stop-and-Wait  | 1   | False | False | False | 52515   | 4       | SAW SEQ=1 Data(4)           |
+| 8  | 0.005879502 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 1   | True  | False | False | 41367   | 0       | SAW SEQ=1 ACK               |
+| 9  | 0.006562696 | 10.0.1.1  | 10.0.0.1  | SAW   | 1474| Stop-and-Wait  | 0   | False | False | False | 52515   | 1426    | SAW SEQ=0 Data(1426)        |
+| 10 | 0.006634214 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 0   | True  | False | False | 41367   | 0       | SAW SEQ=0 ACK               |
+| 11 | 0.006819155 | 10.0.1.1  | 10.0.0.1  | SAW   | 1474| Stop-and-Wait  | 1   | False | False | False | 52515   | 1426    | SAW SEQ=1 Data(1426)        |
+| 12 | 0.006887880 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 1   | True  | False | False | 41367   | 0       | SAW SEQ=1 ACK               |
+| ... | ...        | ...       | ...       | ...   | ... | ...            | ... | ...  | ...   | ...   | ...     | ...     | ...                         |
+| 384| 0.036747322 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 1   | True  | False | False | 41367   | 0       | SAW SEQ=1 ACK               |
+| 385| 0.036806828 | 10.0.1.1  | 10.0.0.1  | SAW   | 1474| Stop-and-Wait  | 0   | False | False | False | 52515   | 1426    | SAW SEQ=0 Data(1426)        |
+| 386| 0.036860606 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 0   | True  | False | False | 41367   | 0       | SAW SEQ=0 ACK               |
+| 387| 0.037000220 | 10.0.1.1  | 10.0.0.1  | SAW   | 1474| Stop-and-Wait  | 1   | False | False | False | 52515   | 1426    | SAW SEQ=1 Data(1426)        |
+| 388| 0.037084310 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 1   | True  | False | False | 41367   | 0       | SAW SEQ=1 ACK               |
+| 389| 0.037217987 | 10.0.1.1  | 10.0.0.1  | SAW   | 363 | Stop-and-Wait  | 0   | False | False | True  | 52515   | 315     | SAW SEQ=0 FIN Data(315)     |
+| 390| 0.037459011 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 0   | True  | False | False | 41367   | 0       | SAW SEQ=0 ACK               |
+| 391| 0.037511183 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 0   | False | False | True  | 41367   | 0       | SAW SEQ=0 FIN               |
+| 392| 0.037580397 | 10.0.1.1  | 10.0.0.1  | SAW   | 48  | Stop-and-Wait  | 1   | True  | False | False | 52515   | 0       | SAW SEQ=1 ACK               |
+
+\end{adjustwidth}
+
 * Preguntas a Responder
 ** Describa la arquitectura Cliente-Servidor.
 La arquitectura Cliente-Servidor es una de dos arquitecturas más comunes. En esta arquitectura hay un /host/ (/end system/) llamado /server/ que esta siempre encendido que pasivamente escucha /requests/ de otros /hosts/ llamados /clients/ que son agentes activos que inician la comunicación con el /server/.
@@ -225,14 +296,14 @@ Un ejemplo de esta arquitectura es una aplicacion Web donde hay un /Web server/ 
  - Los servidores son pasivos y siempre están encendidos.
  - Los servidores *deben* tener una IP fija bien conocida (/well-known IP address/) que se puede resolver con un nombre de dominio DNS (/domain name/).
  - Los servidores pueden tener múltiples clientes conectados al mismo tiempo.
- 
+
 *** Ventajas
  - Diseño simple usando protocolos sin estado como HTTP donde el servidor no
    necesita mantener informacion sobre clientes ya que se puede guardar
    informacion del cliente en /cookies/ del cliente y estos se transmitidos en
    /headers/ HTTP.
  - Puede soportar un gran numero de clientes.
- 
+
 *** Desventajas
  - Un solo punto de falla. Si el servidor se cae, el servicio se cae.
  - El servidor debe estar encendido todo el tiempo.
@@ -254,7 +325,7 @@ Un protocolo de capa de aplicación especifica cómo los procesos de una aplicac
 
 En resumen, los protocolos de capa de aplicación aseguran que las aplicaciones puedan comunicarse correctamente y coordinarse en la red, haciendo posible servicios como el correo electrónico, la web o la transferencia de archivos.
 
-* Detalle el protocolo de aplicación desarrollado en este trabajo.
+** Detalle el protocolo de aplicación desarrollado en este trabajo.
 
 ** La capa de transporte del stack TCP/IP ofrece dos protocolos: TCP y UDP.
 
@@ -267,9 +338,9 @@ Ambos protocolos proveen los siguientes servicios:
 
 UDP no realiza ninguna otra función extra. Por lo tanto, su servicio es:
 - *No confiable*: no garantiza que la entrega de los paquetes sea exitosa, ni tampoco que lleguen en orden.
-- *Sin conexión*: 
+- *Sin conexión*:
 
-Por su parte, TCP ofrece las siguientes funcionalidades adicionales: 
+Por su parte, TCP ofrece las siguientes funcionalidades adicionales:
 - *Orientado a la conexión*: antes de que un proceso de aplicación pueda comenzar a enviar datos a otro, ambos procesos deben comunicarse entre sí; es decir, deben enviarse algunos segmentos preliminares para establecer los parámetros de la transferencia de datos subsiguiente. Se trata de una conexión lógica con un estado en común que reside en TCP de los hosts.
 - *Transferencia de datos confiable*: garantiza la entrega, el orden y la no corrupción de los datos. Esto lo logra mediante timers, numeros de secuencia y ACKs (flags que indican que un paquete fue entregado correctamente).
 - *Control de congestión*: festiona que no se saturen los enlaces. Es más bien un servicio para la red.
@@ -277,12 +348,12 @@ Por su parte, TCP ofrece las siguientes funcionalidades adicionales:
 
 *** ¿Cuáles son sus características?
 
-Algunas de las características de UPD son las siguientes:
+Algunas de las características de UDP son las siguientes:
 - *Pequeño overhead de header por paquete*: UDP posee un header pequeño (8 bytes) en comparación con TCP (20 bytes)
 - *Sin estado de conexión*: UDP no mantiene un estado de conexión en los end systems, por lo que no rastrea ningún parámetro. Por esta razón, un servidor dedicado a una aplicación específica generalmente puede admitir muchos más clientes activos cuando la aplicación se ejecuta mediante UDP en lugar de TCP.
 - *Sin retraso por conexión*: UDP no induce ningún retraso para establecer una conexión, a diferencia de TCP que posee un handshake de tres pasos.
 
-Por su parte, TPC posee las siguientes características:
+Por su parte, TCP posee las siguientes características:
 
 - *Full-duplex*: dada una conexión TCP entre dos hosts, digamos A y B, la información puede fluir de A a B al mismo tiempo que fluye información de B a A.
 - *Conexión point-to-point*: la conexión de TCP únicamente se puede establecer entre un único remitente y un único receptor, no admite multicasting.
