@@ -148,7 +148,6 @@ class UploadClient(Client):
         self.sequence_number = _seq
         self.ack_number = _ack
 
-        self.logger.force_info("File transfer complete")
         self.file_handler.close(self.file)
 
     def send_file_saw(self) -> None:
