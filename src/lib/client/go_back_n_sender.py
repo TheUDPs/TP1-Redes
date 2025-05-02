@@ -33,10 +33,14 @@ class GoBackNSender:
         self.next_seq_num: SequenceNumber = SequenceNumber(0, protocol.protocol_version)
         self.file_handler: FileHandler = file_handler
 
+        self.last_ack = self.ack_number.clone()
+
         self.sqn_number.step()
         self.ack_number.step()
 
-    def send_file(self, file, filesize: int, filename: str) -> None:
+    def send_file(
+        self, file, filesize: int, filename: str
+    ) -> tuple[SequenceNumber, SequenceNumber]:
         self.logger.debug(
             f"Sending file '{filename}' with window size of {WINDOW_SIZE} packets"
         )
@@ -49,27 +53,31 @@ class GoBackNSender:
             self.send_packets_in_window(total_chunks, chunks)
 
             try:
-                self.await_ack_phase(total_chunks, chunks)
+                self.await_ack_phase(total_chunks)
             except TimeoutError:
                 raise MaxRetransmissionAttempts()
+
+        return self.next_seq_num, self.ack_number
 
     def send_packets_in_window(self, total_chunks: int, chunks: List[bytes]) -> None:
         while (
             self.next_seq_num.value < self.base.value + WINDOW_SIZE
             and self.next_seq_num.value < total_chunks
         ):
-            is_last_chunk = self.next_seq_num == total_chunks - 1
-
+            is_last_chunk = self.next_seq_num.value == total_chunks - 1
             chunk_to_send = chunks[self.next_seq_num.value]
             chunk_len = len(chunk_to_send)
 
             self.logger.debug(
                 f"Sending chunk {self.next_seq_num.value + 1}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB"
             )
-            self.logger.debug(
-                f"Seq num is {self.next_seq_num.value + self.offset_initial_seq_number.value}"
-            )
-            sleep(1)
+            # self.logger.debug(
+            #     f"Seq num is {self.next_seq_num.value + self.offset_initial_seq_number.value}"
+            # )
+
+            if is_last_chunk:
+                self.logger.debug("This is the last chunk")
+
             self.protocol.send_file_chunk(
                 SequenceNumber(
                     self.next_seq_num.value + self.offset_initial_seq_number.value,
@@ -81,10 +89,11 @@ class GoBackNSender:
                 is_last_chunk,
             )
             self.next_seq_num.step()
+            sleep(0.01)
 
         pass
 
-    def await_ack_phase(self, total_chunks: int, chunks: List[bytes]) -> None:
+    def await_ack_phase(self, total_chunks: int) -> None:
         # espero el ack
         # si no llega
         # hago time out y reenvio todo desde la base de la windows
@@ -92,27 +101,44 @@ class GoBackNSender:
         # si es nuevo ack registro y continuo
         # si no es nuevo ack (es ack repetido) amplio la cuenta hasta llegar a 4. Si llega a 4 retransmitir toda la ventada
 
-        ack_counter: int = 0
-        global_counter: int = 0
+        repeated_ack_counter = ()
+        repeated_ack_global_counter: int = 0
         ## Esto no va a andar, necesito algo que simplemente reciba un ack
         # Acá habría que esperar el timeout del expected_sqn_number
-        _packet = self.protocol.wait_for_ack(self.sqn_number, self.ack_number)
+        is_last_chunk = self.ack_number.value == total_chunks - 1
+        if is_last_chunk:
+            return
 
-        if self.ack_number.value != self.base:
-            self.logger.debug(f"Received repeated ack {ack_counter} ")
+        self.logger.debug("Waiting for ack")
+        packet = self.protocol.wait_for_ack(self.sqn_number, self.ack_number)
 
-            if ack_counter == MAX_ACK_REPEATED:
-                if MAXIMUM_RETRANSMISSION_ATTEMPTS == global_counter:
+        if (
+            packet.ack_number == self.ack_number.value
+            and packet.ack_number == self.last_ack.value
+        ):
+            self.logger.debug(f"Received repeated ack {repeated_ack_counter} ")
+
+            if repeated_ack_counter == MAX_ACK_REPEATED:
+                if MAXIMUM_RETRANSMISSION_ATTEMPTS == repeated_ack_global_counter:
                     raise MaxRetransmissionAttempts()
 
                 self.logger.debug(f"Received repeated ack {self.base} ")
-                self.base = self.ack_number.value + 1
-                self.send_packets_in_window(total_chunks, chunks)
-        else:  # CASO FELIZ
-            self.logger.debug(f"Received ack {self.base} ")
-            # self.expected_sqn_number += 1
-            self.base = self.ack_number.value + 1
-            if self.base == self.next_seq_num:
+                self.base.value = (
+                    self.ack_number.value + 1 - self.offset_initial_seq_number.value
+                )
+
+        elif packet.ack_number >= self.ack_number.value:
+            self.logger.debug(f"Received ack of packet {self.base.value + 1}")
+            self.base.value += (
+                packet.ack_number - self.ack_number.value
+            )  # - self.offset_initial_seq_number.value
+            self.last_ack = self.ack_number.clone()
+            self.ack_number = SequenceNumber(
+                packet.ack_number, self.protocol.protocol_version
+            )
+
+            # self.ack_number.step()
+            if self.base.value == self.next_seq_num:
                 # self.protocol.stop_timer()
                 pass
             else:

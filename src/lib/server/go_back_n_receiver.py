@@ -1,5 +1,3 @@
-from time import sleep
-
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.file_handler import FileHandler
 from lib.common.logger import Logger
@@ -38,7 +36,7 @@ class GoBackNReceiver:
 
         return packet
 
-    def receive_file(self, file) -> None:
+    def receive_file(self, file) -> tuple[SequenceNumber, SequenceNumber]:
         self.logger.debug("Beginning file reception in GBN manner")
         chunk_number: int = 1
         should_continue_reception = MutableVariable(True)
@@ -54,21 +52,20 @@ class GoBackNReceiver:
         except InvalidSequenceNumber:
             self.logger.warn("Found invalid sequence number")
             self.protocol.send_ack(self.sqn_number, self.ack_number)
-            should_continue_reception.value = False
 
         while should_continue_reception.value:
-            sleep(1)
             chunk_number += 1
 
             try:
                 packet = self.receive_single_chunk(file, chunk_number)
                 should_continue_reception.value = not packet.is_fin
-                self.sqn_number.step()
-                self.ack_number.step()
+                if should_continue_reception.value:
+                    self.sqn_number.step()
+                    self.ack_number.step()
             except InvalidSequenceNumber:
                 self.logger.warn("Found invalid sequence number")
                 self.protocol.send_ack(self.sqn_number, self.ack_number)
-                should_continue_reception.value = False
 
         self.logger.force_info("Upload completed")
         self.file_handler.close(file)
+        return self.sqn_number, self.ack_number

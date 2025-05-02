@@ -67,10 +67,9 @@ class ClientConnectionGbn(ClientConnection):
             sequence_number.value,
             ack_number.value,
         )
-        gbn_sender.receive_file(self.file)
-
-        self.logger.force_info("File transfer complete")
-        self.file_handler.close(self.file)
+        _seq, _ack = gbn_sender.receive_file(self.file)
+        sequence_number.value = _seq
+        ack_number.value = _ack
 
     def perform_upload(
         self,

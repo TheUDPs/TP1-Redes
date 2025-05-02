@@ -64,22 +64,26 @@ class ClientProtocolGbn:
     def validate_ack_number(
         self, packet: PacketGbn, ack_number: SequenceNumber
     ) -> None:
-        if ack_number.value != packet.ack_number:
+        is_valid = ack_number.value <= packet.ack_number
+        if not is_valid:
             raise InvalidAckNumber()
 
     def validate_inbound_ack(
         self, raw_packet, server_address_tuple, ack_number: SequenceNumber
-    ) -> tuple[Packet, str, Address]:
+    ) -> tuple[PacketGbn, Address]:
         packet, packet_type, server_address = self.validate_inbound_packet(
             raw_packet, server_address_tuple
         )
 
-        if not packet.is_ack:
+        _packet: PacketGbn = packet
+        # self.logger.debug(f"ACK expected {ack_number.value}, got {_packet.ack_number}")
+
+        if not _packet.is_ack:
             raise MessageIsNotAck()
 
-        self.validate_ack_number(packet, ack_number)
+        # self.validate_ack_number(_packet, ack_number)
 
-        return packet, packet_type, server_address
+        return _packet, server_address
 
     def validate_fin(self, packet: Packet):
         if not packet.is_fin:
@@ -119,14 +123,14 @@ class ClientProtocolGbn:
 
     def wait_for_ack(
         self, sequence_number: SequenceNumber, ack_number: SequenceNumber
-    ) -> Packet:
+    ) -> PacketGbn:
         raw_packet, server_address_tuple = self.socket_receive_from(
             COMMS_BUFFER_SIZE, should_retransmit=True
         )
 
-        packet, packet_type, server_address = self.validate_inbound_ack(
+        packet, server_address = self.validate_inbound_ack(
             raw_packet, server_address_tuple, ack_number
         )
         self.validate_not_fin(packet)
-        self.validate_sequence_number(packet, sequence_number)
+        # self.validate_sequence_number(packet, sequence_number)
         return packet

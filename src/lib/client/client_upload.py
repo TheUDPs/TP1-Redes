@@ -142,7 +142,11 @@ class UploadClient(Client):
             self.sequence_number,
             self.ack_number,
         )
-        gbn_sender.send_file(self.file, self.filesize, self.filename_in_server)
+        _seq, _ack = gbn_sender.send_file(
+            self.file, self.filesize, self.filename_in_server
+        )
+        self.sequence_number = _seq
+        self.ack_number = _ack
 
         self.logger.force_info("File transfer complete")
         self.file_handler.close(self.file)
