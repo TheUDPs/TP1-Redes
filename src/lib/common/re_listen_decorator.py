@@ -1,13 +1,16 @@
 import functools
 
+from lib.client.exceptions.connection_refused import ConnectionRefused
 from lib.common.constants import (
     MAX_RETRANSMISSION_ATTEMPTS,
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
+from lib.common.exceptions.invalid_ack_number import InvalidAckNumber
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.message_not_fin import MessageIsNotFin
 from lib.common.exceptions.message_not_fin_ack import MessageIsNotFinAck
+from lib.common.exceptions.message_not_fin_nor_ack import MessageNotFinNorAck
 from lib.common.exceptions.message_not_syn import MessageIsNotSyn
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 
@@ -15,12 +18,16 @@ from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 def configure_wanted_exceptions_to_catch(exceptions_to_let_through):
     want_to_catch_all = [
         InvalidSequenceNumber,
+        InvalidAckNumber,
         MessageIsNotAck,
         MessageIsNotFin,
         MessageIsNotFinAck,
         MessageIsNotSyn,
+        MessageNotFinNorAck,
         UnexpectedFinMessage,
+        MessageNotFinNorAck,
         ConnectionLost,
+        ConnectionRefused,
     ]
     exceptions_subset = []
 

@@ -21,7 +21,7 @@ class InvalidTimeProvided(Exception):
     pass
 
 
-class SocketSaw:
+class SocketGbn:
     def __init__(self, _socket: Socket, logger: Logger):
         self.socket = _socket
         self.logger = logger
