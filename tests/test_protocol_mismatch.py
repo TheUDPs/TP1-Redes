@@ -48,7 +48,6 @@ def mininet_net_setup(request):
     emergency_directory_teardown()
 
 
-@pytest.mark.skip()
 def test_01_server_saw_rejects_download_gbn(mininet_net_setup):
     h1 = mininet_net_setup.get("h1")
     h2 = mininet_net_setup.get("h2")
@@ -96,7 +95,6 @@ def test_01_server_saw_rejects_download_gbn(mininet_net_setup):
     assert was_server_successful.value
 
 
-@pytest.mark.skip()
 def test_02_server_saw_rejects_upload_gbn(mininet_net_setup):
     h1 = mininet_net_setup.get("h1")
     h2 = mininet_net_setup.get("h2")
@@ -144,7 +142,6 @@ def test_02_server_saw_rejects_upload_gbn(mininet_net_setup):
     assert was_server_successful.value
 
 
-@pytest.mark.skip()
 def test_03_server_gbn_rejects_download_saw(mininet_net_setup):
     h1 = mininet_net_setup.get("h1")
     h2 = mininet_net_setup.get("h2")
@@ -192,7 +189,6 @@ def test_03_server_gbn_rejects_download_saw(mininet_net_setup):
     assert was_server_successful.value
 
 
-@pytest.mark.skip()
 def test_04_server_gbn_rejects_upload_saw(mininet_net_setup):
     h1 = mininet_net_setup.get("h1")
     h2 = mininet_net_setup.get("h2")

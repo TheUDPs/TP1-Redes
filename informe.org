@@ -236,14 +236,14 @@ Un ejemplo de esta arquitectura es una aplicacion Web donde hay un /Web server/ 
  - Los servidores son pasivos y siempre están encendidos.
  - Los servidores *deben* tener una IP fija bien conocida (/well-known IP address/) que se puede resolver con un nombre de dominio DNS (/domain name/).
  - Los servidores pueden tener múltiples clientes conectados al mismo tiempo.
- 
+
 *** Ventajas
  - Diseño simple usando protocolos sin estado como HTTP donde el servidor no
    necesita mantener informacion sobre clientes ya que se puede guardar
    informacion del cliente en /cookies/ del cliente y estos se transmitidos en
    /headers/ HTTP.
  - Puede soportar un gran numero de clientes.
- 
+
 *** Desventajas
  - Un solo punto de falla. Si el servidor se cae, el servicio se cae.
  - El servidor debe estar encendido todo el tiempo.
@@ -278,9 +278,9 @@ Ambos protocolos proveen los siguientes servicios:
 
 UDP no realiza ninguna otra función extra. Por lo tanto, su servicio es:
 - *No confiable*: no garantiza que la entrega de los paquetes sea exitosa, ni tampoco que lleguen en orden.
-- *Sin conexión*: 
+- *Sin conexión*:
 
-Por su parte, TCP ofrece las siguientes funcionalidades adicionales: 
+Por su parte, TCP ofrece las siguientes funcionalidades adicionales:
 - *Orientado a la conexión*: antes de que un proceso de aplicación pueda comenzar a enviar datos a otro, ambos procesos deben comunicarse entre sí; es decir, deben enviarse algunos segmentos preliminares para establecer los parámetros de la transferencia de datos subsiguiente. Se trata de una conexión lógica con un estado en común que reside en TCP de los hosts.
 - *Transferencia de datos confiable*: garantiza la entrega, el orden y la no corrupción de los datos. Esto lo logra mediante timers, numeros de secuencia y ACKs (flags que indican que un paquete fue entregado correctamente).
 - *Control de congestión*: festiona que no se saturen los enlaces. Es más bien un servicio para la red.
