@@ -252,7 +252,17 @@ Given the node that can fragment is in the middle and the MTU is lowered on the 
 
 # Tests
 
-## Mininet IP Fragmentation tests
+### File Transfer tests with packet loss
+
+To run the file transfer tests for the LinearEnds topology you can use the tests with the next command:
+
+```bash
+sudo pytest
+```
+
+Or you can use the script `./test.sh`.
+
+### Mininet IP Fragmentation tests
 
 To run IP fragmentation tests for the LinearEnds topology run the tests with the next command:
 
