@@ -66,7 +66,7 @@ def re_listen_if_failed(exceptions_to_let_through=None):
                     exception_got = e
                     listening_attempts += 1
                     self.logger.warn(
-                        f"Re-listening attempt attempt number {listening_attempts}. Due to error: {e.message}"
+                        f"Re-listening attempt attempt number {listening_attempts}. Due to cause: {e.message}"
                     )
 
             if listening_attempts >= MAX_RETRANSMISSION_ATTEMPTS:

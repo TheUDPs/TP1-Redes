@@ -176,9 +176,9 @@ class DownloadClient(Client):
             except RetransmissionNeeded:
                 self.logger.error("Retransmission needed. Unhandled exception")
 
+        self.logger.force_info("Download completed")
         self.download_completed = True
         self.file_handler.close(self.file)
-        self.logger.force_info("Download completed")
 
     def receive_file(self, first_chunk_packet: Packet) -> None:
         if self.protocol_version == STOP_AND_WAIT_PROTOCOL_TYPE:

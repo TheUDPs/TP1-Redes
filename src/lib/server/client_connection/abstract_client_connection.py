@@ -343,7 +343,7 @@ class ClientConnection:
             MessageIsNotAck,
             MessageIsNotFinAck,
         ) as e:
-            self.logger.warn(f"Error: {e.message}")
+            self.logger.warn(f"{e.message}")
             self.logger.debug("State can be recovered")
 
         except Exception as e:

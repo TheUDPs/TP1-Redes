@@ -57,13 +57,13 @@ class GoBackNSender:
         chunks: List[bytes] = self.split_file_in_chunks(file, filesize)
 
         total_chunks: int = len(chunks)
-        pending_last_ack = False
+        is_last_chunk_acked = False
 
-        while self.base.value < total_chunks and not pending_last_ack:
+        while self.base.value < total_chunks and not is_last_chunk_acked:
             self.send_packets_in_window(total_chunks, chunks)
 
             try:
-                pending_last_ack = self.await_ack_phase(total_chunks)
+                is_last_chunk_acked = self.await_ack_phase(total_chunks)
             except RetransmissionNeeded:
                 self.logger.debug("Retransmission is needed")
                 self.reset_window()
@@ -118,10 +118,7 @@ class GoBackNSender:
             self.next_seq_num.step()
 
     def await_ack_phase(self, total_chunks: int) -> bool:
-        is_last_chunk_acked = (
-            self.ack_number.value - self.offset_initial_seq_number.value
-            == total_chunks - 1
-        )
+        is_last_chunk_acked = self.base.value + 1 == total_chunks
         if is_last_chunk_acked:
             return True
 
@@ -152,6 +149,8 @@ class GoBackNSender:
                 )
                 self.protocol.socket.set_timeout(SOCKET_RETRANSMIT_WINDOW_TIMEOUT)
                 self.spent_in_reception = 0
+
+                is_last_chunk_acked = self.base.value + 1 == total_chunks
             else:
                 self.logger.warn(
                     f"Detected ACK from packet {packet.ack_number - self.offset_initial_seq_number.value}"
@@ -163,7 +162,7 @@ class GoBackNSender:
                 if self.spent_in_reception >= SOCKET_RETRANSMIT_WINDOW_TIMEOUT:
                     raise RetransmissionNeeded()
 
-        return False
+        return is_last_chunk_acked
 
     # Could read window instead of full file
     def split_file_in_chunks(self, file, filesize) -> List[bytes]:
