@@ -6,14 +6,14 @@ from lib.common.constants import (
 )
 
 
-def print_packet(packet_binary: bytes):
-    binary_string = "".join(f"{byte:08b}" for byte in packet_binary)
-
-    spaced_binary = " ".join(
-        binary_string[i : i + 16] for i in range(0, len(binary_string), 16)
-    )
-
-    print(spaced_binary)
+# def print_packet(packet_binary: bytes):
+#     binary_string = "".join(f"{byte:08b}" for byte in packet_binary)
+#
+#     spaced_binary = " ".join(
+#         binary_string[i : i + 16] for i in range(0, len(binary_string), 16)
+#     )
+#
+#     print(spaced_binary)
 
 
 class Packet:

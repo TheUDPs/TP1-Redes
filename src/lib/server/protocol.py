@@ -284,20 +284,22 @@ class ServerProtocol:
     def send_file_chunk(
         self,
         sequence_number: SequenceNumber,
+        ack_number: SequenceNumber,
         chunk: bytes,
         chunk_len: int,
         is_last_chunk: bool,
         is_first_chunk: bool,
         client_address: Address,
     ) -> None:
-        packet_to_send: Packet = Packet(
+        packet_to_send: Packet = self.build_packet(
             protocol=self.protocol_version,
             is_ack=is_first_chunk,
             is_syn=False,
             is_fin=is_last_chunk,
             port=self.address.port,
             payload_length=chunk_len,
-            sequence_number=sequence_number.value,
+            sequence_number=sequence_number,
+            ack_number=ack_number,
             data=chunk,
         )
 

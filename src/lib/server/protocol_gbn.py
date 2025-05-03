@@ -1,5 +1,5 @@
 from lib.common.address import Address
-from lib.common.constants import FULL_BUFFER_SIZE, ZERO_BYTES
+from lib.common.constants import FULL_BUFFER_SIZE, ZERO_BYTES, COMMS_BUFFER_SIZE
 from lib.common.exceptions.invalid_ack_number import InvalidAckNumber
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
@@ -53,7 +53,7 @@ class ServerProtocolGbn:
         client_address: Address = Address(
             client_address_tuple[0], client_address_tuple[1]
         )
-        packet, packet_type = PacketParser.get_packet_from_bytes(raw_packet)
+        packet, _ = PacketParser.get_packet_from_bytes(raw_packet)
         _packet: PacketGbn = packet
 
         return _packet, client_address
@@ -61,12 +61,13 @@ class ServerProtocolGbn:
     def validate_ack_number(
         self, packet: PacketGbn, ack_number: SequenceNumber
     ) -> None:
-        if ack_number.value != packet.ack_number:
+        is_valid = ack_number.value <= packet.ack_number
+        if not is_valid:
             raise InvalidAckNumber()
 
     def validate_inbound_ack(
         self, raw_packet, client_address_tuple, ack_number: SequenceNumber
-    ) -> tuple[Packet, str, Address]:
+    ) -> tuple[PacketGbn, Address]:
         packet, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
         )
@@ -119,3 +120,38 @@ class ServerProtocolGbn:
             data=ZERO_BYTES,
         )
         self.socket_send_to(packet_to_send, self.client_address)
+
+    def send_file_chunk(
+        self,
+        sequence_number: SequenceNumber,
+        ack_number: SequenceNumber,
+        chunk: bytes,
+        chunk_len: int,
+        is_last_chunk: bool,
+        is_first_chunk: bool,
+    ) -> None:
+        packet_to_send: PacketGbn = PacketGbn(
+            protocol=self.protocol_version,
+            is_ack=is_first_chunk,
+            is_syn=False,
+            is_fin=is_last_chunk,
+            port=self.address.port,
+            payload_length=chunk_len,
+            sequence_number=sequence_number.value,
+            ack_number=ack_number.value,
+            data=chunk,
+        )
+
+        self.socket_send_to(packet_to_send, self.client_address)
+
+    def wait_for_ack(
+        self, sequence_number: SequenceNumber, ack_number: SequenceNumber
+    ) -> PacketGbn:
+        raw_packet, server_address_tuple = self.socket_receive_from(COMMS_BUFFER_SIZE)
+
+        packet, server_address = self.validate_inbound_ack(
+            raw_packet, server_address_tuple, ack_number
+        )
+        self.validate_not_fin(packet)
+        # self.validate_sequence_number(packet, sequence_number)
+        return packet

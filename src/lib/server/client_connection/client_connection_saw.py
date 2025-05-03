@@ -119,6 +119,7 @@ class ClientConnectionSaw(ClientConnection):
 
             self.protocol.send_file_chunk(
                 sequence_number.value,
+                None,
                 chunk,
                 chunk_len,
                 is_last_chunk,

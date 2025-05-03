@@ -1,6 +1,6 @@
 from lib.client.exceptions.missing_server_address import MissingServerAddress
 from lib.common.address import Address
-from lib.common.constants import COMMS_BUFFER_SIZE
+from lib.common.constants import COMMS_BUFFER_SIZE, FULL_BUFFER_SIZE, ZERO_BYTES
 from lib.common.exceptions.invalid_ack_number import InvalidAckNumber
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
@@ -43,7 +43,7 @@ class ClientProtocolGbn:
 
     def validate_inbound_packet(
         self, raw_packet, server_address_tuple
-    ) -> tuple[Packet, str, Address]:
+    ) -> tuple[PacketGbn, Address]:
         if len(raw_packet) == 0:
             raise SocketShutdown()
 
@@ -53,9 +53,10 @@ class ClientProtocolGbn:
         server_address: Address = Address(
             server_address_tuple[0], server_address_tuple[1]
         )
-        packet, packet_type = PacketParser.get_packet_from_bytes(raw_packet)
+        packet, _ = PacketParser.get_packet_from_bytes(raw_packet)
+        _packet: PacketGbn = packet
 
-        return packet, packet_type, server_address
+        return _packet, server_address
 
     def validate_ack_number(
         self, packet: PacketGbn, ack_number: SequenceNumber
@@ -67,19 +68,17 @@ class ClientProtocolGbn:
     def validate_inbound_ack(
         self, raw_packet, server_address_tuple, ack_number: SequenceNumber
     ) -> tuple[PacketGbn, Address]:
-        packet, packet_type, server_address = self.validate_inbound_packet(
+        packet, server_address = self.validate_inbound_packet(
             raw_packet, server_address_tuple
         )
 
-        _packet: PacketGbn = packet
         # self.logger.debug(f"ACK expected {ack_number.value}, got {_packet.ack_number}")
-
-        if not _packet.is_ack:
+        if not packet.is_ack:
             raise MessageIsNotAck()
 
         # self.validate_ack_number(_packet, ack_number)
 
-        return _packet, server_address
+        return packet, server_address
 
     def validate_fin(self, packet: Packet):
         if not packet.is_fin:
@@ -128,3 +127,31 @@ class ClientProtocolGbn:
         self.validate_not_fin(packet)
         # self.validate_sequence_number(packet, sequence_number)
         return packet
+
+    def receive_file_chunk(self, sequence_number: SequenceNumber) -> PacketGbn:
+        raw_packet, server_address_tuple = self.socket_receive_from(FULL_BUFFER_SIZE)
+
+        packet, server_address = self.validate_inbound_packet(
+            raw_packet, server_address_tuple
+        )
+
+        self.validate_sequence_number(packet, sequence_number)
+        return packet
+
+    def send_ack(
+        self,
+        sequence_number: SequenceNumber,
+        ack_number: SequenceNumber,
+    ) -> None:
+        packet_to_send: PacketGbn = PacketGbn(
+            protocol=self.protocol_version,
+            is_ack=True,
+            is_syn=False,
+            is_fin=False,
+            port=self.my_address.port,
+            payload_length=0,
+            sequence_number=sequence_number.value,
+            ack_number=ack_number.value,
+            data=ZERO_BYTES,
+        )
+        self.socket_send_to(packet_to_send, self.server_address)

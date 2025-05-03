@@ -1,5 +1,7 @@
 from lib.common.address import Address
+from lib.common.constants import FILE_CHUNK_SIZE_GBN
 from lib.common.exceptions.connection_lost import ConnectionLost
+from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.logger import Logger
 from lib.common.mutable_variable import MutableVariable
@@ -10,6 +12,7 @@ from lib.server.client_connection.abstract_client_connection import ClientConnec
 from lib.common.file_handler import FileHandler
 from lib.server.connection_state import ConnectionState
 from lib.server.go_back_n_receiver import GoBackNReceiver
+from lib.server.go_back_n_sender import GoBackNSender
 from lib.server.protocol_gbn import ServerProtocolGbn
 
 
@@ -86,13 +89,101 @@ class ClientConnectionGbn(ClientConnection):
         )
         self.closing_handshake_for_upload(sequence_number, ack_number)
 
+    def send_first_packet(
+        self,
+        sequence_number: MutableVariable,
+        ack_number: MutableVariable,
+        filename: str,
+        filesize: int,
+    ):
+        chunk_number: int = 1
+        total_chunks: int = self.file_handler.get_number_of_chunks(
+            filesize, FILE_CHUNK_SIZE_GBN
+        )
+        is_last_chunk: bool = False
+        is_first_chunk: bool = True
+
+        self.logger.info(
+            f"Sending file {filename} of {self.file_handler.bytes_to_megabytes(filesize)} MB"
+        )
+
+        chunk = self.file_handler.read(self.file, FILE_CHUNK_SIZE_GBN)
+        chunk_len = len(chunk)
+        self.logger.debug(
+            f"Sending chunk {chunk_number}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB"
+        )
+
+        if chunk_number == total_chunks:
+            is_last_chunk = True
+
+        if not is_first_chunk:
+            sequence_number.value.step()
+
+        self.protocol.send_file_chunk(
+            sequence_number.value,
+            ack_number.value,
+            chunk,
+            chunk_len,
+            is_last_chunk,
+            is_first_chunk,
+            self.client_address,
+        )
+
+        self.logger.debug(f"Waiting confirmation for chunk {chunk_number}")
+
+        if not is_last_chunk:
+            self.protocol.wait_for_ack(sequence_number.value)
+
+    def send_file(
+        self,
+        sequence_number: MutableVariable,
+        ack_number: MutableVariable,
+        filename_for_download: MutableVariable,
+    ):
+        _filename, filesize = self.receive_file_info_for_download(
+            sequence_number, ack_number
+        )
+        filename_for_download.value = _filename
+
+        self.send_first_packet(
+            sequence_number, ack_number, filename_for_download.value, filesize
+        )
+
+        self.socket.reset_state()
+        socket_gbn = SocketGbn(self.socket.socket, self.logger)
+
+        gbn_protocol = ServerProtocolGbn(
+            self.logger,
+            socket_gbn,
+            self.client_address,
+            self.address,
+            self.protocol.protocol_version,
+            self.protocol.clients,
+        )
+
+        gbn_sender = GoBackNSender(
+            self.logger,
+            gbn_protocol,
+            self.file_handler,
+            sequence_number.value,
+            ack_number.value,
+        )
+
+        _seq, _ack = gbn_sender.send_file(
+            self.file, filesize, filename_for_download.value
+        )
+        sequence_number.value = _seq
+        ack_number.value = _ack
+
+        self.file_handler.close(self.file)
+
     def perform_download(
         self,
         sequence_number: MutableVariable,
         ack_number: MutableVariable,
         filename_for_download: MutableVariable,
     ):
-        pass
+        self.send_file(sequence_number, ack_number, filename_for_download)
 
     def closing_handshake_for_upload(
         self, sequence_number: MutableVariable, ack_number: MutableVariable
@@ -119,7 +210,7 @@ class ClientConnectionGbn(ClientConnection):
                 self.protocol.wait_for_ack(
                     sequence_number.value, exceptions_to_let_through=[ConnectionLost]
                 )
-            except ConnectionLost:
+            except (ConnectionLost, MessageIsNotAck):
                 pass
 
             self.logger.info("Connection closed")

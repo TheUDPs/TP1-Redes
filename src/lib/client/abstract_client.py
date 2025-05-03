@@ -157,7 +157,6 @@ class Client:
         try:
             self.logger.debug("Connection finalization received. Confirming it")
             self.protocol.send_ack(self.sequence_number, self.ack_number)
-
             self.logger.debug("Sending own connection finalization")
             self.protocol.send_fin(self.sequence_number, self.ack_number)
 

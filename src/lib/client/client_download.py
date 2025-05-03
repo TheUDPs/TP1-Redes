@@ -3,6 +3,8 @@ from sys import exit
 
 from lib.client.abstract_client import Client
 from lib.client.exceptions.file_does_not_exist import FileDoesNotExist
+from lib.client.go_back_n_receiver import GoBackNReceiver
+from lib.client.protocol_gbn import ClientProtocolGbn
 from lib.common.address import Address
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
@@ -12,11 +14,13 @@ from lib.common.constants import (
     DOWNLOAD_OPERATION,
     ERROR_EXIT_CODE,
     GO_BACK_N_PROTOCOL_TYPE,
+    STOP_AND_WAIT_PROTOCOL_TYPE,
 )
 from lib.common.exceptions.invalid_filename import InvalidFilename
 from lib.common.file_handler import FileHandler
 from lib.common.mutable_variable import MutableVariable
 from lib.common.packet.packet import Packet
+from lib.common.socket_gbn import SocketGbn, RetransmissionNeeded
 
 
 class DownloadClient(Client):
@@ -109,7 +113,7 @@ class DownloadClient(Client):
 
         return packet
 
-    def receive_file(self, first_chunk_packet: Packet) -> None:
+    def receive_file_saw(self, first_chunk_packet: Packet) -> None:
         chunk_number: int = 1
 
         packet = first_chunk_packet
@@ -132,6 +136,54 @@ class DownloadClient(Client):
         self.logger.force_info("Download completed")
         self.download_completed = True
         self.file_handler.close(self.file)
+
+    def receive_file_gbn(self, first_chunk_packet: Packet) -> None:
+        self.logger.debug(f"Ready to receive from {self.server_address}")
+
+        chunk_number: int = 1
+
+        packet = first_chunk_packet
+        if not packet.is_fin:
+            self.protocol.send_ack(self.sequence_number, self.ack_number)
+
+        self.logger.debug(f"Received chunk {chunk_number}")
+        self.file_handler.append_to_file(self.file, packet)
+
+        if not packet.is_fin:
+            self.socket.reset_state()
+            socket_gbn = SocketGbn(self.socket.socket, self.logger)
+            gbn_protocol = ClientProtocolGbn(
+                self.logger,
+                socket_gbn,
+                self.server_address,
+                self.my_address,
+                self.protocol.protocol_version,
+            )
+
+            gbn_sender = GoBackNReceiver(
+                self.logger,
+                gbn_protocol,
+                self.file_handler,
+                self.sequence_number,
+                self.ack_number,
+            )
+
+            try:
+                _seq, _ack = gbn_sender.receive_file(self.file)
+                self.sequence_number = _seq
+                self.ack_number = _ack
+            except RetransmissionNeeded:
+                self.logger.error("Retransmission needed. Unhandled exception")
+        else:
+            self.logger.force_info("Download completed")
+            self.download_completed = True
+            self.file_handler.close(self.file)
+
+    def receive_file(self, first_chunk_packet: Packet) -> None:
+        if self.protocol_version == STOP_AND_WAIT_PROTOCOL_TYPE:
+            self.receive_file_saw(first_chunk_packet)
+        elif self.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
+            self.receive_file_gbn(first_chunk_packet)
 
     def file_cleanup_after_error(self):
         if not self.file_handler.is_closed(self.file):

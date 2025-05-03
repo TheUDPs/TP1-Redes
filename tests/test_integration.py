@@ -35,8 +35,8 @@ PROTOCOL = MutableVariable("saw")
 
 
 @pytest.fixture(
-    scope="module", params=["saw;0", "saw;10", "saw;40"]
-)  # Pending to add: "gbn;0", "gbn;10", "gbn;40"
+    scope="module", params=["saw;0", "saw;10", "saw;40", "gbn;0", "gbn;10", "gbn;40"]
+)
 def mininet_net_setup(request):
     protocol = request.param.split(";")[0]
     packet_loss_percentage = int(request.param.split(";")[1])
