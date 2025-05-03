@@ -137,8 +137,6 @@ class ClientConnectionSaw(ClientConnection):
             chunk_number += 1
             is_first_chunk = False
 
-        self.logger.info("File transfer complete")
-
     def closing_handshake_for_upload(self, sequence_number: MutableVariable):
         try:
             self.logger.debug("Connection finalization received. Confirming it")
@@ -175,7 +173,7 @@ class ClientConnectionSaw(ClientConnection):
         self.logger.debug("Waiting for confirmation of last packet")
         self.protocol.wait_for_fin_or_ack(sequence_number.value)
 
-        self.logger.force_info("Upload completed")
+        self.logger.force_info("File transfer complete")
         self.logger.debug("Received connection finalization from server")
         sequence_number.value.step()
         self.protocol.send_ack(

@@ -86,7 +86,7 @@ class Client:
                 self.perform_operation(server_address)
         except ConnectionRefused as e:
             self.logger.error(f"{e.message}")
-        except ConnectionLost:
+        except (ConnectionLost, SocketShutdown):
             self.logger.error("Connection closed")
         finally:
             should_stop_event.set()

@@ -14,6 +14,7 @@ from lib.server.exceptions.invalid_directory import InvalidDirectory
 from lib.common.exceptions.invalid_filename import InvalidFilename
 
 MINIMUM_FREE_GAP = 104_857_600  # 100 MB
+FROM_CURRENT_POSITION = 1
 
 
 class FileHandler:
@@ -75,6 +76,9 @@ class FileHandler:
 
     def read(self, file, n_bytes: int):
         return file.read(n_bytes)
+
+    def unwind(self, file, n_bytes: int):
+        return file.seek(-n_bytes, FROM_CURRENT_POSITION)
 
     def can_file_fit(self, filesize: int) -> bool:
         _total_space, _used_space, free_space = disk_usage(self.dirpath)

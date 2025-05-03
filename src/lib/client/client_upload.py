@@ -16,6 +16,7 @@ from lib.common.constants import (
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.invalid_filename import InvalidFilename
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
+from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.file_handler import FileHandler
 from lib.common.logger import Logger
@@ -61,6 +62,10 @@ class UploadClient(Client):
         except (FileAlreadyExists, FileTooBig, ConnectionLost) as e:
             self.logger.error(f"{e.message}")
             self.handle_connection_finalization()
+            self.file_cleanup_after_error()
+
+        except SocketShutdown as e:
+            self.logger.debug(f"{e.message}")
             self.file_cleanup_after_error()
 
         except Exception as e:

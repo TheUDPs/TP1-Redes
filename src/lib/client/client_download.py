@@ -8,6 +8,7 @@ from lib.client.protocol_gbn import ClientProtocolGbn
 from lib.common.address import Address
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
+from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.logger import Logger
 from lib.common.constants import (
@@ -57,7 +58,7 @@ class DownloadClient(Client):
             self.receive_file(packet)
             self.handle_connection_finalization()
 
-        except (FileDoesNotExist, ConnectionLost) as e:
+        except (FileDoesNotExist, ConnectionLost, SocketShutdown) as e:
             self.logger.error(f"{e.message}")
             self.handle_connection_finalization()
             self.file_cleanup_after_error()
@@ -174,10 +175,10 @@ class DownloadClient(Client):
                 self.ack_number = _ack
             except RetransmissionNeeded:
                 self.logger.error("Retransmission needed. Unhandled exception")
-        else:
-            self.logger.force_info("Download completed")
-            self.download_completed = True
-            self.file_handler.close(self.file)
+
+        self.download_completed = True
+        self.file_handler.close(self.file)
+        self.logger.force_info("Download completed")
 
     def receive_file(self, first_chunk_packet: Packet) -> None:
         if self.protocol_version == STOP_AND_WAIT_PROTOCOL_TYPE:

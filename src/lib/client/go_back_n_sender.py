@@ -1,3 +1,4 @@
+import hashlib
 from time import time
 
 from lib.client.protocol_gbn import ClientProtocolGbn
@@ -73,6 +74,11 @@ class GoBackNSender:
             SequenceNumber(self.ack_number.value, self.protocol.protocol_version),
         )
 
+    def compute_chunk_sha256(self, chunk: bytes):
+        hasher = hashlib.sha256()
+        hasher.update(chunk)
+        return hasher.hexdigest()
+
     def send_packets_in_window(self, total_chunks: int, chunks: List[bytes]) -> None:
         while (
             self.next_seq_num.value < self.base.value + WINDOW_SIZE
@@ -82,12 +88,12 @@ class GoBackNSender:
             chunk_to_send = chunks[self.next_seq_num.value]
             chunk_len = len(chunk_to_send)
 
-            self.logger.debug(
-                f"Sending chunk {self.next_seq_num.value + 1}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB"
-            )
-
+            msg = f"Sending chunk {self.next_seq_num.value + 1}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB. "
             if is_last_chunk:
-                self.logger.debug("Sending the last chunk")
+                msg += " This is the last chunk"
+            msg += f" Hash is: {self.compute_chunk_sha256(chunk_to_send)}"
+
+            self.logger.debug(msg)
 
             seq_number_to_send = SequenceNumber(
                 self.next_seq_num.value + self.offset_initial_seq_number.value,
@@ -154,6 +160,7 @@ class GoBackNSender:
 
         for _ in range(total_chunks):
             chunk = self.file_handler.read(file, FILE_CHUNK_SIZE_GBN)
-            chunk_list.append(chunk)
+            if len(chunk) > 0:
+                chunk_list.append(chunk)
 
         return chunk_list

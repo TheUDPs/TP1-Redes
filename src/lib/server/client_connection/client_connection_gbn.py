@@ -78,7 +78,10 @@ class ClientConnectionGbn(ClientConnection):
             sequence_number.value = _seq
             ack_number.value = _ack
         except RetransmissionNeeded:
-            self.logger.error("Retransmission needed. Unhandled exception")
+            self.logger.error("Retransmission needed. State is unrecoverable")
+
+        self.logger.debug("Finished receiving file")
+        self.file_handler.close(self.file)
 
     def perform_upload(
         self,
@@ -187,6 +190,7 @@ class ClientConnectionGbn(ClientConnection):
         filename_for_download: MutableVariable,
     ):
         self.send_file(sequence_number, ack_number, filename_for_download)
+        self.closing_handshake_for_download(sequence_number, ack_number)
 
     def closing_handshake_for_upload(
         self, sequence_number: MutableVariable, ack_number: MutableVariable
@@ -221,6 +225,23 @@ class ClientConnectionGbn(ClientConnection):
             self.logger.info("Connection closed")
         finally:
             self.state = ConnectionState.DONE_READY_TO_DIE
+
+    def closing_handshake_for_download(
+        self, sequence_number: MutableVariable, ack_number: MutableVariable
+    ):
+        self.logger.debug("Waiting for confirmation of last packet")
+        self.protocol.wait_for_fin_or_ack(sequence_number.value)
+
+        self.logger.force_info("File transfer complete")
+        self.logger.debug("Received connection finalization from server")
+        sequence_number.value.step()
+        self.protocol.send_ack(
+            sequence_number.value,
+            ack_number.value,
+            self.client_address,
+            self.address,
+        )
+        self.state = ConnectionState.DONE_READY_TO_DIE
 
     def is_ready_to_die(self) -> bool:
         return (
