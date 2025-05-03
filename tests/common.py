@@ -83,7 +83,6 @@ def start_download_client(host, tmp_path, port, protocol, file_to_download):
 
 
 def teardown_directories(tmp_path):
-    return
     shutil.rmtree(tmp_path, ignore_errors=True)
 
 
@@ -128,7 +127,6 @@ def print_outputs(server_log, client_log):
 
 
 def emergency_directory_teardown():
-    return
     prefix = "tmp_"
     for name in os.listdir(TESTS_DIR):
         full_path = os.path.join(TESTS_DIR, name)
