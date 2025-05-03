@@ -1,4 +1,4 @@
-from time import sleep, time
+from time import time
 
 from lib.client.protocol_gbn import ClientProtocolGbn
 from lib.common.constants import (
@@ -102,7 +102,6 @@ class GoBackNSender:
                 is_last_chunk,
             )
             self.next_seq_num.step()
-            sleep(0.01)
 
     def await_ack_phase(self, total_chunks: int) -> bool:
         # espero el ack
