@@ -95,7 +95,7 @@ class SocketSaw:
                         continue
 
                     except OSError:
-                        raise ConnectionLost()
+                        raise SocketShutdown()
         return raw_packet, server_address_tuple
 
     def recvfrom(

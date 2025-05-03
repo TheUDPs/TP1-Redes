@@ -3,17 +3,8 @@ import struct
 from lib.common.constants import (
     GO_BACK_N_PROTOCOL_TYPE,
     STOP_AND_WAIT_PROTOCOL_TYPE,
+    INT_DESERIALIZATION_BYTEORDER,
 )
-
-
-# def print_packet(packet_binary: bytes):
-#     binary_string = "".join(f"{byte:08b}" for byte in packet_binary)
-#
-#     spaced_binary = " ".join(
-#         binary_string[i : i + 16] for i in range(0, len(binary_string), 16)
-#     )
-#
-#     print(spaced_binary)
 
 
 class Packet:
@@ -116,6 +107,8 @@ class PacketParser:
         pos -= 1
         flags |= is_fin << pos
 
+        # ! -> byte order for network (= big-endian)
+        # H -> unsigned short (2 bytes)
         header = struct.pack(
             "!HHH", flags, int(packet.port), int(packet.payload_length)
         )
@@ -145,6 +138,9 @@ class PacketParser:
         pos -= 1
         flags |= is_fin << pos
 
+        # ! -> byte order for network (= big-endian)
+        # H -> unsigned short (2 bytes)
+        # I -> unsigned int (4 bytes)
         header = struct.pack(
             "!HHIII",
             flags,
@@ -175,8 +171,10 @@ class PacketParser:
         is_fin = header >> pos & 0b1
         is_fin = True if is_fin == 0b1 else False
 
-        port = int.from_bytes(packet[2:4], byteorder="big")
-        payload_length = int.from_bytes(packet[4:6], byteorder="big")
+        port = int.from_bytes(packet[2:4], byteorder=INT_DESERIALIZATION_BYTEORDER)
+        payload_length = int.from_bytes(
+            packet[4:6], byteorder=INT_DESERIALIZATION_BYTEORDER
+        )
         data = bytes(packet[6 : 6 + payload_length])
 
         return PacketSaw(
@@ -206,10 +204,16 @@ class PacketParser:
         is_fin = header >> pos & 0b1
         is_fin = True if is_fin == 0b1 else False
 
-        port = int.from_bytes(packet[2:4], byteorder="big")
-        payload_length = int.from_bytes(packet[4:8], byteorder="big")
-        sequence_number = int.from_bytes(packet[8:12], byteorder="big")
-        ack_number = int.from_bytes(packet[12:16], byteorder="big")
+        port = int.from_bytes(packet[2:4], byteorder=INT_DESERIALIZATION_BYTEORDER)
+        payload_length = int.from_bytes(
+            packet[4:8], byteorder=INT_DESERIALIZATION_BYTEORDER
+        )
+        sequence_number = int.from_bytes(
+            packet[8:12], byteorder=INT_DESERIALIZATION_BYTEORDER
+        )
+        ack_number = int.from_bytes(
+            packet[12:16], byteorder=INT_DESERIALIZATION_BYTEORDER
+        )
         data = bytes(packet[16 : 16 + payload_length])
 
         return PacketGbn(
@@ -226,7 +230,7 @@ class PacketParser:
 
     @staticmethod
     def get_packet_from_bytes(packet: bytes) -> tuple[Packet, str]:
-        header = int.from_bytes(packet[0:2], byteorder="big")
+        header = int.from_bytes(packet[0:2], byteorder=INT_DESERIALIZATION_BYTEORDER)
 
         pos = 16
         pos -= 2

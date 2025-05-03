@@ -5,7 +5,6 @@ from lib.common.address import Address
 from lib.common.constants import (
     SOCKET_RETRANSMIT_WINDOW_TIMEOUT,
 )
-from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.logger import Logger
 
@@ -36,7 +35,7 @@ class SocketGbn:
             raise RetransmissionNeeded()
 
         except OSError:
-            raise ConnectionLost()
+            raise SocketShutdown()
 
     def set_timeout(self, timeout):
         self.timeout = timeout

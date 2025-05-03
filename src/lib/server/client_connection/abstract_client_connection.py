@@ -1,5 +1,4 @@
 from abc import abstractmethod
-from socket import SHUT_RDWR
 from threading import Thread
 
 from lib.common.address import Address
@@ -358,20 +357,9 @@ class ClientConnection:
     def start(self):
         self.run_thread.start()
 
+    @abstractmethod
     def kill(self):
-        if not self.killed:
-            return
-
-        try:
-            self.socket.shutdown(SHUT_RDWR)
-        except OSError:
-            try:
-                self.socket.close()
-            except OSError:
-                pass
-        finally:
-            self.run_thread.join()
-            self.killed = True
+        pass
 
     @abstractmethod
     def is_ready_to_die(self) -> bool:

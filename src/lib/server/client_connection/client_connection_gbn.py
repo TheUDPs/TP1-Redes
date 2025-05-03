@@ -1,3 +1,5 @@
+from _socket import SHUT_RDWR
+
 from lib.common.address import Address
 from lib.common.constants import FILE_CHUNK_SIZE_GBN
 from lib.common.exceptions.connection_lost import ConnectionLost
@@ -36,6 +38,7 @@ class ClientConnectionGbn(ClientConnection):
             file_handler,
             packet,
         )
+        self.socket_gbn = None
 
     def receive_file(
         self,
@@ -53,10 +56,10 @@ class ClientConnectionGbn(ClientConnection):
         self.logger.debug(f"Ready to receive from {self.client_address}")
 
         self.socket.reset_state()
-        socket_gbn = SocketGbn(self.socket.socket, self.logger)
+        self.socket_gbn = SocketGbn(self.socket.socket, self.logger)
         gbn_protocol = ServerProtocolGbn(
             self.logger,
-            socket_gbn,
+            self.socket_gbn,
             self.client_address,
             self.address,
             self.protocol.protocol_version,
@@ -220,4 +223,32 @@ class ClientConnectionGbn(ClientConnection):
             self.state = ConnectionState.DONE_READY_TO_DIE
 
     def is_ready_to_die(self) -> bool:
-        pass
+        return (
+            self.state == ConnectionState.DONE_READY_TO_DIE
+            or self.state == ConnectionState.UNRECOVERABLE_BAD_STATE
+        )
+
+    def kill(self):
+        try:
+            if self.socket_gbn is not None:
+                self.socket_gbn.shutdown(SHUT_RDWR)
+        except (OSError, SocketShutdown):
+            try:
+                if self.socket_gbn is not None:
+                    self.socket_gbn.close()
+            except (OSError, SocketShutdown):
+                pass
+
+        try:
+            self.socket.shutdown(SHUT_RDWR)
+        except (OSError, SocketShutdown):
+            try:
+                self.socket.close()
+            except (OSError, SocketShutdown):
+                pass
+
+        try:
+            self.run_thread.join()
+            self.killed = True
+        except RuntimeError:
+            pass

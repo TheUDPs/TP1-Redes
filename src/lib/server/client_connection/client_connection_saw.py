@@ -1,3 +1,5 @@
+from _socket import SHUT_RDWR
+
 from lib.common.address import Address
 from lib.common.constants import (
     FILE_CHUNK_SIZE_SAW,
@@ -208,3 +210,18 @@ class ClientConnectionSaw(ClientConnection):
             self.state == ConnectionState.DONE_READY_TO_DIE
             or self.state == ConnectionState.UNRECOVERABLE_BAD_STATE
         )
+
+    def kill(self):
+        try:
+            self.socket.shutdown(SHUT_RDWR)
+        except (OSError, SocketShutdown):
+            try:
+                self.socket.close()
+            except (OSError, SocketShutdown):
+                pass
+
+        try:
+            self.run_thread.join()
+            self.killed = True
+        except RuntimeError:
+            pass
