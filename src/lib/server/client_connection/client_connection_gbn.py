@@ -4,7 +4,7 @@ from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.logger import Logger
 from lib.common.mutable_variable import MutableVariable
 from lib.common.packet.packet import Packet
-from lib.common.socket_gbn import SocketGbn
+from lib.common.socket_gbn import SocketGbn, RetransmissionNeeded
 from lib.common.socket_saw import SocketSaw
 from lib.server.client_connection.abstract_client_connection import ClientConnection
 from lib.common.file_handler import FileHandler
@@ -67,9 +67,12 @@ class ClientConnectionGbn(ClientConnection):
             sequence_number.value,
             ack_number.value,
         )
-        _seq, _ack = gbn_sender.receive_file(self.file)
-        sequence_number.value = _seq
-        ack_number.value = _ack
+        try:
+            _seq, _ack = gbn_sender.receive_file(self.file)
+            sequence_number.value = _seq
+            ack_number.value = _ack
+        except RetransmissionNeeded:
+            self.logger.error("Retransmission needed. Unhandled exception")
 
     def perform_upload(
         self,

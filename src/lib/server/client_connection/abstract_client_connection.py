@@ -349,7 +349,8 @@ class ClientConnection:
 
         except Exception as e:
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
-            self.logger.error(f"Fatal error: {e}")
+            err = e.message if hasattr(e, "message") else e
+            self.logger.error(f"Fatal error: {err}")
             self.file_cleanup_after_error(filename_for_upload, filesize_for_upload)
             self.kill()
 

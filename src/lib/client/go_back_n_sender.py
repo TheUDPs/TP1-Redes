@@ -1,17 +1,16 @@
-from time import sleep
+from time import sleep, time
 
 from lib.client.protocol_gbn import ClientProtocolGbn
 from lib.common.constants import (
-    MAX_ACK_REPEATED,
-    MAXIMUM_RETRANSMISSION_ATTEMPTS,
     WINDOW_SIZE,
     FILE_CHUNK_SIZE_GBN,
+    SOCKET_RETRANSMIT_WINDOW_TIMEOUT,
 )
 from lib.common.file_handler import FileHandler
 from lib.common.logger import Logger
 from typing import List
-from lib.common.exceptions.max_retransmission_attempts import MaxRetransmissionAttempts
 from lib.common.sequence_number import SequenceNumber
+from lib.common.socket_gbn import RetransmissionNeeded
 
 
 class GoBackNSender:
@@ -23,7 +22,6 @@ class GoBackNSender:
         sequence_number: SequenceNumber,
         ack_number: SequenceNumber,
     ) -> None:
-        # self.windows_size: int = WINDOWS_SIZE
         self.base: SequenceNumber = SequenceNumber(0, protocol.protocol_version)
         self.logger: Logger = logger
         self.protocol: ClientProtocolGbn = protocol
@@ -34,9 +32,18 @@ class GoBackNSender:
         self.file_handler: FileHandler = file_handler
 
         self.last_ack = self.ack_number.clone()
+        self.oldest_packet = None
+        self.spent_in_reception: float = 0.0
 
         self.sqn_number.step()
         self.ack_number.step()
+
+    def reset_window(self):
+        self.logger.debug(
+            f"Reseting next sequence number to base packet number {self.base.value + 1}"
+        )
+        self.next_seq_num.value = self.base.value
+        self.spent_in_reception = 0.0
 
     def send_file(
         self, file, filesize: int, filename: str
@@ -54,8 +61,9 @@ class GoBackNSender:
 
             try:
                 pending_last_ack = self.await_ack_phase(total_chunks)
-            except TimeoutError:
-                raise MaxRetransmissionAttempts()
+            except RetransmissionNeeded:
+                self.logger.debug("Retransmission is needed")
+                self.reset_window()
 
         return (
             SequenceNumber(
@@ -104,10 +112,6 @@ class GoBackNSender:
         # si es nuevo ack registro y continuo
         # si no es nuevo ack (es ack repetido) amplio la cuenta hasta llegar a 4. Si llega a 4 retransmitir toda la ventada
 
-        repeated_ack_counter = ()
-        repeated_ack_global_counter: int = 0
-        ## Esto no va a andar, necesito algo que simplemente reciba un ack
-        # Acá habría que esperar el timeout del expected_sqn_number
         is_last_chunk_acked = (
             self.ack_number.value - self.offset_initial_seq_number.value
             == total_chunks - 1
@@ -115,38 +119,29 @@ class GoBackNSender:
         if is_last_chunk_acked:
             return True
 
+        start_time: float = time()
         packet = self.protocol.wait_for_ack(self.sqn_number, self.ack_number)
+        reception_duration: float = time() - start_time
 
-        if (
-            packet.ack_number == self.ack_number.value
-            and packet.ack_number == self.last_ack.value
-        ):
-            self.logger.debug(f"Received repeated ack {repeated_ack_counter} ")
-
-            if repeated_ack_counter == MAX_ACK_REPEATED:
-                if MAXIMUM_RETRANSMISSION_ATTEMPTS == repeated_ack_global_counter:
-                    raise MaxRetransmissionAttempts()
-
-                self.logger.debug(f"Received repeated ack {self.base} ")
-                self.base.value = (
-                    self.ack_number.value + 1 - self.offset_initial_seq_number.value
-                )
-
-        elif packet.ack_number >= self.ack_number.value:
-            self.logger.debug(f"Received ack of packet {self.base.value + 1}")
+        if packet.ack_number >= self.ack_number.value:
             self.base.value += packet.ack_number - self.ack_number.value
+            self.logger.debug(f"Received ack of packet {self.base.value + 1}")
             self.last_ack = self.ack_number.clone()
             self.ack_number = SequenceNumber(
                 packet.ack_number, self.protocol.protocol_version
             )
-
-            # self.ack_number.step()
-            if self.base.value == self.next_seq_num:
-                # self.protocol.stop_timer()
-                pass
-            else:
-                # start_timer
-                pass
+            self.protocol.socket.set_timeout(SOCKET_RETRANSMIT_WINDOW_TIMEOUT)
+            self.spent_in_reception = 0
+        else:
+            self.logger.warn(
+                f"Detected ACK from packet {packet.ack_number - self.offset_initial_seq_number.value}"
+            )
+            self.logger.debug(
+                f"Acumulated {reception_duration} before retransmission needed. Totalling {self.spent_in_reception}"
+            )
+            self.spent_in_reception += reception_duration
+            if self.spent_in_reception >= SOCKET_RETRANSMIT_WINDOW_TIMEOUT:
+                raise RetransmissionNeeded()
 
         return False
 

@@ -30,12 +30,8 @@ class ClientProtocolGbn:
         self.my_address: Address = my_address
         self.protocol_version: str = protocol_version
 
-    def socket_receive_from(
-        self, buffer_size: int, should_retransmit: bool, do_not_timeout: bool = False
-    ):
-        raw_packet, client_address_tuple = self.socket.recvfrom(
-            buffer_size, should_retransmit, do_not_timeout
-        )
+    def socket_receive_from(self, buffer_size: int):
+        raw_packet, client_address_tuple = self.socket.recvfrom(buffer_size)
         return raw_packet, client_address_tuple
 
     def socket_send_to(self, packet_to_send: Packet, client_address: Address):
@@ -124,9 +120,7 @@ class ClientProtocolGbn:
     def wait_for_ack(
         self, sequence_number: SequenceNumber, ack_number: SequenceNumber
     ) -> PacketGbn:
-        raw_packet, server_address_tuple = self.socket_receive_from(
-            COMMS_BUFFER_SIZE, should_retransmit=True
-        )
+        raw_packet, server_address_tuple = self.socket_receive_from(COMMS_BUFFER_SIZE)
 
         packet, server_address = self.validate_inbound_ack(
             raw_packet, server_address_tuple, ack_number

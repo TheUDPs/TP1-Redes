@@ -15,7 +15,6 @@ class GoBackNReceiver:
         sequence_number: SequenceNumber,
         ack_number: SequenceNumber,
     ) -> None:
-        # self.windows_size: int = WINDOWS_SIZE
         self.base: int = 0
         self.logger: Logger = logger
         self.protocol: ServerProtocolGbn = protocol
@@ -24,6 +23,7 @@ class GoBackNReceiver:
         self.ack_number: SequenceNumber = ack_number
         self.next_seq_num: int = 0
         self.file_handler: FileHandler = file_handler
+        self.protocol.socket.set_timeout(None)
 
     def receive_single_chunk(self, file, chunk_number: int):
         packet = self.protocol.receive_file_chunk(self.sqn_number)
@@ -50,7 +50,9 @@ class GoBackNReceiver:
             self.sqn_number.step()
             self.ack_number.step()
         except InvalidSequenceNumber:
-            self.logger.warn("Found invalid sequence number")
+            self.logger.warn(
+                f"Found invalid sequence number, expected seq {self.sqn_number.value}"
+            )
             self.protocol.send_ack(self.sqn_number, self.ack_number)
 
         while should_continue_reception.value:
@@ -63,7 +65,10 @@ class GoBackNReceiver:
                     self.sqn_number.step()
                     self.ack_number.step()
             except InvalidSequenceNumber:
-                self.logger.warn("Found invalid sequence number")
+                chunk_number -= 1
+                self.logger.warn(
+                    f"Found invalid sequence number, expected seq {self.sqn_number.value}"
+                )
                 self.protocol.send_ack(self.sqn_number, self.ack_number)
 
         self.logger.force_info("Upload completed")
