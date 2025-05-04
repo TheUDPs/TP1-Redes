@@ -150,7 +150,7 @@ class ClientConnectionGbn(ClientConnection):
         sequence_number: MutableVariable,
         ack_number: MutableVariable,
         filename_for_download: MutableVariable,
-    ):
+    ) -> bool:
         _filename, filesize = self.receive_file_info_for_download(
             sequence_number, ack_number
         )
@@ -180,7 +180,7 @@ class ClientConnectionGbn(ClientConnection):
             ack_number.value,
         )
 
-        _seq, _ack, last_raw_packet = gbn_sender.send_file(
+        _seq, _ack, last_raw_packet, already_received_fin_back = gbn_sender.send_file(
             self.file, filesize, filename_for_download.value
         )
         sequence_number.value = _seq
@@ -189,6 +189,7 @@ class ClientConnectionGbn(ClientConnection):
         self.file_handler.close(self.file)
 
         self.socket.save_state(last_raw_packet, self.client_address)
+        return already_received_fin_back
 
     def perform_download(
         self,
@@ -196,8 +197,12 @@ class ClientConnectionGbn(ClientConnection):
         ack_number: MutableVariable,
         filename_for_download: MutableVariable,
     ):
-        self.send_file(sequence_number, ack_number, filename_for_download)
-        self.closing_handshake_for_download(sequence_number, ack_number)
+        already_received_fin_back = self.send_file(
+            sequence_number, ack_number, filename_for_download
+        )
+        self.closing_handshake_for_download(
+            sequence_number, ack_number, already_received_fin_back
+        )
 
     def closing_handshake_for_upload(
         self, sequence_number: MutableVariable, ack_number: MutableVariable
@@ -234,10 +239,14 @@ class ClientConnectionGbn(ClientConnection):
             self.state = ConnectionState.DONE_READY_TO_DIE
 
     def closing_handshake_for_download(
-        self, sequence_number: MutableVariable, ack_number: MutableVariable
+        self,
+        sequence_number: MutableVariable,
+        ack_number: MutableVariable,
+        already_received_fin_back: bool,
     ):
-        self.logger.debug("Waiting for confirmation of last packet")
-        self.protocol.wait_for_fin_or_ack(sequence_number.value)
+        if not already_received_fin_back:
+            self.logger.debug("Waiting for confirmation of last packet")
+            self.protocol.wait_for_fin_or_ack(sequence_number.value)
 
         self.logger.force_info("File transfer complete")
         self.logger.debug("Received connection finalization from client")

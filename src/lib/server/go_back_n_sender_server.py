@@ -7,6 +7,7 @@ from lib.common.constants import (
 )
 from lib.common.exceptions.invalid_ack_number import InvalidAckNumber
 from lib.common.exceptions.retransmission_needed import RetransmissionNeeded
+from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.file_handler import FileHandler
 from lib.common.hash_compute import compute_chunk_sha256
 from lib.common.logger import Logger
@@ -50,7 +51,7 @@ class GoBackNSender:
 
     def send_file(
         self, file, filesize: int, filename: str
-    ) -> tuple[SequenceNumber, SequenceNumber, bytes]:
+    ) -> tuple[SequenceNumber, SequenceNumber, bytes, bool]:
         self.logger.debug(
             f"Sending file '{filename}' with window size of {WINDOW_SIZE} packets"
         )
@@ -60,12 +61,15 @@ class GoBackNSender:
         total_chunks: int = len(chunks)
         is_last_chunk_acked = False
         last_raw_packet = MutableVariable(None)
+        already_received_fin_back = MutableVariable(False)
 
         while self.base.value < total_chunks and not is_last_chunk_acked:
             last_raw_packet.value = self.send_packets_in_window(total_chunks, chunks)
 
             try:
-                is_last_chunk_acked = self.await_ack_phase(total_chunks)
+                is_last_chunk_acked = self.await_ack_phase(
+                    total_chunks, already_received_fin_back
+                )
             except RetransmissionNeeded:
                 self.logger.debug("Retransmission is needed")
                 self.reset_window()
@@ -77,6 +81,7 @@ class GoBackNSender:
             ),
             SequenceNumber(self.ack_number.value, self.protocol.protocol_version),
             last_raw_packet.value,
+            already_received_fin_back.value,
         )
 
     def send_packets_in_window(self, total_chunks: int, chunks: List[bytes]) -> bytes:
@@ -111,21 +116,30 @@ class GoBackNSender:
 
         return packet.value
 
-    def await_ack_phase(self, total_chunks: int) -> bool:
+    def await_ack_phase(
+        self, total_chunks: int, already_received_fin_back: MutableVariable
+    ) -> bool:
         is_last_chunk_acked = self.base.value + 1 == total_chunks
         if is_last_chunk_acked:
             return True
 
         start_time: float = time()
-        did_explode = False
+        did_explode = MutableVariable(False)
         try:
             packet = self.protocol.wait_for_ack(self.sqn_number, self.ack_number)
             reception_duration: float = time() - start_time
+
         except InvalidAckNumber:
             reception_duration: float = time() - start_time
-            did_explode = True
+            did_explode.value = True
 
-        if did_explode:
+        except UnexpectedFinMessage as e:
+            packet = e.packet
+            if not packet.is_ack and packet.is_fin:
+                already_received_fin_back.value = True
+                is_last_chunk_acked.value = True
+
+        if did_explode.value:
             self.logger.warn("Detected previous ACK")
             self.logger.debug(
                 f"Acumulated {reception_duration} before retransmission needed. Totalling {self.spent_in_reception}"

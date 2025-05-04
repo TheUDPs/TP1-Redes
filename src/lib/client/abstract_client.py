@@ -177,10 +177,11 @@ class Client:
         except SocketShutdown:
             self.logger.info("Connection closed")
 
-    def initiate_close_connection(self):
+    def initiate_close_connection(self, already_received_fin_back=False):
         try:
-            self.logger.debug("Waiting for confirmation of last packet")
-            self.protocol.wait_for_fin_or_ack(self.sequence_number, self.ack_number)
+            if not already_received_fin_back:
+                self.logger.debug("Waiting for confirmation of last packet")
+                self.protocol.wait_for_fin_or_ack(self.sequence_number, self.ack_number)
 
             self.logger.force_info("Upload completed")
             self.logger.debug("Received connection finalization from server")

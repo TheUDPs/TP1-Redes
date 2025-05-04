@@ -56,8 +56,8 @@ class UploadClient(Client):
         try:
             self.send_operation_intention(UPLOAD_OPERATION, server_address)
             self.inform_size_and_name()
-            self.send_file()
-            self.initiate_close_connection()
+            already_received_fin_back = self.send_file()
+            self.initiate_close_connection(already_received_fin_back)
 
         except (FileAlreadyExists, FileTooBig, ConnectionLost) as e:
             self.logger.error(f"{e.message}")
@@ -128,11 +128,13 @@ class UploadClient(Client):
         self.inform_filename()
         self.inform_filesize()
 
-    def send_file(self) -> None:
+    def send_file(self) -> bool:
         if self.protocol_version == STOP_AND_WAIT_PROTOCOL_TYPE:
             self.send_file_saw()
+            return False
         elif self.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
-            self.send_file_gbn()
+            already_received_fin_back = self.send_file_gbn()
+            return already_received_fin_back
 
     def send_file_gbn(self) -> None:
         self.socket.reset_state()
@@ -153,7 +155,7 @@ class UploadClient(Client):
             self.sequence_number,
             self.ack_number,
         )
-        _seq, _ack, last_raw_packet = gbn_sender.send_file(
+        _seq, _ack, last_raw_packet, already_received_fin_back = gbn_sender.send_file(
             self.file, self.filesize, self.filename_in_server
         )
         self.sequence_number = _seq
@@ -162,6 +164,7 @@ class UploadClient(Client):
         self.file_handler.close(self.file)
 
         self.socket.save_state(last_raw_packet, self.server_address)
+        return already_received_fin_back
 
     def send_file_saw(self) -> None:
         chunk_number: int = 1

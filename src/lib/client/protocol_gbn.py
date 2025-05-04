@@ -85,7 +85,7 @@ class ClientProtocolGbn:
 
     def validate_not_fin(self, packet: Packet):
         if packet.is_fin:
-            raise UnexpectedFinMessage()
+            raise UnexpectedFinMessage(packet=packet)
 
     def validate_sequence_number(
         self, packet: Packet, sequence_number: SequenceNumber

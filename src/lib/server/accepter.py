@@ -50,7 +50,7 @@ class Accepter:
         try:
             welcoming_socket.bind(self.adress.to_tuple())
         except OSError as e:
-            self.logger.error(f"Cannot bind socket to port. {e}")
+            self.logger.error(f"Cannot bind socket to port {self.port}. {e}")
             raise CannotBindSocket()
 
         self.welcoming_socket: SocketSaw = SocketSaw(welcoming_socket, self.logger)
