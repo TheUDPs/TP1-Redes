@@ -1,4 +1,3 @@
-import hashlib
 from time import time
 
 from lib.common.constants import (
@@ -8,6 +7,7 @@ from lib.common.constants import (
 )
 from lib.common.exceptions.invalid_ack_number import InvalidAckNumber
 from lib.common.file_handler import FileHandler
+from lib.common.hash_compute import compute_chunk_sha256
 from lib.common.logger import Logger
 from typing import List
 from lib.common.sequence_number import SequenceNumber
@@ -76,11 +76,6 @@ class GoBackNSender:
             SequenceNumber(self.ack_number.value, self.protocol.protocol_version),
         )
 
-    def compute_chunk_sha256(self, chunk: bytes):
-        hasher = hashlib.sha256()
-        hasher.update(chunk)
-        return hasher.hexdigest()
-
     def send_packets_in_window(self, total_chunks: int, chunks: List[bytes]) -> None:
         while (
             self.next_seq_num.value < self.base.value + WINDOW_SIZE
@@ -91,11 +86,7 @@ class GoBackNSender:
             chunk_len = len(chunk_to_send)
 
             msg = f"Sending chunk {self.next_seq_num.value + 1}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB. "
-
-            if is_last_chunk:
-                msg += " This is the last chunk"
-
-            msg += f" Hash is: {self.compute_chunk_sha256(chunk_to_send)}"
+            msg += f"Hash is: {compute_chunk_sha256(chunk_to_send)}"
 
             self.logger.debug(msg)
 
@@ -169,7 +160,7 @@ class GoBackNSender:
         total_chunks: int = self.file_handler.get_number_of_chunks(
             filesize, FILE_CHUNK_SIZE_GBN
         )
-        print(total_chunks)
+
         chunk_list: list[bytes] = []
         self.file_handler.unwind(file, FILE_CHUNK_SIZE_GBN)
 

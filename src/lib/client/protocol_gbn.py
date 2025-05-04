@@ -3,7 +3,6 @@ from lib.common.address import Address
 from lib.common.constants import COMMS_BUFFER_SIZE, FULL_BUFFER_SIZE, ZERO_BYTES
 from lib.common.exceptions.invalid_ack_number import InvalidAckNumber
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
-from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.message_not_fin import MessageIsNotFin
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
@@ -73,8 +72,8 @@ class ClientProtocolGbn:
         )
 
         # self.logger.debug(f"ACK expected {ack_number.value}, got {_packet.ack_number}")
-        if not packet.is_ack:
-            raise MessageIsNotAck()
+        # if not packet.is_ack:
+        #     raise MessageIsNotAck()
 
         # self.validate_ack_number(_packet, ack_number)
 

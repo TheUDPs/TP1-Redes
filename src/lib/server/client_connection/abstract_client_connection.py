@@ -56,8 +56,9 @@ class ClientConnection:
         self.socket: SocketSaw = connection_socket
         self.address: Address = connection_address
         self.client_address: Address = client_address
-        self.logger: Logger = logger
+        self.logger: Logger = logger.clone()
         self.logger.set_prefix(f"[CONN:{connection_address.port}]")
+        self.socket.logger.set_prefix(f"[CONN:{connection_address.port}]")
         self.initial_sequence_number: SequenceNumber = SequenceNumber(
             packet.sequence_number, protocol
         )

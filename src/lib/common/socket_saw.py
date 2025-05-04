@@ -1,4 +1,4 @@
-from time import time
+from time import time, sleep
 from socket import socket as Socket
 from socket import timeout as SocketTimeout
 
@@ -43,7 +43,18 @@ class SocketSaw:
         if self.last_raw_packet is None:
             return
 
-        self.logger.warn(f"Retransmission attempt number {attempt_number - 1}")
+        self.logger.warn(
+            f"Retransmission from timeout attempt number {attempt_number - 1}"
+        )
+        self.sendto(self.last_raw_packet, self.last_address)
+
+    def retransmit_last_packet_for_re_listen(self, re_listen_attempmt: int):
+        if self.last_raw_packet is None:
+            return
+
+        self.logger.warn(
+            f"Retransmission from re-listen attempt number {re_listen_attempmt - 1}"
+        )
         self.sendto(self.last_raw_packet, self.last_address)
 
     def recvfrom_with_retransmission(self, buffer_size: int):
@@ -89,6 +100,8 @@ class SocketSaw:
                         raw_packet, server_address_tuple = self.socket.recvfrom(
                             buffer_size
                         )
+                        sleep(0.05)
+
                         return raw_packet, server_address_tuple
 
                     except SocketTimeout:

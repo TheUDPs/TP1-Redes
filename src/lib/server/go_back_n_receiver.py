@@ -1,7 +1,7 @@
-import hashlib
-
+from lib.common.constants import SOCKET_CONNECTION_LOST_TIMEOUT
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.file_handler import FileHandler
+from lib.common.hash_compute import compute_chunk_sha256
 from lib.common.logger import Logger
 from lib.common.mutable_variable import MutableVariable
 from lib.common.sequence_number import SequenceNumber
@@ -25,51 +25,93 @@ class GoBackNReceiver:
         self.ack_number: SequenceNumber = ack_number
         self.next_seq_num: int = 0
         self.file_handler: FileHandler = file_handler
-        self.protocol.socket.set_timeout(None)
+        self.protocol.socket.set_timeout(SOCKET_CONNECTION_LOST_TIMEOUT)
 
-    def compute_chunk_sha256(self, chunk: bytes):
-        hasher = hashlib.sha256()
-        hasher.update(chunk)
-        return hasher.hexdigest()
-
-    def receive_single_chunk(self, file, chunk_number: int):
+    def receive_single_chunk(self, chunk_number: int):
         packet = self.protocol.receive_file_chunk(self.sqn_number)
 
         if not packet.is_fin:
             self.protocol.send_ack(self.sqn_number, self.ack_number)
 
-        msg = f"Received chunk {chunk_number}"
-        msg += f" Hash is: {self.compute_chunk_sha256(packet.data)}"
-        self.logger.debug(msg)
-
-        self.file_handler.append_to_file(file, packet)
+        if chunk_number > 0:
+            msg = f"Received chunk {chunk_number}. Hash is: {compute_chunk_sha256(packet.data)}"
+            self.logger.debug(msg)
 
         return packet
 
-    def receive_file(self, file) -> tuple[SequenceNumber, SequenceNumber]:
-        self.logger.debug("Beginning file reception in GBN manner")
-        chunk_number: int = 1
-        should_continue_reception = MutableVariable(True)
-
-        self.sqn_number.step()
-        self.ack_number.step()
-
-        try:
-            packet = self.receive_single_chunk(file, chunk_number)
+    def validate_first_packet_and_resend(
+        self,
+        packet,
+        first_chunk_received,
+        should_continue_reception,
+        last_transmitted_packet,
+        packet_storage: MutableVariable,
+    ):
+        if packet.sequence_number == self.ack_number.value + 1:
             should_continue_reception.value = not packet.is_fin
-            self.sqn_number.step()
-            self.ack_number.step()
-        except InvalidSequenceNumber:
+            first_chunk_received.value = True
+            packet_storage.value = packet
+        else:
             self.logger.warn(
                 f"Found invalid sequence number, expected seq {self.sqn_number.value}"
             )
-            self.protocol.send_ack(self.sqn_number, self.ack_number)
+            self.logger.debug("Resending filesize status")
+            self.protocol.socket.sendto(
+                last_transmitted_packet, self.protocol.client_address
+            )
+
+    def receive_first_chunk(
+        self, last_transmitted_packet, chunk_number, should_continue_reception
+    ):
+        first_chunk_received = MutableVariable(False)
+        packet = MutableVariable(None)
+
+        while not first_chunk_received.value:
+            try:
+                packet.value = self.receive_single_chunk(chunk_number)
+                self.validate_first_packet_and_resend(
+                    packet.value,
+                    first_chunk_received,
+                    should_continue_reception,
+                    last_transmitted_packet,
+                    packet,
+                )
+            except InvalidSequenceNumber as e:
+                self.validate_first_packet_and_resend(
+                    e.packet,
+                    first_chunk_received,
+                    should_continue_reception,
+                    last_transmitted_packet,
+                    packet,
+                )
+
+        return packet.value
+
+    def receive_file(
+        self, file, last_transmitted_packet
+    ) -> tuple[SequenceNumber, SequenceNumber]:
+        self.logger.debug("Beginning file reception in GBN manner")
+        should_continue_reception = MutableVariable(True)
+
+        _packet = self.receive_first_chunk(
+            last_transmitted_packet, 0, should_continue_reception
+        )
+
+        # if packet.is_ack:
+        #     chunk_number = 0
+        # else:
+        #     self.file_handler.append_to_file(file, packet)
+        self.sqn_number.step()
+        self.ack_number.step()
+        chunk_number: int = 1
 
         while should_continue_reception.value:
             chunk_number += 1
 
             try:
-                packet = self.receive_single_chunk(file, chunk_number)
+                packet = self.receive_single_chunk(chunk_number)
+                self.file_handler.append_to_file(file, packet)
+
                 should_continue_reception.value = not packet.is_fin
                 if should_continue_reception.value:
                     self.sqn_number.step()

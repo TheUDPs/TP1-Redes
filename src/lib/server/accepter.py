@@ -123,7 +123,6 @@ class Accepter:
         connection_address: Address = Address(
             connection_sockname[0], connection_sockname[1]
         )
-
         connection_socket: SocketSaw = SocketSaw(connection_socket_raw, self.logger)
 
         self.logger.debug(f"Accepting connection for {client_address}")

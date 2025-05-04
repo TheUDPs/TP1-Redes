@@ -62,6 +62,7 @@ class Client:
         self.logger.debug(f"Requesting connection to {self.server_address}")
 
         self.protocol.request_connection(self.sequence_number, self.ack_number)
+
         try:
             server_address = self.protocol.wait_for_connection_request_answer(
                 self.sequence_number,
@@ -162,7 +163,7 @@ class Client:
 
             self.sequence_number.step()
             try:
-                self.protocol.wait_for_ack(
+                self.protocol.wait_for_fin_or_ack(
                     self.sequence_number,
                     self.ack_number,
                     exceptions_to_let_through=[ConnectionLost],

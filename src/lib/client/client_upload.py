@@ -85,6 +85,7 @@ class UploadClient(Client):
         )
 
         self.logger.debug("Waiting for filename confirmation")
+
         try:
             self.protocol.wait_for_ack(
                 self.sequence_number,

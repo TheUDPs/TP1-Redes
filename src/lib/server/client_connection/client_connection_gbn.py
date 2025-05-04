@@ -55,6 +55,8 @@ class ClientConnectionGbn(ClientConnection):
 
         self.logger.debug(f"Ready to receive from {self.client_address}")
 
+        last_transmitted_packet = self.socket.last_raw_packet
+
         self.socket.reset_state()
         self.socket_gbn = SocketGbn(self.socket.socket, self.logger)
         gbn_protocol = ServerProtocolGbn(
@@ -74,11 +76,12 @@ class ClientConnectionGbn(ClientConnection):
             ack_number.value,
         )
         try:
-            _seq, _ack = gbn_sender.receive_file(self.file)
+            _seq, _ack = gbn_sender.receive_file(self.file, last_transmitted_packet)
             sequence_number.value = _seq
             ack_number.value = _ack
         except RetransmissionNeeded:
-            self.logger.error("Retransmission needed. State is unrecoverable")
+            raise ConnectionLost()
+            # self.logger.error("Retransmission needed. State is unrecoverable")
 
         self.logger.debug("Finished receiving file")
         self.file_handler.close(self.file)

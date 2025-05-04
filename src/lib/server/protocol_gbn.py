@@ -91,7 +91,7 @@ class ServerProtocolGbn:
         self, packet: Packet, sequence_number: SequenceNumber
     ) -> None:
         if sequence_number.value != packet.sequence_number:
-            raise InvalidSequenceNumber()
+            raise InvalidSequenceNumber(packet=packet)
 
     def receive_file_chunk(self, sequence_number: SequenceNumber) -> PacketGbn:
         raw_packet, client_address_tuple = self.socket_receive_from(FULL_BUFFER_SIZE)

@@ -1,8 +1,7 @@
-import hashlib
-
 from lib.client.protocol_gbn import ClientProtocolGbn
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.file_handler import FileHandler
+from lib.common.hash_compute import compute_chunk_sha256
 from lib.common.logger import Logger
 from lib.common.mutable_variable import MutableVariable
 from lib.common.sequence_number import SequenceNumber
@@ -27,19 +26,13 @@ class GoBackNReceiver:
         self.file_handler: FileHandler = file_handler
         self.protocol.socket.set_timeout(None)
 
-    def compute_chunk_sha256(self, chunk: bytes):
-        hasher = hashlib.sha256()
-        hasher.update(chunk)
-        return hasher.hexdigest()
-
     def receive_single_chunk(self, file, chunk_number: int):
         packet = self.protocol.receive_file_chunk(self.sqn_number)
 
         if not packet.is_fin:
             self.protocol.send_ack(self.sqn_number, self.ack_number)
 
-        msg = f"Received chunk {chunk_number}"
-        msg += f" Hash is: {self.compute_chunk_sha256(packet.data)}"
+        msg = f"Received chunk {chunk_number}. Hash is: {compute_chunk_sha256(packet.data)}"
         self.logger.debug(msg)
 
         self.file_handler.append_to_file(file, packet)

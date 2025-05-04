@@ -1,4 +1,3 @@
-import hashlib
 from time import time
 
 from lib.client.protocol_gbn import ClientProtocolGbn
@@ -8,8 +7,11 @@ from lib.common.constants import (
     SOCKET_RETRANSMIT_WINDOW_TIMEOUT,
 )
 from lib.common.file_handler import FileHandler
+from lib.common.hash_compute import compute_chunk_sha256
 from lib.common.logger import Logger
 from typing import List
+
+from lib.common.mutable_variable import MutableVariable
 from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_gbn import RetransmissionNeeded
 
@@ -74,11 +76,6 @@ class GoBackNSender:
             SequenceNumber(self.ack_number.value, self.protocol.protocol_version),
         )
 
-    def compute_chunk_sha256(self, chunk: bytes):
-        hasher = hashlib.sha256()
-        hasher.update(chunk)
-        return hasher.hexdigest()
-
     def send_packets_in_window(self, total_chunks: int, chunks: List[bytes]) -> None:
         while (
             self.next_seq_num.value < self.base.value + WINDOW_SIZE
@@ -89,9 +86,7 @@ class GoBackNSender:
             chunk_len = len(chunk_to_send)
 
             msg = f"Sending chunk {self.next_seq_num.value + 1}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB. "
-            if is_last_chunk:
-                msg += " This is the last chunk"
-            msg += f" Hash is: {self.compute_chunk_sha256(chunk_to_send)}"
+            msg += f"Hash is: {compute_chunk_sha256(chunk_to_send)}"
 
             self.logger.debug(msg)
 
@@ -110,22 +105,18 @@ class GoBackNSender:
             self.next_seq_num.step()
 
     def await_ack_phase(self, total_chunks: int) -> bool:
-        # espero el ack
-        # si no llega
-        # hago time out y reenvio todo desde la base de la windows
-        # si llega el ack
-        # si es nuevo ack registro y continuo
-        # si no es nuevo ack (es ack repetido) amplio la cuenta hasta llegar a 4. Si llega a 4 retransmitir toda la ventada
-
-        is_last_chunk_acked = (
+        is_last_chunk_acked = MutableVariable(
             self.ack_number.value - self.offset_initial_seq_number.value
             == total_chunks - 1
         )
-        if is_last_chunk_acked:
+        if is_last_chunk_acked.value:
             return True
 
         start_time: float = time()
         packet = self.protocol.wait_for_ack(self.sqn_number, self.ack_number)
+        if not packet.is_ack and packet.is_fin:
+            is_last_chunk_acked.value = True
+
         reception_duration: float = time() - start_time
 
         if packet.ack_number >= self.ack_number.value:
@@ -139,7 +130,7 @@ class GoBackNSender:
             self.spent_in_reception = 0
         else:
             self.logger.warn(
-                f"Detected ACK from packet {packet.ack_number - self.offset_initial_seq_number.value}"
+                f"Detected ACK from packet {packet.ack_number - self.offset_initial_seq_number.value + 1}"
             )
             self.logger.debug(
                 f"Acumulated {reception_duration} before retransmission needed. Totalling {self.spent_in_reception}"
@@ -148,7 +139,7 @@ class GoBackNSender:
             if self.spent_in_reception >= SOCKET_RETRANSMIT_WINDOW_TIMEOUT:
                 raise RetransmissionNeeded()
 
-        return False
+        return is_last_chunk_acked.value
 
     # Could read window instead of full file
     def split_file_in_chunks(self, file, filesize) -> List[bytes]:
