@@ -56,7 +56,6 @@ class GoBackNSender:
         )
 
         chunks: List[bytes] = self.split_file_in_chunks(file, filesize)
-
         total_chunks: int = len(chunks)
         pending_last_ack = False
         last_raw_packet = MutableVariable(None)
@@ -151,7 +150,6 @@ class GoBackNSender:
         )
 
         chunk_list: list[bytes] = []
-        self.file_handler.unwind(file, FILE_CHUNK_SIZE_GBN)
 
         for _ in range(total_chunks):
             chunk = self.file_handler.read(file, FILE_CHUNK_SIZE_GBN)
