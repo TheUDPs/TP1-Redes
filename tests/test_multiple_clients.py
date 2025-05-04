@@ -89,7 +89,7 @@ def test_01_server_can_handle_correctly_3_downloads_and_3_uploads_simultaneously
     h1 = mininet_net_setup.get("h1")
 
     # Uploaders
-    # h2 = mininet_net_setup.get("h2")
+    h2 = mininet_net_setup.get("h2")
     # h3 = mininet_net_setup.get("h3")
     # h4 = mininet_net_setup.get("h4")
 
@@ -117,6 +117,10 @@ def test_01_server_can_handle_correctly_3_downloads_and_3_uploads_simultaneously
         h5, tmp_dirpath, port, PROTOCOL.value, file_to_download="test_file_download.txt"
     )
 
+    up_cltn_1_pid, up_cltn_1_log = start_upload_client(
+        h5, tmp_dirpath, port, PROTOCOL.value, file_to_upload=filepath_for_upload
+    )
+
     # pids_and_logs_uploaders = start_all_upload_clients(
     #     [h2],
     #     tmp_dirpath,
@@ -132,11 +136,11 @@ def test_01_server_can_handle_correctly_3_downloads_and_3_uploads_simultaneously
     #     file_to_download=filepath_for_download,
     # )
 
-    # # were_client_uploaders_successful = [
-    # #     MutableVariable(False),
-    #     # MutableVariable(False),
-    #     # MutableVariable(False),
-    # ]
+    were_client_uploaders_successful = [
+        MutableVariable(False),
+        #     # MutableVariable(False),
+        #     # MutableVariable(False),
+    ]
     were_client_downloaders_successful = [
         MutableVariable(False),
         # MutableVariable(False),
@@ -152,15 +156,15 @@ def test_01_server_can_handle_correctly_3_downloads_and_3_uploads_simultaneously
         "Download completed to client",
     ]
 
-    # check_results(
-    #     was_client_successful=were_client_uploaders_successful[0],
-    #     was_server_successful=was_server_successful,
-    #     client_log=["h2"]["log"],
-    #     server_log=server_log,
-    #     server_message_expected=_server_message_expected,
-    #     client_message_expected=_client_uploader_message_expected,
-    #     p_loss=_p_loss,
-    # )
+    check_results(
+        was_client_successful=were_client_uploaders_successful[0],
+        was_server_successful=was_server_successful,
+        client_log=up_cltn_1_log,
+        server_log=server_log,
+        server_message_expected=_server_message_expected,
+        client_message_expected=_client_uploader_message_expected,
+        p_loss=_p_loss,
+    )
 
     check_results(
         was_client_successful=were_client_downloaders_successful[0],
@@ -175,7 +179,7 @@ def test_01_server_can_handle_correctly_3_downloads_and_3_uploads_simultaneously
     print("Cleaning up processes...")
     kill_process(h1, server_pid)
 
-    # kill_process(h2, pids_and_logs_uploaders["h2"]["pid"])
+    kill_process(h2, up_cltn_1_pid)
     # kill_process(h3, pids_and_logs_uploaders["h3"]["pid"])
     # kill_process(h4, pids_and_logs_uploaders["h4"]["pid"])
 
@@ -195,7 +199,7 @@ def test_01_server_can_handle_correctly_3_downloads_and_3_uploads_simultaneously
 
     # assert was_server_successful.value
 
-    # assert were_client_uploaders_successful[0].value
+    assert were_client_uploaders_successful[0].value
     # assert were_client_uploaders_successful[1].value
     # assert were_client_uploaders_successful[2].value
 
