@@ -73,7 +73,7 @@ class ServerProtocolGbn:
         )
 
         if not packet.is_ack:
-            raise MessageIsNotAck()
+            raise MessageIsNotAck(packet=packet)
 
         self.validate_ack_number(packet, ack_number)
 
@@ -151,8 +151,16 @@ class ServerProtocolGbn:
     ) -> PacketGbn:
         raw_packet, server_address_tuple = self.socket_receive_from(COMMS_BUFFER_SIZE)
 
-        packet, server_address = self.validate_inbound_ack(
-            raw_packet, server_address_tuple, ack_number
-        )
-        self.validate_not_fin(packet)
-        return packet
+        try:
+            packet, server_address = self.validate_inbound_ack(
+                raw_packet, server_address_tuple, ack_number
+            )
+            self.validate_not_fin(packet)
+            return packet
+
+        except MessageIsNotAck as e:
+            packet = e.packet
+            if packet.is_fin:
+                raise UnexpectedFinMessage(packet=packet)
+            else:
+                raise e

@@ -119,8 +119,8 @@ class GoBackNSender:
     def await_ack_phase(
         self, total_chunks: int, already_received_fin_back: MutableVariable
     ) -> bool:
-        is_last_chunk_acked = self.base.value + 1 == total_chunks
-        if is_last_chunk_acked:
+        is_last_chunk_acked = MutableVariable(self.base.value + 1 == total_chunks)
+        if is_last_chunk_acked.value:
             return True
 
         start_time: float = time()
@@ -158,7 +158,7 @@ class GoBackNSender:
                 self.protocol.socket.set_timeout(SOCKET_RETRANSMIT_WINDOW_TIMEOUT)
                 self.spent_in_reception = 0
 
-                is_last_chunk_acked = self.base.value + 1 == total_chunks
+                is_last_chunk_acked.value = self.base.value + 1 == total_chunks
             else:
                 self.logger.warn(
                     f"Detected ACK from packet {packet.ack_number - self.offset_initial_seq_number.value}"
@@ -170,7 +170,7 @@ class GoBackNSender:
                 if self.spent_in_reception >= SOCKET_RETRANSMIT_WINDOW_TIMEOUT:
                     raise RetransmissionNeeded()
 
-        return is_last_chunk_acked
+        return is_last_chunk_acked.value
 
     def split_file_in_chunks(self, file, filesize) -> List[bytes]:
         total_chunks: int = self.file_handler.get_number_of_chunks(
