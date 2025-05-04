@@ -256,6 +256,8 @@ Client ->(10) Server : Data
 
 * Pruebas
 
+** Tabla de Datos de Wireshark
+
 \begin{adjustwidth}{-3cm}{-3cm}
 \begin{center}
 \begin{tabular}{rrrrlrlrlllrrl}
@@ -286,6 +288,29 @@ No & Time & Src & Dst & Proto & Len & Type & SEQ & ACK & SYN & FIN & SrcPort & D
 \end{tabular}
 \end{center}
 \end{adjustwidth}
+
+** Análisis de la comunicación Stop-and-Wait
+
+La tabla presentada muestra una traza de paquetes intercambiados entre dos nodos de mininet (10.0.1.1 y 10.0.0.1) utilizando el protocolo desarrollado con el esquema Stop-and-Wait. Este protocolo garantiza la entrega ordenada y libre de errores mediante el envío secuencial de paquetes, esperando una confirmación (ACK) por cada uno antes de continuar con el siguiente.
+
+El ciclo de vida de la comunicación puede dividirse en tres fases:
+
+**1. Establecimiento de la conexión:**
+- El cliente (10.0.1.1) inicia la conexión enviando un paquete con la bandera `SYN` activada.
+- El servidor (10.0.0.1) responde con un paquete que contiene tanto `SYN` como `ACK`, indicando aceptación.
+- Finalmente, el cliente responde con un `ACK`, completando el procedimiento de handshake.
+
+**2. Transferencia de datos:**
+- Una vez establecida la conexión, el cliente comienza a enviar datos, alternando los números de secuencia (SEQ) entre 0 y 1. Este comportamiento es característico del protocolo Stop-and-Wait.
+- Por cada paquete de datos enviado, el servidor responde con un paquete de confirmación (`ACK`) para indicar que ha recibido correctamente el contenido.
+- El campo `Len` refleja el tamaño de los datos transportados, y los puertos de origen y destino se utilizan para mantener la sesión activa entre los procesos involucrados.
+
+**3. Finalización de la conexión:**
+- El cliente inicia el cierre de la sesión enviando un paquete con la bandera `FIN` activada.
+- El servidor responde primero con un `ACK`, y luego con su propio paquete `FIN`, indicando que también desea cerrar la conexión.
+- Finalmente, el cliente responde con un `ACK`, completando el cierre de la comunicación de manera ordenada.
+
+En resumen, esta captura de paquetes evidencia el funcionamiento correcto de una implementación del protocolo Stop-and-Wait, en donde cada paquete enviado es seguido por una respuesta de confirmación, y el inicio y cierre de la conexión se realizan mediante el protocolo RDT.
 
 * Preguntas a Responder
 ** Describa la arquitectura Cliente-Servidor.
