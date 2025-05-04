@@ -6,6 +6,7 @@ from lib.common.constants import (
     FILE_CHUNK_SIZE_GBN,
     SOCKET_RETRANSMIT_WINDOW_TIMEOUT,
 )
+from lib.common.exceptions.retransmission_needed import RetransmissionNeeded
 from lib.common.file_handler import FileHandler
 from lib.common.hash_compute import compute_chunk_sha256
 from lib.common.logger import Logger
@@ -13,7 +14,6 @@ from typing import List
 
 from lib.common.mutable_variable import MutableVariable
 from lib.common.sequence_number import SequenceNumber
-from lib.common.socket_gbn import RetransmissionNeeded
 
 
 class GoBackNSender:
@@ -143,7 +143,6 @@ class GoBackNSender:
 
         return is_last_chunk_acked.value
 
-    # Could read window instead of full file
     def split_file_in_chunks(self, file, filesize) -> List[bytes]:
         total_chunks: int = self.file_handler.get_number_of_chunks(
             filesize, FILE_CHUNK_SIZE_GBN

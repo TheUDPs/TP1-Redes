@@ -100,17 +100,6 @@ class GoBackNReceiver:
         self.ack_number.step()
         chunk_number: int = 1
 
-        # try:
-        #     packet = self.receive_single_chunk(file, chunk_number)
-        #     should_continue_reception.value = not packet.is_fin
-        #     self.sqn_number.step()
-        #     self.ack_number.step()
-        # except InvalidSequenceNumber:
-        #     self.logger.warn(
-        #         f"Found invalid sequence number, expected seq {self.sqn_number.value}"
-        #     )
-        #     self.protocol.send_ack(self.sqn_number, self.ack_number)
-
         while should_continue_reception.value:
             chunk_number += 1
 

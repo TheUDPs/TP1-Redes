@@ -5,12 +5,9 @@ from lib.common.address import Address
 from lib.common.constants import (
     SOCKET_RETRANSMIT_WINDOW_TIMEOUT,
 )
+from lib.common.exceptions.retransmission_needed import RetransmissionNeeded
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.logger import Logger
-
-
-class RetransmissionNeeded(Exception):
-    pass
 
 
 class SocketGbn:

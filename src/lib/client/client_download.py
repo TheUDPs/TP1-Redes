@@ -8,6 +8,7 @@ from lib.client.protocol_gbn import ClientProtocolGbn
 from lib.common.address import Address
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
+from lib.common.exceptions.retransmission_needed import RetransmissionNeeded
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.hash_compute import compute_chunk_sha256
@@ -22,7 +23,7 @@ from lib.common.exceptions.invalid_filename import InvalidFilename
 from lib.common.file_handler import FileHandler
 from lib.common.mutable_variable import MutableVariable
 from lib.common.packet.packet import Packet
-from lib.common.socket_gbn import SocketGbn, RetransmissionNeeded
+from lib.common.socket_gbn import SocketGbn
 
 
 class DownloadClient(Client):

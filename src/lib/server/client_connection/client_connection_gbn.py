@@ -4,12 +4,13 @@ from lib.common.address import Address
 from lib.common.constants import FILE_CHUNK_SIZE_GBN
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
+from lib.common.exceptions.retransmission_needed import RetransmissionNeeded
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.hash_compute import compute_chunk_sha256
 from lib.common.logger import Logger
 from lib.common.mutable_variable import MutableVariable
 from lib.common.packet.packet import Packet
-from lib.common.socket_gbn import SocketGbn, RetransmissionNeeded
+from lib.common.socket_gbn import SocketGbn
 from lib.common.socket_saw import SocketSaw
 from lib.server.client_connection.abstract_client_connection import ClientConnection
 from lib.common.file_handler import FileHandler
@@ -82,7 +83,6 @@ class ClientConnectionGbn(ClientConnection):
             ack_number.value = _ack
         except RetransmissionNeeded:
             raise ConnectionLost()
-            # self.logger.error("Retransmission needed. State is unrecoverable")
 
         self.logger.debug("Finished receiving file")
         self.file_handler.close(self.file)

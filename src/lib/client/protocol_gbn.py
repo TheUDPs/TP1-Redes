@@ -118,7 +118,7 @@ class ClientProtocolGbn:
         return packet_bin
 
     def wait_for_ack(
-        self, sequence_number: SequenceNumber, ack_number: SequenceNumber
+        self, _sequence_number: SequenceNumber, ack_number: SequenceNumber
     ) -> PacketGbn:
         raw_packet, server_address_tuple = self.socket_receive_from(COMMS_BUFFER_SIZE)
 
@@ -126,7 +126,6 @@ class ClientProtocolGbn:
             raw_packet, server_address_tuple, ack_number
         )
         self.validate_not_fin(packet)
-        # self.validate_sequence_number(packet, sequence_number)
         return packet
 
     def receive_file_chunk(self, sequence_number: SequenceNumber) -> PacketGbn:

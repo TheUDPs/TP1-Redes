@@ -13,14 +13,6 @@ from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.logger import Logger
 
 
-class RetransmissionNeeded(Exception):
-    pass
-
-
-class InvalidTimeProvided(Exception):
-    pass
-
-
 class SocketSaw:
     def __init__(self, _socket: Socket, logger: Logger):
         self.socket = _socket
@@ -100,7 +92,6 @@ class SocketSaw:
                         raw_packet, server_address_tuple = self.socket.recvfrom(
                             buffer_size
                         )
-                        # sleep(0.05)
 
                         return raw_packet, server_address_tuple
 
