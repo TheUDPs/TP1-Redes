@@ -17,7 +17,9 @@ from lib.common.constants import (
     GO_BACK_N_PROTOCOL_TYPE,
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
+from lib.common.exceptions.invalid_ack_number import InvalidAckNumber
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
+from lib.common.exceptions.message_not_fin_nor_ack import MessageNotFinNorAck
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.logger import Logger
@@ -184,7 +186,7 @@ class Client:
             self.logger.debug("Received connection finalization from server")
             self.sequence_number.step()
             self.protocol.send_ack(self.sequence_number, self.ack_number)
-        except MessageIsNotAck:
+        except (MessageIsNotAck, MessageNotFinNorAck, InvalidAckNumber):
             self.logger.debug("Connection closed")
 
     def run(self) -> None:

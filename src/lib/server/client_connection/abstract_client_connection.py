@@ -250,10 +250,10 @@ class ClientConnection:
                 self.address,
             )
 
-            sequence_number.value.step()
-
-            if self.protocol.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
-                ack_number.value.step()
+            # sequence_number.value.step()
+            #
+            # if self.protocol.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
+            #     ack_number.value.step()
 
             self.protocol.wait_for_fin_or_ack(sequence_number.value)
             self.logger.debug("Received connection finalization from client")
@@ -269,6 +269,7 @@ class ClientConnection:
                 self.client_address,
                 self.address,
             )
+            self.logger.info("Connection closed")
         except Exception as e:
             err = e.message if hasattr(e, "message") else e
             self.logger.debug(err)

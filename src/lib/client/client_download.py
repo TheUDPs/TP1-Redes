@@ -62,6 +62,11 @@ class DownloadClient(Client):
 
         except (FileDoesNotExist, ConnectionLost, SocketShutdown) as e:
             self.logger.error(f"{e.message}")
+
+            self.sequence_number.step()
+            if self.protocol.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
+                self.ack_number.step()
+
             self.handle_connection_finalization()
             self.file_cleanup_after_error()
 

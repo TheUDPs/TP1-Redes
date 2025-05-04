@@ -95,6 +95,9 @@ class ServerProtocol:
         self, packet: Packet, sequence_number: SequenceNumber
     ) -> None:
         if sequence_number.value != packet.sequence_number:
+            self.logger.debug(
+                f"Expected seq {sequence_number.value} got {packet.sequence_number}"
+            )
             raise InvalidSequenceNumber()
 
     def build_packet(
