@@ -256,31 +256,35 @@ Client ->(10) Server : Data
 
 * Pruebas
 
-| No | Time       | Src       | Dst       | Proto | Len | Type           | SEQ | ACK  | SYN  | FIN  | SrcPort | DstPort | Info                       |
-|----+------------+-----------+-----------+-------+-----+----------------+-----+------+-------+------+---------+---------+-----------------------------|
-| 1  | 0.000000000 | 10.0.1.1  | 10.0.0.1  | SAW   | 48  | Stop-and-Wait  | 0   | False | True  | False | 52515   | 0       | SAW SEQ=0 SYN               |
-| 2  | 0.000191297 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 0   | True  | True  | False | 41367   | 0       | SAW SEQ=0 SYN ACK           |
-| 3  | 0.002208402 | 10.0.1.1  | 10.0.0.1  | SAW   | 50  | Stop-and-Wait  | 1   | True  | False | False | 52515   | 2       | SAW SEQ=1 ACK Data(2)       |
-| 4  | 0.002801150 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 1   | True  | False | False | 41367   | 0       | SAW SEQ=1 ACK               |
-| 5  | 0.004355272 | 10.0.1.1  | 10.0.0.1  | SAW   | 53  | Stop-and-Wait  | 0   | False | False | False | 52515   | 5       | SAW SEQ=0 Data(5)           |
-| 6  | 0.004722710 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 0   | True  | False | False | 41367   | 0       | SAW SEQ=0 ACK               |
-| 7  | 0.005754904 | 10.0.1.1  | 10.0.0.1  | SAW   | 52  | Stop-and-Wait  | 1   | False | False | False | 52515   | 4       | SAW SEQ=1 Data(4)           |
-| 8  | 0.005879502 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 1   | True  | False | False | 41367   | 0       | SAW SEQ=1 ACK               |
-| 9  | 0.006562696 | 10.0.1.1  | 10.0.0.1  | SAW   | 1474| Stop-and-Wait  | 0   | False | False | False | 52515   | 1426    | SAW SEQ=0 Data(1426)        |
-| 10 | 0.006634214 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 0   | True  | False | False | 41367   | 0       | SAW SEQ=0 ACK               |
-| 11 | 0.006819155 | 10.0.1.1  | 10.0.0.1  | SAW   | 1474| Stop-and-Wait  | 1   | False | False | False | 52515   | 1426    | SAW SEQ=1 Data(1426)        |
-| 12 | 0.006887880 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 1   | True  | False | False | 41367   | 0       | SAW SEQ=1 ACK               |
-| ... | ...        | ...       | ...       | ...   | ... | ...            | ... | ...  | ...   | ...   | ...     | ...     | ...                         |
-| 384| 0.036747322 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 1   | True  | False | False | 41367   | 0       | SAW SEQ=1 ACK               |
-| 385| 0.036806828 | 10.0.1.1  | 10.0.0.1  | SAW   | 1474| Stop-and-Wait  | 0   | False | False | False | 52515   | 1426    | SAW SEQ=0 Data(1426)        |
-| 386| 0.036860606 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 0   | True  | False | False | 41367   | 0       | SAW SEQ=0 ACK               |
-| 387| 0.037000220 | 10.0.1.1  | 10.0.0.1  | SAW   | 1474| Stop-and-Wait  | 1   | False | False | False | 52515   | 1426    | SAW SEQ=1 Data(1426)        |
-| 388| 0.037084310 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 1   | True  | False | False | 41367   | 0       | SAW SEQ=1 ACK               |
-| 389| 0.037217987 | 10.0.1.1  | 10.0.0.1  | SAW   | 363 | Stop-and-Wait  | 0   | False | False | True  | 52515   | 315     | SAW SEQ=0 FIN Data(315)     |
-| 390| 0.037459011 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 0   | True  | False | False | 41367   | 0       | SAW SEQ=0 ACK               |
-| 391| 0.037511183 | 10.0.0.1  | 10.0.1.1  | SAW   | 48  | Stop-and-Wait  | 0   | False | False | True  | 41367   | 0       | SAW SEQ=0 FIN               |
-| 392| 0.037580397 | 10.0.1.1  | 10.0.0.1  | SAW   | 48  | Stop-and-Wait  | 1   | True  | False | False | 52515   | 0       | SAW SEQ=1 ACK               |
-
+\begin{adjustwidth}{-3cm}{-3cm}
+\begin{center}
+\begin{tabular}{rrrrlrlrlllrrl}
+No & Time & Src & Dst & Proto & Len & Type & SEQ & ACK & SYN & FIN & SrcPort & DstPort\\[0pt]
+\hline
+1 & 0.000000000 & 10.0.1.1 & 10.0.0.1 & SAW & 48 & Stop-and-Wait & 0 & False & True & False & 52515 & 0\\[0pt]
+2 & 0.000191297 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 0 & True & True & False & 41367 & 0\\[0pt]
+3 & 0.002208402 & 10.0.1.1 & 10.0.0.1 & SAW & 50 & Stop-and-Wait & 1 & True & False & False & 52515 & 2\\[0pt]
+4 & 0.002801150 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 1 & True & False & False & 41367 & 0\\[0pt]
+5 & 0.004355272 & 10.0.1.1 & 10.0.0.1 & SAW & 53 & Stop-and-Wait & 0 & False & False & False & 52515 & 5\\[0pt]
+6 & 0.004722710 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 0 & True & False & False & 41367 & 0\\[0pt]
+7 & 0.005754904 & 10.0.1.1 & 10.0.0.1 & SAW & 52 & Stop-and-Wait & 1 & False & False & False & 52515 & 4\\[0pt]
+8 & 0.005879502 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 1 & True & False & False & 41367 & 0\\[0pt]
+9 & 0.006562696 & 10.0.1.1 & 10.0.0.1 & SAW & 1474 & Stop-and-Wait & 0 & False & False & False & 52515 & 1426\\[0pt]
+10 & 0.006634214 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 0 & True & False & False & 41367 & 0\\[0pt]
+11 & 0.006819155 & 10.0.1.1 & 10.0.0.1 & SAW & 1474 & Stop-and-Wait & 1 & False & False & False & 52515 & 1426\\[0pt]
+12 & 0.006887880 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 1 & True & False & False & 41367 & 0\\[0pt]
+\ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{}\ldots{}\\[0pt]
+384 & 0.036747322 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 1 & True & False & False & 41367 & 0\\[0pt]
+385 & 0.036806828 & 10.0.1.1 & 10.0.0.1 & SAW & 1474 & Stop-and-Wait & 0 & False & False & False & 52515 & 1426\\[0pt]
+386 & 0.036860606 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 0 & True & False & False & 41367 & 0\\[0pt]
+387 & 0.037000220 & 10.0.1.1 & 10.0.0.1 & SAW & 1474 & Stop-and-Wait & 1 & False & False & False & 52515 & 1426\\[0pt]
+388 & 0.037084310 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 1 & True & False & False & 41367 & 0\\[0pt]
+389 & 0.037217987 & 10.0.1.1 & 10.0.0.1 & SAW & 363 & Stop-and-Wait & 0 & False & False & True & 52515 & 315\\[0pt]
+390 & 0.037459011 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 0 & True & False & False & 41367 & 0\\[0pt]
+391 & 0.037511183 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 0 & False & False & True & 41367 & 0\\[0pt]
+392 & 0.037580397 & 10.0.1.1 & 10.0.0.1 & SAW & 48 & Stop-and-Wait & 1 & True & False & False & 52515 & 0\\[0pt]
+\end{tabular}
+\end{center}
 \end{adjustwidth}
 
 * Preguntas a Responder
