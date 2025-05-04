@@ -1,5 +1,4 @@
 from abc import abstractmethod
-from socket import SHUT_RDWR
 from threading import Thread
 
 from lib.common.address import Address
@@ -57,8 +56,9 @@ class ClientConnection:
         self.socket: SocketSaw = connection_socket
         self.address: Address = connection_address
         self.client_address: Address = client_address
-        self.logger: Logger = logger
+        self.logger: Logger = logger.clone()
         self.logger.set_prefix(f"[CONN:{connection_address.port}]")
+        self.socket.logger.set_prefix(f"[CONN:{connection_address.port}]")
         self.initial_sequence_number: SequenceNumber = SequenceNumber(
             packet.sequence_number, protocol
         )
@@ -169,12 +169,6 @@ class ClientConnection:
             )
             self.logger.debug(f"Filesize received valid: {filesize} bytes")
         else:
-            self.protocol.send_fin(
-                sequence_number.value,
-                ack_number.value,
-                self.client_address,
-                self.address,
-            )
             self.logger.warn("Filesize received invalid")
             self.logger.error(
                 f"Client {self.client_address.to_combined()} shutdowned due to file being too big"
@@ -202,6 +196,9 @@ class ClientConnection:
         sequence_number.value.step()
         _seq, filename = self.protocol.receive_filename(sequence_number.value)
         sequence_number.value = _seq
+
+        if self.protocol.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
+            ack_number.value.step()
 
         if self.is_filename_valid_for_download(filename):
             self.logger.debug("Filename received valid")
@@ -350,32 +347,23 @@ class ClientConnection:
             MessageIsNotAck,
             MessageIsNotFinAck,
         ) as e:
-            self.logger.warn(f"Error: {e.message}")
+            self.logger.warn(f"{e.message}")
             self.logger.debug("State can be recovered")
 
         except Exception as e:
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
-            self.logger.error(f"Fatal error: {e}")
+            err = e.message if hasattr(e, "message") else e
+            err_class = e.__class__.__name__
+            self.logger.error(f"Fatal error: [{err_class}] {err}")
             self.file_cleanup_after_error(filename_for_upload, filesize_for_upload)
             self.kill()
 
     def start(self):
         self.run_thread.start()
 
+    @abstractmethod
     def kill(self):
-        if not self.killed:
-            return
-
-        try:
-            self.socket.shutdown(SHUT_RDWR)
-        except OSError:
-            try:
-                self.socket.close()
-            except OSError:
-                pass
-        finally:
-            self.run_thread.join()
-            self.killed = True
+        pass
 
     @abstractmethod
     def is_ready_to_die(self) -> bool:

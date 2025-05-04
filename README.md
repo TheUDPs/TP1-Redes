@@ -22,6 +22,75 @@
 
 # How to run
 
+- How to start the server:
+
+```bash
+> ./src/start-server.py  -h
+usage: start-server.py [-h] [-v | -q] [-H ADDR] [-p PORT] [-s DIRPATH] [-r PROTOCOL]
+
+Server side application to upload and download files from
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         increase output verbosity
+  -q, --quiet           decrease output verbosity
+  -H ADDR, --host ADDR  service IP address
+  -p PORT, --port PORT  service port
+  -s DIRPATH, --storage DIRPATH
+                        storage dir path
+  -r PROTOCOL, --protocol PROTOCOL
+                        error recovery protocol
+```
+
+If a storage dirpath is not provided, the default is the current directory.
+
+- How to run the upload operation as a client:
+
+```bash
+> ./src/upload.py  -h
+uusage: upload.py [-h] [-v | -q] -H ADDR [-p PORT] -s FILEPATH [-n FILENAME]
+                 [-r PROTOCOL]
+
+Client side application to upload files to the server side
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         increase output verbosity
+  -q, --quiet           decrease output verbosity
+  -H ADDR, --host ADDR  server IP address
+  -p PORT, --port PORT  server port
+  -s FILEPATH, --src FILEPATH
+                        source file path
+  -n FILENAME, --name FILENAME
+                        file name on the server
+  -r PROTOCOL, --protocol PROTOCOL
+                        error recovery protocol
+```
+
+- How to run the download operation as a client:
+
+```bash
+> ./src/download.py  -h
+usage: download.py [-h] [-v | -q] -H ADDR [-p PORT] -d FILEPATH -n FILENAME
+                   [-r PROTOCOL]
+
+Client side application to download files from the server side
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         increase output verbosity
+  -q, --quiet           decrease output verbosity
+  -H ADDR, --host ADDR  server IP address
+  -p PORT, --port PORT  server port
+  -d FILEPATH, --dst FILEPATH
+                        destination file path
+  -n FILENAME, --name FILENAME
+                        file name on the server
+  -r PROTOCOL, --protocol PROTOCOL
+                        error recovery protocol
+
+```
+
 Run mininet with the following command:
 
 ```bash
@@ -42,7 +111,7 @@ sudo mn --mac --custom ./mininet_topo/linear_ends_topo.py --topo linends
 
 It is assumed `n=1` and `p_loss=0`, given there is no loss `--link tc` is no longer necessary.
 
-More about LineadEnds in the next section.
+More about LinearEnds in the next section.
 
 # Mininet
 
@@ -183,7 +252,17 @@ Given the node that can fragment is in the middle and the MTU is lowered on the 
 
 # Tests
 
-## Mininet IP Fragmentation tests
+### File Transfer tests with packet loss
+
+To run the file transfer tests for the LinearEnds topology you can use the tests with the next command:
+
+```bash
+sudo pytest
+```
+
+Or you can use the script `./test.sh`.
+
+### Mininet IP Fragmentation tests
 
 To run IP fragmentation tests for the LinearEnds topology run the tests with the next command:
 

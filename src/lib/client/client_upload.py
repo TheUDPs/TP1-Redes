@@ -9,17 +9,18 @@ from lib.common.address import Address
 from lib.common.constants import (
     UPLOAD_OPERATION,
     ERROR_EXIT_CODE,
-    FILE_CHUNK_SIZE,
+    FILE_CHUNK_SIZE_SAW,
     GO_BACK_N_PROTOCOL_TYPE,
     STOP_AND_WAIT_PROTOCOL_TYPE,
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.invalid_filename import InvalidFilename
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
+from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.file_handler import FileHandler
 from lib.common.logger import Logger
-from lib.client.go_back_n_sender import GoBackNSender
+from lib.client.go_back_n_sender_client import GoBackNSender
 from lib.common.socket_gbn import SocketGbn
 
 
@@ -63,6 +64,10 @@ class UploadClient(Client):
             self.handle_connection_finalization()
             self.file_cleanup_after_error()
 
+        except SocketShutdown as e:
+            self.logger.debug(f"{e.message}")
+            self.file_cleanup_after_error()
+
         except Exception as e:
             err = e.message if hasattr(e, "message") else e
             self.logger.error(f"Error message: {err}")
@@ -71,11 +76,16 @@ class UploadClient(Client):
     def inform_filename(self):
         self.sequence_number.step()
         self.logger.debug(f"Informing filename: {self.filename_in_server}")
+
+        if self.protocol.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
+            self.ack_number.step()
+
         self.protocol.inform_filename(
             self.sequence_number, self.ack_number, self.filename_in_server
         )
 
         self.logger.debug("Waiting for filename confirmation")
+
         try:
             self.protocol.wait_for_ack(
                 self.sequence_number,
@@ -89,6 +99,10 @@ class UploadClient(Client):
     def inform_filesize(self):
         self.sequence_number.step()
         self.logger.debug(f"Informing filesize: {self.filesize} bytes")
+
+        if self.protocol.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
+            self.ack_number.step()
+
         self.protocol.inform_filesize(
             self.sequence_number, self.ack_number, self.filesize
         )
@@ -118,6 +132,7 @@ class UploadClient(Client):
     def send_file_gbn(self) -> None:
         self.socket.reset_state()
         socket_gbn = SocketGbn(self.socket.socket, self.logger)
+
         gbn_protocol = ClientProtocolGbn(
             self.logger,
             socket_gbn,
@@ -126,15 +141,27 @@ class UploadClient(Client):
             self.protocol.protocol_version,
         )
 
-        gbn_sender = GoBackNSender(self.logger, gbn_protocol, self.sequence_number)
-        gbn_sender.send_file(self.file)
-        self.logger.force_info("File transfer complete")
+        gbn_sender = GoBackNSender(
+            self.logger,
+            gbn_protocol,
+            self.file_handler,
+            self.sequence_number,
+            self.ack_number,
+        )
+        _seq, _ack, last_raw_packet = gbn_sender.send_file(
+            self.file, self.filesize, self.filename_in_server
+        )
+        self.sequence_number = _seq
+        self.ack_number = _ack
+
         self.file_handler.close(self.file)
+
+        self.socket.save_state(last_raw_packet, self.server_address)
 
     def send_file_saw(self) -> None:
         chunk_number: int = 1
         total_chunks: int = self.file_handler.get_number_of_chunks(
-            self.filesize, FILE_CHUNK_SIZE
+            self.filesize, FILE_CHUNK_SIZE_SAW
         )
         is_last_chunk: bool = False
 
@@ -142,7 +169,7 @@ class UploadClient(Client):
             f"Sending file {self.filename_in_server} of {self.file_handler.bytes_to_megabytes(self.filesize)} MB"
         )
 
-        while chunk := self.file_handler.read(self.file, FILE_CHUNK_SIZE):
+        while chunk := self.file_handler.read(self.file, FILE_CHUNK_SIZE_SAW):
             chunk_len = len(chunk)
             self.logger.debug(
                 f"Sending chunk {chunk_number}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB"

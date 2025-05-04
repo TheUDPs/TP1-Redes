@@ -1,6 +1,8 @@
+from _socket import SHUT_RDWR
+
 from lib.common.address import Address
 from lib.common.constants import (
-    FILE_CHUNK_SIZE,
+    FILE_CHUNK_SIZE_SAW,
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.socket_shutdown import SocketShutdown
@@ -96,7 +98,7 @@ class ClientConnectionSaw(ClientConnection):
 
         chunk_number: int = 1
         total_chunks: int = self.file_handler.get_number_of_chunks(
-            filesize, FILE_CHUNK_SIZE
+            filesize, FILE_CHUNK_SIZE_SAW
         )
         is_last_chunk: bool = False
         is_first_chunk: bool = True
@@ -105,7 +107,7 @@ class ClientConnectionSaw(ClientConnection):
             f"Sending file {filename.value} of {self.file_handler.bytes_to_megabytes(filesize)} MB"
         )
 
-        while chunk := self.file_handler.read(self.file, FILE_CHUNK_SIZE):
+        while chunk := self.file_handler.read(self.file, FILE_CHUNK_SIZE_SAW):
             chunk_len = len(chunk)
             self.logger.debug(
                 f"Sending chunk {chunk_number}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB"
@@ -119,6 +121,7 @@ class ClientConnectionSaw(ClientConnection):
 
             self.protocol.send_file_chunk(
                 sequence_number.value,
+                None,
                 chunk,
                 chunk_len,
                 is_last_chunk,
@@ -133,8 +136,6 @@ class ClientConnectionSaw(ClientConnection):
 
             chunk_number += 1
             is_first_chunk = False
-
-        self.logger.info("File transfer complete")
 
     def closing_handshake_for_upload(self, sequence_number: MutableVariable):
         try:
@@ -172,7 +173,7 @@ class ClientConnectionSaw(ClientConnection):
         self.logger.debug("Waiting for confirmation of last packet")
         self.protocol.wait_for_fin_or_ack(sequence_number.value)
 
-        self.logger.force_info("Upload completed")
+        self.logger.force_info("File transfer complete")
         self.logger.debug("Received connection finalization from server")
         sequence_number.value.step()
         self.protocol.send_ack(
@@ -207,3 +208,18 @@ class ClientConnectionSaw(ClientConnection):
             self.state == ConnectionState.DONE_READY_TO_DIE
             or self.state == ConnectionState.UNRECOVERABLE_BAD_STATE
         )
+
+    def kill(self):
+        try:
+            self.socket.shutdown(SHUT_RDWR)
+        except (OSError, SocketShutdown):
+            try:
+                self.socket.close()
+            except (OSError, SocketShutdown):
+                pass
+
+        try:
+            self.run_thread.join()
+            self.killed = True
+        except RuntimeError:
+            pass

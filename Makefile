@@ -8,14 +8,15 @@ SOURCE = informe.org
 
 # Emacs command to export Org to PDF
 EMACS = emacs
-EMACSFLAGS = --batch -Q --eval '(load-library "org")' --visit=$(SOURCE) --funcall org-latex-export-to-pdf
+EMACSFLAGS = --batch -Q --script scripts/export-to-pdf.el $(SOURCE)
 
 # Default target
 all: $(TARGET)
 
-# Rule to generate the PDF from the Org file
+# Rule to generate PDF
 $(TARGET): $(SOURCE)
-	$(EMACS) $(EMACSFLAGS)
+	@echo "Compiling $< to PDF..."
+	@$(EMACS) $(EMACSFLAGS) || (echo "Compilation failed"; exit 1)
 
 # New target to execute all Org Babel blocks (e.g. generate images)
 execute-code-blocks:

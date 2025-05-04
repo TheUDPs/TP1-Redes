@@ -32,7 +32,7 @@ def compute_sha256(path):
 
 def kill_process(node, pid):
     node.cmd(f"kill -9 {pid}")
-    sleep(1)
+    sleep(0.4)
 
 
 def setup_directories(tests_dir):

@@ -65,8 +65,9 @@ def re_listen_if_failed(exceptions_to_let_through=None):
                 except want_to_catch as e:
                     exception_got = e
                     listening_attempts += 1
+                    self.socket.retransmit_last_packet_for_re_listen(listening_attempts)
                     self.logger.warn(
-                        f"Re-listening attempt attempt number {listening_attempts}. Due to error: {e.message}"
+                        f"Re-listening attempt attempt number {listening_attempts}. Due to cause: {e.message}"
                     )
 
             if listening_attempts >= MAX_RETRANSMISSION_ATTEMPTS:

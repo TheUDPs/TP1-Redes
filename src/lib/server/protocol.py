@@ -11,7 +11,6 @@ from lib.common.constants import (
     STOP_AND_WAIT_PROTOCOL_TYPE,
 )
 from lib.common.exceptions.message_not_fin_nor_ack import MessageNotFinNorAck
-from lib.common.exceptions.message_not_syn import MessageIsNotSyn
 from lib.common.logger import Logger
 from lib.common.packet.packet import Packet, PacketParser, PacketGbn, PacketSaw
 from lib.common.re_listen_decorator import re_listen_if_failed
@@ -25,7 +24,6 @@ from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.server.exceptions.unexpected_operation import UnexpectedOperation
-from lib.server.exceptions.client_already_connected import ClientAlreadyConnected
 from lib.server.exceptions.missing_client_address import MissingClientAddress
 
 
@@ -55,7 +53,11 @@ class ServerProtocol:
         return raw_packet, client_address_tuple
 
     def socket_send_to(self, packet_to_send: Packet, client_address: Address):
-        packet_bin: bytes = PacketParser.compose_packet_saw_for_net(packet_to_send)
+        if self.protocol_version == STOP_AND_WAIT_PROTOCOL_TYPE:
+            packet_bin: bytes = PacketParser.compose_packet_saw_for_net(packet_to_send)
+        else:
+            packet_bin: bytes = PacketParser.compose_packet_gbn_for_net(packet_to_send)
+
         self.socket.sendto(packet_bin, client_address)
 
     def validate_inbound_packet(
@@ -130,53 +132,6 @@ class ServerProtocol:
                 ack_number=ack_number.value,
                 data=data,
             )
-
-    def accept_connection(self) -> tuple[Packet, Address]:
-        raw_packet, client_address_tuple = self.socket_receive_from(
-            COMMS_BUFFER_SIZE, should_retransmit=False, do_not_timeout=True
-        )
-
-        packet, client_address = self.validate_inbound_packet(
-            raw_packet, client_address_tuple
-        )
-
-        if not packet.is_syn:
-            raise MessageIsNotSyn()
-
-        if self.clients.is_client_connected(client_address):
-            raise ClientAlreadyConnected()
-
-        return packet, client_address
-
-    def reject_connection(self, packet: Packet, client_address: Address) -> None:
-        packet_to_send: Packet = Packet(
-            protocol=self.protocol_version,
-            is_ack=False,
-            is_syn=False,
-            is_fin=True,
-            port=client_address.port,
-            payload_length=0,
-            sequence_number=packet.sequence_number,
-            data=ZERO_BYTES,
-        )
-
-        self.socket_send_to(packet_to_send, client_address)
-
-    def send_connection_accepted(
-        self, packet: Packet, client_address: Address, connection_address: Address
-    ) -> None:
-        packet_to_send: Packet = Packet(
-            protocol=self.protocol_version,
-            is_ack=True,
-            is_syn=True,
-            is_fin=False,
-            port=connection_address.port,
-            payload_length=0,
-            sequence_number=packet.sequence_number,
-            data=ZERO_BYTES,
-        )
-
-        self.socket_send_to(packet_to_send, client_address)
 
     @re_listen_if_failed()
     def expect_handshake_completion(self) -> tuple[Packet, Address]:
@@ -329,20 +284,22 @@ class ServerProtocol:
     def send_file_chunk(
         self,
         sequence_number: SequenceNumber,
+        ack_number: SequenceNumber,
         chunk: bytes,
         chunk_len: int,
         is_last_chunk: bool,
         is_first_chunk: bool,
         client_address: Address,
     ) -> None:
-        packet_to_send: Packet = Packet(
+        packet_to_send: Packet = self.build_packet(
             protocol=self.protocol_version,
             is_ack=is_first_chunk,
             is_syn=False,
             is_fin=is_last_chunk,
             port=self.address.port,
             payload_length=chunk_len,
-            sequence_number=sequence_number.value,
+            sequence_number=sequence_number,
+            ack_number=ack_number,
             data=chunk,
         )
 

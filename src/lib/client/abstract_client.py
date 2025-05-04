@@ -62,6 +62,7 @@ class Client:
         self.logger.debug(f"Requesting connection to {self.server_address}")
 
         self.protocol.request_connection(self.sequence_number, self.ack_number)
+
         try:
             server_address = self.protocol.wait_for_connection_request_answer(
                 self.sequence_number,
@@ -86,7 +87,7 @@ class Client:
                 self.perform_operation(server_address)
         except ConnectionRefused as e:
             self.logger.error(f"{e.message}")
-        except ConnectionLost:
+        except (ConnectionLost, SocketShutdown):
             self.logger.error("Connection closed")
         finally:
             should_stop_event.set()
@@ -129,6 +130,10 @@ class Client:
             self.logger.debug("Sending operation intention")
 
             self.sequence_number.step()
+
+            if self.protocol.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
+                self.ack_number.step()
+
             self.protocol.send_operation_intention(
                 self.sequence_number, self.ack_number, op_code
             )
@@ -153,18 +158,17 @@ class Client:
         try:
             self.logger.debug("Connection finalization received. Confirming it")
             self.protocol.send_ack(self.sequence_number, self.ack_number)
-
             self.logger.debug("Sending own connection finalization")
             self.protocol.send_fin(self.sequence_number, self.ack_number)
 
             self.sequence_number.step()
             try:
-                self.protocol.wait_for_ack(
+                self.protocol.wait_for_fin_or_ack(
                     self.sequence_number,
                     self.ack_number,
                     exceptions_to_let_through=[ConnectionLost],
                 )
-            except ConnectionLost:
+            except (ConnectionLost, MessageIsNotAck):
                 pass
 
             self.logger.info("Connection closed")
@@ -172,13 +176,16 @@ class Client:
             self.logger.info("Connection closed")
 
     def initiate_close_connection(self):
-        self.logger.debug("Waiting for confirmation of last packet")
-        self.protocol.wait_for_fin_or_ack(self.sequence_number, self.ack_number)
+        try:
+            self.logger.debug("Waiting for confirmation of last packet")
+            self.protocol.wait_for_fin_or_ack(self.sequence_number, self.ack_number)
 
-        self.logger.force_info("Upload completed")
-        self.logger.debug("Received connection finalization from server")
-        self.sequence_number.step()
-        self.protocol.send_ack(self.sequence_number, self.ack_number)
+            self.logger.force_info("Upload completed")
+            self.logger.debug("Received connection finalization from server")
+            self.sequence_number.step()
+            self.protocol.send_ack(self.sequence_number, self.ack_number)
+        except MessageIsNotAck:
+            self.logger.debug("Connection closed")
 
     def run(self) -> None:
         self.logger.info("Client started for upload")

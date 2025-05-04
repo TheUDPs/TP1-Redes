@@ -14,7 +14,7 @@
         dvipng minted fvextra catchfile
         xstring framed a4wide svg trimspaces
         transparent tocbibind microtype stix
-        geometry
+        geometry changepage
         ;
     });
   in [
@@ -23,6 +23,8 @@
     tex
     pandoc
     graphviz
+    xterm
+    plantuml
   ] ++ (if stdenv.isLinux then [
     mininet
   ] else []);
@@ -48,8 +50,7 @@
   '';
 
   enterShell = ''
-    hello
-    git --version
+    xhost +SI:localuser:root
   '';
 
   # https://devenv.sh/tasks/

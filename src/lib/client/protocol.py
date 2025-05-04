@@ -82,6 +82,9 @@ class ClientProtocol:
         self, packet: PacketGbn, ack_number: SequenceNumber
     ) -> None:
         if ack_number.value != packet.ack_number:
+            self.logger.debug(
+                f"Expected ack {ack_number.value}, got ack {packet.ack_number}"
+            )
             raise InvalidAckNumber()
 
     def validate_inbound_ack(
