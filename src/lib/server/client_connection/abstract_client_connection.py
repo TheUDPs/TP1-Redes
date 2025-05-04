@@ -197,6 +197,9 @@ class ClientConnection:
         _seq, filename = self.protocol.receive_filename(sequence_number.value)
         sequence_number.value = _seq
 
+        if self.protocol.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
+            ack_number.value.step()
+
         if self.is_filename_valid_for_download(filename):
             self.logger.debug("Filename received valid")
         else:

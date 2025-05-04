@@ -129,7 +129,7 @@ class ServerProtocolGbn:
         chunk_len: int,
         is_last_chunk: bool,
         is_first_chunk: bool,
-    ) -> None:
+    ) -> bytes:
         packet_to_send: PacketGbn = PacketGbn(
             protocol=self.protocol_version,
             is_ack=is_first_chunk,
@@ -143,6 +143,8 @@ class ServerProtocolGbn:
         )
 
         self.socket_send_to(packet_to_send, self.client_address)
+        packet_bin: bytes = PacketParser.compose_packet_gbn_for_net(packet_to_send)
+        return packet_bin
 
     def wait_for_ack(
         self, sequence_number: SequenceNumber, ack_number: SequenceNumber

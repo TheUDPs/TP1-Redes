@@ -3,13 +3,14 @@ from sys import exit
 
 from lib.client.abstract_client import Client
 from lib.client.exceptions.file_does_not_exist import FileDoesNotExist
-from lib.client.go_back_n_receiver import GoBackNReceiver
+from lib.client.go_back_n_receiver_client import GoBackNReceiver
 from lib.client.protocol_gbn import ClientProtocolGbn
 from lib.common.address import Address
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
+from lib.common.hash_compute import compute_chunk_sha256
 from lib.common.logger import Logger
 from lib.common.constants import (
     DOWNLOAD_OPERATION,
@@ -70,6 +71,10 @@ class DownloadClient(Client):
 
     def inform_name_to_download(self) -> Packet:
         self.sequence_number.step()
+
+        if self.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
+            self.ack_number.step()
+
         self.logger.debug(
             f"Informing filename to download: {self.filename_for_download}"
         )
@@ -147,10 +152,14 @@ class DownloadClient(Client):
         if not packet.is_fin:
             self.protocol.send_ack(self.sequence_number, self.ack_number)
 
-        self.logger.debug(f"Received chunk {chunk_number}")
+        self.logger.debug(
+            f"Received chunk {chunk_number}. Hash is: {compute_chunk_sha256(packet.data)}"
+        )
         self.file_handler.append_to_file(self.file, packet)
 
         if not packet.is_fin:
+            last_transmitted_packet = self.socket.last_raw_packet
+
             self.socket.reset_state()
             socket_gbn = SocketGbn(self.socket.socket, self.logger)
             gbn_protocol = ClientProtocolGbn(
@@ -161,7 +170,7 @@ class DownloadClient(Client):
                 self.protocol.protocol_version,
             )
 
-            gbn_sender = GoBackNReceiver(
+            gbn_receiver = GoBackNReceiver(
                 self.logger,
                 gbn_protocol,
                 self.file_handler,
@@ -170,7 +179,9 @@ class DownloadClient(Client):
             )
 
             try:
-                _seq, _ack = gbn_sender.receive_file(self.file)
+                _seq, _ack = gbn_receiver.receive_file(
+                    self.file, last_transmitted_packet
+                )
                 self.sequence_number = _seq
                 self.ack_number = _ack
             except RetransmissionNeeded:

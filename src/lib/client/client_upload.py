@@ -20,7 +20,7 @@ from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.file_handler import FileHandler
 from lib.common.logger import Logger
-from lib.client.go_back_n_sender import GoBackNSender
+from lib.client.go_back_n_sender_client import GoBackNSender
 from lib.common.socket_gbn import SocketGbn
 
 
@@ -148,13 +148,15 @@ class UploadClient(Client):
             self.sequence_number,
             self.ack_number,
         )
-        _seq, _ack = gbn_sender.send_file(
+        _seq, _ack, last_raw_packet = gbn_sender.send_file(
             self.file, self.filesize, self.filename_in_server
         )
         self.sequence_number = _seq
         self.ack_number = _ack
 
         self.file_handler.close(self.file)
+
+        self.socket.save_state(last_raw_packet, self.server_address)
 
     def send_file_saw(self) -> None:
         chunk_number: int = 1
