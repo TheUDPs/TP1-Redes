@@ -91,7 +91,7 @@ class ClientProtocolGbn:
         self, packet: Packet, sequence_number: SequenceNumber
     ) -> None:
         if sequence_number.value != packet.sequence_number:
-            raise InvalidSequenceNumber()
+            raise InvalidSequenceNumber(packet=packet)
 
     def send_file_chunk(
         self,
@@ -100,7 +100,7 @@ class ClientProtocolGbn:
         chunk: bytes,
         chunk_len: int,
         is_last_chunk: bool,
-    ) -> None:
+    ) -> bytes:
         packet_to_send: Packet = PacketGbn(
             protocol=self.protocol_version,
             is_ack=False,
@@ -114,6 +114,8 @@ class ClientProtocolGbn:
         )
 
         self.socket_send_to(packet_to_send, self.server_address)
+        packet_bin: bytes = PacketParser.compose_packet_gbn_for_net(packet_to_send)
+        return packet_bin
 
     def wait_for_ack(
         self, sequence_number: SequenceNumber, ack_number: SequenceNumber

@@ -50,7 +50,7 @@ class GoBackNSender:
 
     def send_file(
         self, file, filesize: int, filename: str
-    ) -> tuple[SequenceNumber, SequenceNumber]:
+    ) -> tuple[SequenceNumber, SequenceNumber, bytes]:
         self.logger.debug(
             f"Sending file '{filename}' with window size of {WINDOW_SIZE} packets"
         )
@@ -59,8 +59,10 @@ class GoBackNSender:
 
         total_chunks: int = len(chunks)
         pending_last_ack = False
+        last_raw_packet = MutableVariable(None)
+
         while self.base.value < total_chunks and not pending_last_ack:
-            self.send_packets_in_window(total_chunks, chunks)
+            last_raw_packet.value = self.send_packets_in_window(total_chunks, chunks)
 
             try:
                 pending_last_ack = self.await_ack_phase(total_chunks)
@@ -74,9 +76,12 @@ class GoBackNSender:
                 self.protocol.protocol_version,
             ),
             SequenceNumber(self.ack_number.value, self.protocol.protocol_version),
+            last_raw_packet.value,
         )
 
-    def send_packets_in_window(self, total_chunks: int, chunks: List[bytes]) -> None:
+    def send_packets_in_window(self, total_chunks: int, chunks: List[bytes]) -> bytes:
+        packet = MutableVariable(None)
+
         while (
             self.next_seq_num.value < self.base.value + WINDOW_SIZE
             and self.next_seq_num.value < total_chunks
@@ -87,7 +92,6 @@ class GoBackNSender:
 
             msg = f"Sending chunk {self.next_seq_num.value + 1}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB. "
             msg += f"Hash is: {compute_chunk_sha256(chunk_to_send)}"
-
             self.logger.debug(msg)
 
             seq_number_to_send = SequenceNumber(
@@ -95,7 +99,7 @@ class GoBackNSender:
                 self.protocol.protocol_version,
             )
 
-            self.protocol.send_file_chunk(
+            packet.value = self.protocol.send_file_chunk(
                 seq_number_to_send,
                 self.ack_number,
                 chunk_to_send,
@@ -104,11 +108,10 @@ class GoBackNSender:
             )
             self.next_seq_num.step()
 
+        return packet.value
+
     def await_ack_phase(self, total_chunks: int) -> bool:
-        is_last_chunk_acked = MutableVariable(
-            self.ack_number.value - self.offset_initial_seq_number.value
-            == total_chunks - 1
-        )
+        is_last_chunk_acked = MutableVariable(self.base.value + 1 == total_chunks)
         if is_last_chunk_acked.value:
             return True
 
@@ -148,6 +151,7 @@ class GoBackNSender:
         )
 
         chunk_list: list[bytes] = []
+        self.file_handler.unwind(file, FILE_CHUNK_SIZE_GBN)
 
         for _ in range(total_chunks):
             chunk = self.file_handler.read(file, FILE_CHUNK_SIZE_GBN)

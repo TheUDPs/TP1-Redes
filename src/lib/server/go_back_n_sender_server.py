@@ -10,6 +10,8 @@ from lib.common.file_handler import FileHandler
 from lib.common.hash_compute import compute_chunk_sha256
 from lib.common.logger import Logger
 from typing import List
+
+from lib.common.mutable_variable import MutableVariable
 from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_gbn import RetransmissionNeeded
 from lib.server.protocol_gbn import ServerProtocolGbn
@@ -49,7 +51,7 @@ class GoBackNSender:
 
     def send_file(
         self, file, filesize: int, filename: str
-    ) -> tuple[SequenceNumber, SequenceNumber]:
+    ) -> tuple[SequenceNumber, SequenceNumber, bytes]:
         self.logger.debug(
             f"Sending file '{filename}' with window size of {WINDOW_SIZE} packets"
         )
@@ -58,9 +60,10 @@ class GoBackNSender:
 
         total_chunks: int = len(chunks)
         is_last_chunk_acked = False
+        last_raw_packet = MutableVariable(None)
 
         while self.base.value < total_chunks and not is_last_chunk_acked:
-            self.send_packets_in_window(total_chunks, chunks)
+            last_raw_packet.value = self.send_packets_in_window(total_chunks, chunks)
 
             try:
                 is_last_chunk_acked = self.await_ack_phase(total_chunks)
@@ -74,9 +77,12 @@ class GoBackNSender:
                 self.protocol.protocol_version,
             ),
             SequenceNumber(self.ack_number.value, self.protocol.protocol_version),
+            last_raw_packet.value,
         )
 
-    def send_packets_in_window(self, total_chunks: int, chunks: List[bytes]) -> None:
+    def send_packets_in_window(self, total_chunks: int, chunks: List[bytes]) -> bytes:
+        packet = MutableVariable(None)
+
         while (
             self.next_seq_num.value < self.base.value + WINDOW_SIZE
             and self.next_seq_num.value < total_chunks
@@ -87,18 +93,14 @@ class GoBackNSender:
 
             msg = f"Sending chunk {self.next_seq_num.value + 1}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB. "
             msg += f"Hash is: {compute_chunk_sha256(chunk_to_send)}"
-
             self.logger.debug(msg)
-
-            if is_last_chunk:
-                self.logger.debug("Sending the last chunk")
 
             seq_number_to_send = SequenceNumber(
                 self.next_seq_num.value + self.offset_initial_seq_number.value,
                 self.protocol.protocol_version,
             )
 
-            self.protocol.send_file_chunk(
+            packet.value = self.protocol.send_file_chunk(
                 seq_number_to_send,
                 self.ack_number,
                 chunk_to_send,
@@ -107,6 +109,8 @@ class GoBackNSender:
                 False,
             )
             self.next_seq_num.step()
+
+        return packet.value
 
     def await_ack_phase(self, total_chunks: int) -> bool:
         is_last_chunk_acked = self.base.value + 1 == total_chunks
