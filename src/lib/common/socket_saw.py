@@ -1,4 +1,4 @@
-from time import time, sleep
+from time import time
 from socket import socket as Socket
 from socket import timeout as SocketTimeout
 
@@ -92,11 +92,10 @@ class SocketSaw:
                         raw_packet, server_address_tuple = self.socket.recvfrom(
                             buffer_size
                         )
-                        sleep(0.6)
+                        self.socket.settimeout(SOCKET_CONNECTION_LOST_TIMEOUT)
                         return raw_packet, server_address_tuple
 
                     except SocketTimeout:
-                        sleep(0.6)
                         continue
 
                     except OSError:

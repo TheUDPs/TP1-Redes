@@ -1,8 +1,10 @@
 import functools
+from time import time
 
 from lib.client.exceptions.connection_refused import ConnectionRefused
 from lib.common.constants import (
     MAX_RETRANSMISSION_ATTEMPTS,
+    SOCKET_CONNECTION_LOST_TIMEOUT,
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.invalid_ack_number import InvalidAckNumber
@@ -57,8 +59,14 @@ def re_listen_if_failed(exceptions_to_let_through=None):
             listening_attempts = 0
             result = None
             exception_got = None
+            start_time = time()
+            time_of_accumulation = start_time
+            accumulated_time = 0
 
-            while listening_attempts < MAX_RETRANSMISSION_ATTEMPTS:
+            while (
+                listening_attempts < MAX_RETRANSMISSION_ATTEMPTS
+                and accumulated_time < SOCKET_CONNECTION_LOST_TIMEOUT
+            ):
                 try:
                     result = wrapped_function(self, *args, **kwargs)
                     break
@@ -69,9 +77,19 @@ def re_listen_if_failed(exceptions_to_let_through=None):
                     self.logger.warn(
                         f"Re-listening attempt attempt number {listening_attempts}. Due to cause: {e.message}"
                     )
+                    current_time = time()
+                    accumulated_time += current_time - time_of_accumulation
+                    time_of_accumulation = current_time
 
-            if listening_attempts >= MAX_RETRANSMISSION_ATTEMPTS:
-                self.logger.warn("Max package reception retrials reached")
+            if (
+                listening_attempts >= MAX_RETRANSMISSION_ATTEMPTS
+                or accumulated_time >= SOCKET_CONNECTION_LOST_TIMEOUT
+            ):
+                if listening_attempts >= MAX_RETRANSMISSION_ATTEMPTS:
+                    self.logger.warn("Max package reception retrials reached")
+                else:
+                    self.logger.warn("Timeout reached")
+
                 if exception_got is not None:
                     raise exception_got
 
