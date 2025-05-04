@@ -106,12 +106,18 @@ def test_01_upload_is_correct(mininet_net_setup):
 
     teardown_directories(tmp_dirpath)
 
-    assert was_client_successful.value
-    assert was_server_successful.value
+    assert was_client_successful.value, (
+        f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
+    )
+    assert was_server_successful.value, (
+        f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
+    )
 
-    if os.path.exists(client_log) and os.path.exists(server_log):
-        hash_client = compute_sha256(client_log)
-        hash_server = compute_sha256(server_log)
+    if os.path.exists(filepath) and os.path.exists(
+        f"{tmp_dirpath}/server/test_file.txt"
+    ):
+        hash_client = compute_sha256(filepath)
+        hash_server = compute_sha256(f"{tmp_dirpath}/server/test_file.txt")
 
         print(f"Client file hash: {hash_client}")
         print(f"Server file hash: {hash_server}")
@@ -166,8 +172,12 @@ def test_02_upload_fails_when_is_already_present_in_server(mininet_net_setup):
 
     teardown_directories(tmp_dirpath)
 
-    assert was_client_successful.value
-    assert was_server_successful.value
+    assert was_client_successful.value, (
+        f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
+    )
+    assert was_server_successful.value, (
+        f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
+    )
 
 
 def test_03_upload_fails_when_file_to_upload_does_not_exist(mininet_net_setup):
@@ -203,7 +213,9 @@ def test_03_upload_fails_when_file_to_upload_does_not_exist(mininet_net_setup):
 
     teardown_directories(tmp_dirpath)
 
-    assert was_client_successful.value
+    assert was_client_successful.value, (
+        f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
+    )
 
 
 def test_04_download_is_correct(mininet_net_setup):
@@ -249,10 +261,16 @@ def test_04_download_is_correct(mininet_net_setup):
 
     teardown_directories(tmp_dirpath)
 
-    assert was_client_successful.value
-    assert was_server_successful.value
+    assert was_client_successful.value, (
+        f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
+    )
+    assert was_server_successful.value, (
+        f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
+    )
 
-    if os.path.exists(client_log) and os.path.exists(server_log):
+    if os.path.exists(f"{tmp_dirpath}/client/test_file.txt") and os.path.exists(
+        filepath
+    ):
         hash_client = compute_sha256(f"{tmp_dirpath}/client/test_file.txt")
         hash_server = compute_sha256(filepath)
 
@@ -307,8 +325,12 @@ def test_05_download_fails_when_is_not_present_in_server(mininet_net_setup):
 
     teardown_directories(tmp_dirpath)
 
-    assert was_client_successful.value
-    assert was_server_successful.value
+    assert was_client_successful.value, (
+        f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
+    )
+    assert was_server_successful.value, (
+        f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
+    )
 
 
 def test_06_download_fails_when_file_already_exists_in_client(mininet_net_setup):
@@ -347,7 +369,9 @@ def test_06_download_fails_when_file_already_exists_in_client(mininet_net_setup)
 
     teardown_directories(tmp_dirpath)
 
-    assert was_client_successful.value
+    assert was_client_successful.value, (
+        f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
+    )
 
 
 def test_07_cannot_boot_server_with_invalid_storage(mininet_net_setup):
@@ -385,4 +409,6 @@ def test_07_cannot_boot_server_with_invalid_storage(mininet_net_setup):
 
     teardown_directories(tmp_dirpath)
 
-    assert was_server_successful.value
+    assert was_server_successful.value, (
+        f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
+    )

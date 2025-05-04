@@ -1,4 +1,4 @@
-from time import time, sleep
+from time import time
 from socket import socket as Socket
 from socket import timeout as SocketTimeout
 
@@ -100,7 +100,7 @@ class SocketSaw:
                         raw_packet, server_address_tuple = self.socket.recvfrom(
                             buffer_size
                         )
-                        sleep(0.05)
+                        # sleep(0.05)
 
                         return raw_packet, server_address_tuple
 
