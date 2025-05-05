@@ -254,6 +254,82 @@ Client ->(10) Server : Data
 2. S \rightarrow C: ACK + FIN
 3. C \rightarrow S: ACK
 
+** Especificación del protocolo Go-Back-N
+*** Ciclo de Vida
+
+#+BEGIN_SRC plantuml :file docs/imgs/gbn.png :exports results
+@startuml
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 100
+scale 2.0
+participant Client
+participant Server
+
+group ‎  [Handshake]
+
+Client ->(10) Server : [SYN]\nseq=0, ack=0
+Server ->(10) Client : [SYN], [ACK]\nseq=0, ack=0
+
+Client ->(10) Server : [ACK]\nseq=1, ack=1\n data=1 (op_code)
+Server ->(10) Client : [ACK]\nseq=1, ack=1
+
+else Configuration
+
+Client ->(10) Server : seq=2, ack=2\n data=report.pdf
+Server ->(10) Client : [ACK]\nseq=2, ack=2\npayload_length=1416\n data=101110...
+Client ->(10) Server : [ACK]\nseq=2, ack=2
+
+else File transfer
+
+Server ->(10) Client : seq=3, ack=2\npayload_length=1416\n data=101110...
+Server ->(10) Client : [FIN]\nseq=4, ack=2\npayload_length=168\n data=101110...
+
+Client ->(10) Server : [ACK]\nseq=3, ack=3
+Client ->(10) Server : [ACK]\nseq=4, ack=4
+
+else Closing handshake
+
+Client ->(10) Server : [FIN]\nseq=4, ack=4
+Server ->(10) Client : [ACK]\nseq=5, ack=5
+
+end
+
+caption \nGo-Back-N protocol with window of\n 2 packets. Client downloads file \n(report.pdf of size 3000 bytes) from server
+#+END_SRC
+
+#+ATTR_LATEX: :width 0.7\textwidth
+#+RESULTS:
+[[file:docs/imgs/gbn.png]]
+
+
+*** Análisis del ciclo de vida de una transferencia con Go-Back-N
+
+El siguiente análisis describe el comportamiento de una transferencia de
+archivos mediante el protocolo Go-Back-N (GBN) con una ventana de tamaño 2. En
+este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el
+servidor. El ciclo de vida de la request se puede dividir en cuatro fases
+principales:
+
+**** Establecimiento de la conexión (Handshake):
+- El cliente inicia la conexión enviando un paquete con las banderas `SYN`, con `seq=0` y `ack=0`.
+- El servidor responde con un paquete combinado `SYN, ACK` manteniendo los mismos valores de secuencia y acuse.
+- El cliente confirma la recepción enviando un paquete `ACK` con `seq=1` y `ack=1`, incluyendo una operación de configuración (data=1 op_code).
+- El servidor responde con un `ACK` para confirmar la recepción del mensaje de configuración.
+
+**** Configuración:
+- El cliente envía un paquete con `seq=2`, `ack=2` y `data=report.pdf`, indicando el nombre del archivo solicitado.
+- El servidor responde con un paquete de datos con `seq=2`, `ack=2`, una longitud de carga útil de 1416 bytes y los primeros bits del archivo.
+- El cliente confirma la recepción con un `ACK` correspondiente.
+
+**** Transferencia del archivo:
+- El servidor envía el segundo fragmento de datos (`seq=3`, `ack=2`), también de 1416 bytes.
+- Posteriormente, se envía un paquete con la bandera `FIN` (`seq=4`, `ack=2`, `payload_length=168`), marcando el fin de la transferencia.
+- El cliente responde con dos `ACK`, uno para cada paquete recibido correctamente: `seq=3, ack=3` y `seq=4, ack=4`.
+
+**** Cierre de la conexión (Closing handshake):
+- El cliente envía un `FIN` para finalizar su lado de la comunicación (`seq=4, ack=4`).
+- El servidor responde con un `ACK` final (`seq=5, ack=5`), completando el cierre de la conexión de manera ordenada.
+
 * Pruebas
 
 ** Tabla de Datos de Wireshark
