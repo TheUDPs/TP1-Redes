@@ -124,14 +124,14 @@ class GoBackNSender:
             return True
 
         start_time: float = time()
-        did_explode = MutableVariable(False)
+        repeated_detected = MutableVariable(False)
         try:
             packet = self.protocol.wait_for_ack(self.sqn_number, self.ack_number)
             reception_duration: float = time() - start_time
 
         except InvalidAckNumber:
             reception_duration: float = time() - start_time
-            did_explode.value = True
+            repeated_detected.value = True
 
         except UnexpectedFinMessage as e:
             packet = e.packet
@@ -139,7 +139,7 @@ class GoBackNSender:
                 already_received_fin_back.value = True
                 is_last_chunk_acked.value = True
 
-        if did_explode.value:
+        if repeated_detected.value:
             self.logger.warn("Detected previous ACK")
             self.logger.debug(
                 f"Acumulated {reception_duration} before retransmission needed. Totalling {self.spent_in_reception}"

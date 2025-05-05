@@ -82,6 +82,15 @@ def start_download_client(host, tmp_path, port, protocol, file_to_download):
     return pid.strip(), log_file
 
 
+def start_download_client2(host, tmp_path, port, protocol, file_to_download, saved_as):
+    log_file = f"{tmp_path}/client_output_{host.name}.log"
+    downloaded_filepath = f"{tmp_path}/client/{saved_as}"
+    pid = host.cmd(
+        f"{PROJECT_ROOT}/src/download.py -H 10.0.0.1 -p {port} -d {downloaded_filepath} -n {file_to_download} -r {protocol} -v > {log_file} 2>&1 & echo $!"
+    )
+    return pid.strip(), log_file
+
+
 def teardown_directories(tmp_path):
     shutil.rmtree(tmp_path, ignore_errors=True)
 
