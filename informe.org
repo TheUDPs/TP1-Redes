@@ -77,12 +77,12 @@ condiciones de red y evaluar el comportamiento de las implementaciones, incluyen
 * Hipótesis y suposiciones realizadas
 
 - La carga/descarga no va a conservar la metadata del archivo. Es decir, si yo descargo un archivo, ese archivo va a tener metadata como si yo hubiera creado el archivo desde cero usando `touch archivo`.
-- Si el cliente utiliza otro protocolo para comunicarse con el server, el server debe rechazar este pedido. (PROTOCOL MISSMATCH). El header tendra un campo dedicado a esto.
+- Si el cliente utiliza otro protocolo para comunicarse con el server, el server debe rechazar este pedido. (PROTOCOL MISSMATCH). El header tendrá un campo dedicado a esto.
 - El argumento de FILENAME sera opcional, en caso de no estar, se utiliza el nombre original del archivo.
 - Por simplicidad, vamos a guardar todos los archivos en DIRPATH sin ningún nivel de subdirectorios.
-- Por simplicidad, vamos a tener un tamaño máximo de 2GB para la subida y descarga de archivos.
-- Los archivos en proceso de escritura se van a escribir en una ubicación temporal para evitar que se corrompan en la ubicación que el cliente pidió.
-- Usar seek y bufferear para leer el archivo. Leer con slices del buffer.
+- Si no se provee un DIRPATH para el storage del servidor, se utiliza el directorio actual.
+- Se verifica que hayan 100 megas disponibles en el disco para realizar un upload al server.
+- Si se cancela la descarga sin haberse finalizado correctamente, el archivo se borra.
 
 * Implementación
 ** Topología
@@ -90,7 +90,7 @@ condiciones de red y evaluar el comportamiento de las implementaciones, incluyen
 #+ATTR_LATEX: :width 0.5\textwidth
 [[file:docs/imgs/linear_ends_multiple_clients_with_loss.png]]
 
-La topología es una red lineal con 1 host servidor conectado a 3 switches en serie cuyo ultimo switch esta conectado a n hosts clientes. El primer enlace (el conectado entre el servidor y el primero switch) tiene configurado un packet loss del 10\% configurado de forma simetrica 5% de cada lado del enlace.
+La topología es una red lineal con 1 host servidor conectado a 3 switches en serie cuyo ultimo switch esta conectado a n hosts clientes. El primer enlace (el conectado entre el servidor y el primero switch) tiene configurado un packet loss del 10% configurado de forma simetrica 5% de cada lado del enlace.
 
 ** Especificación del protocolo Stop-and-Wait
 
@@ -98,21 +98,18 @@ La topología es una red lineal con 1 host servidor conectado a 3 switches en se
 
 **** Tamaño máximo de payload
 
-El tamaño máximo de payload es el tamaño máximo de un datagrama UDP menos el tamaño de los headers de IP, UDP y SAW.
+El tamaño máximo de payload es el tamaño máximo de un datagrama UDP menos el tamaño de los headers de IP, UDP y SAW. 
 
 Como el MTU que usamos en mininet es 1500, el tamaño máximo de payload es:
 
-\begin{align*}
-  \text{HISTORICAL\_MTU} &= 1500 \\
-  \text{MAX\_IP\_HEADER\_SIZE} &= 60 \\
-  \text{UDP\_HEADER\_SIZE} &= 8 \\
-  \text{SAW\_PROTOCOL\_HEADER\_SIZE} &= 6 \\
-\end{align*}
+HISTORICAL_MTU = 1500
+MAX_IP_HEADER_SIZE = 60
+UDP_HEADER_SIZE = 8
+SAW_PROTOCOL_HEADER_SIZE = 6
 
-\begin{align*}
-\text{FILE\_CHUNK\_SIZE} = \text{HISTORICAL\_MTU} - \text{MAX\_IP\_HEADER\_SIZE} \\
-                        -\ \text{UDP\_HEADER\_SIZE} - \text{SAW\_PROTOCOL\_HEADER\_SIZE}
-\end{align*}
+
+FILE_CHUNK_SIZE = HISTORICAL_MTU − MAX_IP_HEADER_SIZE − UDP_HEADER_SIZE − SAW_PROTOCOL_HEADER_SIZE
+
 
 *** Handshake
 
