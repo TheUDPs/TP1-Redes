@@ -63,19 +63,28 @@
 \definecolor{bg}{rgb}{0.95,0.95,0.95}
 #+END_EXPORT
 
-* Introduccion
+* Introducción
+
+En el presente trabajo práctico se desarrolla una aplicación de red para la transferencia de archivos, basada en una arquitectura 
+cliente-servidor, con el objetivo principal de implementar mecanismos de transferencia de datos confiable. Para ello, se trabajará 
+sobre la capa de transporte, utilizando específicamente el protocolo UDP, lo cual requiere diseñar e implementar soluciones 
+personalizadas que garanticen la entrega de datos confiable. En este marco, se explorarán los principios del concepto de  
+Reliable Data Transfer (RDT), implementando dos de sus variantes: Stop-and-Wait y Go-Back-N (GBN). La comunicación entre procesos 
+se llevará a cabo mediante la interfaz de sockets de Python, y se utilizará la herramienta Mininet para simular diferentes 
+condiciones de red y evaluar el comportamiento de las implementaciones, incluyendo escenarios con pérdida de paquetes.
+
 
 * Hipótesis y suposiciones realizadas
 
 - La carga/descarga no va a conservar la metadata del archivo. Es decir, si yo descargo un archivo, ese archivo va a tener metadata como si yo hubiera creado el archivo desde cero usando `touch archivo`.
 - Si el cliente utiliza otro protocolo para comunicarse con el server, el server debe rechazar este pedido. (PROTOCOL MISSMATCH). El header tendra un campo dedicado a esto.
 - El argumento de FILENAME sera opcional, en caso de no estar, se utiliza el nombre original del archivo.
-- Por simplicidad, vamos a guardar todos los archivos en DIRPATH sin ningun nivel de subdirectorios.
-- Por simplicidad, vamos a tener un tamaño maximo de 2GB para la subida y descarga de archivos.
-- Los archivos en proceso de escritura se van a escribir en una ubicacion temporal para evitar que se corrompan en la ubicacion que el cliente pidio.
+- Por simplicidad, vamos a guardar todos los archivos en DIRPATH sin ningún nivel de subdirectorios.
+- Por simplicidad, vamos a tener un tamaño máximo de 2GB para la subida y descarga de archivos.
+- Los archivos en proceso de escritura se van a escribir en una ubicación temporal para evitar que se corrompan en la ubicación que el cliente pidió.
 - Usar seek y bufferear para leer el archivo. Leer con slices del buffer.
 
-* Implementacion
+* Implementación
 ** Topología
 
 #+ATTR_LATEX: :width 0.5\textwidth
@@ -87,7 +96,7 @@ La topología es una red lineal con 1 host servidor conectado a 3 switches en se
 
 *** General
 
-**** Tamaño maximo de payload
+**** Tamaño máximo de payload
 
 El tamaño máximo de payload es el tamaño máximo de un datagrama UDP menos el tamaño de los headers de IP, UDP y SAW.
 
@@ -132,7 +141,7 @@ Se usa la nomenclatura S para mencionar al servidor y C para el cliente.
 
 _Mensajes para caso Download y caso Upload_:
 
-1. C \rightarrow S: con flag SYN para declarar una solicitud de conexion y el protocolo
+1. C \rightarrow S: con flag SYN para declarar una solicitud de conexión y el protocolo
 
 *Flujo normal (mismo protocolo)*:
 
@@ -149,12 +158,12 @@ Se hace una transferencia de puerto para que el welcoming socket se encargue sol
 
 El cliente ya sabe que tiene que comunicarse con el nuevo puerto.
 
-Se envia primero la configuracion para saber si la operacion es valida y tener en cuenta casos de error, y luego se hace la transferencia. \\
+Se envía primero la configuración para saber si la operación es valida y tener en cuenta casos de error, y luego se hace la transferencia. \\
 
 _Mensajes para caso Download y caso Upload_:
 
-1. C \rightarrow S: se declara la operacion (OP), que puede ser download (0) o upload (1)
-2. S \rightarrow C: ACK de la operacion (no falla)
+1. C \rightarrow S: se declara la operación (OP), que puede ser download (0) o upload (1)
+2. S \rightarrow C: ACK de la operación (no falla)
 
 _Continuación de mensajes para caso Download_:
 
