@@ -343,29 +343,41 @@ En esta sección mostraremos capturas de diferentes casos de uso de la aplicaci�
 ** Casos de error
 
 - Protocol Mismatch
-#+caption: Ejemplo de protocol mismatch.
-[[file:docs/imgs/protocol_mismatch.png]]
+
+\noindent \includegraphics[width=\textwidth]{docs/imgs/protocol_mismatch.png}
+\captionof{figure}{Ejemplo de protocol mismatch.}
 
 En caso de que un cliente intente conectarse con un servidor utilizando un protocolo diferente al suyo, el servidor lo rechazará. En la imagen se puede observar un ejemplo en el que un servidor que utiliza Stop & Wait rechaza a un cliente que hace una petición con Go Back N.
 
 - Archivo ya existente.
 
-#+caption: Ejemplo de upload de un archivo que ya existe en el servidor.
-[[file:docs/imgs/file_already_exists.png]]
+\noindent \includegraphics[width=\textwidth]{docs/imgs/file_already_exists.png}
+\captionof{figure}{Ejemplo de upload de un archivo que ya existe en el servidor.}
+
+\smallskip
 
 Para ambos protocolos, si el cliente intenta subir un archivo que el servidor ya tiene, se rechaza.
 
 ** Stop & Wait
 
-Para mostrar el funcionamiento de stop and wait, primero mostraremos los logs de las operaciones upload y download de un archivo pequeño de 5kB a modo de ejemplo, y luego cómo se ve una captura de whireshark de un archivo más grande.
+Para mostrar el funcionamiento de Stop & Wait, mostraremos las capturas de las operaciones upload y download de un archivo pequeño de 5kB a modo de ejemplo primero sin pérdida de paquetes, y luego con una pérdida del 10% utilizando mininet.
 
 - Upload
-#+caption: Ejemplo de Upload con Stop & Wait.
-[[file:docs/imgs/saw_upload.png]]
+
+\noindent \includegraphics[width=\textwidth]{docs/imgs/saw_upload.png}
+\captionof{figure}{Captura de los logs de Upload con Stop and Wait.}
+
+
+\noindent \includegraphics[width=\textwidth]{docs/imgs/saw_upload_wireshark.png}
+\captionof{figure}{Captura de wireshark de Upload con Stop and Wait.}
 
 - Download
-#+caption: Ejemplo de Download con Stop & Wait.
-[[file:docs/imgs/saw_download.png]]
+
+\noindent \includegraphics[width=\textwidth]{docs/imgs/saw_download.png}
+\captionof{figure}{Captura de los logs de Download con Stop and Wait.}
+
+\noindent \includegraphics[width=\textwidth]{docs/imgs/saw_download_wireshark.png}
+\captionof{figure}{Captura de wireshark de Download con Stop and Wait.}
 
 *** Tabla de Datos de Wireshark
 
