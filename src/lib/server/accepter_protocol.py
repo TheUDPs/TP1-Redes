@@ -12,7 +12,7 @@ from lib.common.constants import (
 )
 from lib.common.exceptions.invalid_ack_number import InvalidAckNumber
 from lib.common.exceptions.message_not_syn import MessageIsNotSyn
-from lib.common.logger import Logger
+from lib.common.logger import CoolLogger
 from lib.common.packet.packet import Packet, PacketParser, PacketSaw, PacketGbn
 from lib.common.re_listen_decorator import re_listen_if_failed
 from lib.common.sequence_number import SequenceNumber
@@ -32,13 +32,13 @@ from lib.server.exceptions.missing_client_address import MissingClientAddress
 class AccepterProtocol:
     def __init__(
         self,
-        logger: Logger,
+        logger: CoolLogger,
         socket: SocketSaw,
         address: Address,
         protocol_version: str,
         clients: ClientPool,
     ):
-        self.logger: Logger = logger
+        self.logger: CoolLogger = logger
         self.socket: SocketSaw = socket
         self.host: str = address.host
         self.port: int = address.port

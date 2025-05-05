@@ -8,7 +8,7 @@ from lib.common.constants import USE_ANY_AVAILABLE_PORT, GO_BACK_N_PROTOCOL_TYPE
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.message_not_syn import MessageIsNotSyn
-from lib.common.logger import Logger
+from lib.common.logger import CoolLogger
 from lib.common.packet.packet import Packet
 from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_saw import SocketSaw
@@ -32,7 +32,7 @@ class Accepter:
         self.host: str = adress.host
         self.port: int = adress.port
         self.adress: Address = adress
-        self.logger: Logger = logger
+        self.logger: CoolLogger = logger
         self.logger.set_prefix("[ACCEP]")
 
         self.file_handler: FileHandler = file_handler
@@ -86,6 +86,7 @@ class Accepter:
                 self.file_handler,
                 packet,
             )
+            self.logger.set_prefix("[ACCEP]")
 
         except MissingClientAddress:
             self.logger.debug("Client address not found, discarding message")

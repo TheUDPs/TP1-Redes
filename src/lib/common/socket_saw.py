@@ -10,11 +10,11 @@ from lib.common.constants import (
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.socket_shutdown import SocketShutdown
-from lib.common.logger import Logger
+from lib.common.logger import CoolLogger
 
 
 class SocketSaw:
-    def __init__(self, _socket: Socket, logger: Logger):
+    def __init__(self, _socket: Socket, logger: CoolLogger):
         self.socket = _socket
         self.logger = logger
         self.last_raw_packet = None

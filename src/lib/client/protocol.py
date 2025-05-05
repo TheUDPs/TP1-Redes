@@ -18,7 +18,7 @@ from lib.common.exceptions.message_not_fin import MessageIsNotFin
 from lib.common.exceptions.message_not_fin_nor_ack import MessageNotFinNorAck
 from lib.common.exceptions.message_not_syn import MessageIsNotSyn
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
-from lib.common.logger import Logger
+from lib.common.logger import CoolLogger
 from lib.common.packet.packet import Packet, PacketParser, PacketSaw, PacketGbn
 from lib.common.re_listen_decorator import re_listen_if_failed
 from lib.common.sequence_number import SequenceNumber
@@ -29,13 +29,13 @@ from lib.common.socket_saw import SocketSaw
 class ClientProtocol:
     def __init__(
         self,
-        logger: Logger,
+        logger: CoolLogger,
         client_socket: SocketSaw,
         server_address: Address,
         my_address: Address,
         protocol_version: str,
     ):
-        self.logger: Logger = logger
+        self.logger: CoolLogger = logger
         self.socket: SocketSaw = client_socket
         self.server_host: str = server_address.host
         self.server_port: int = server_address.port

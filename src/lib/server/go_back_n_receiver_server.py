@@ -2,7 +2,7 @@ from lib.common.constants import SOCKET_CONNECTION_LOST_TIMEOUT
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.file_handler import FileHandler
 from lib.common.hash_compute import compute_chunk_sha256
-from lib.common.logger import Logger
+from lib.common.logger import CoolLogger
 from lib.common.mutable_variable import MutableVariable
 from lib.common.sequence_number import SequenceNumber
 from lib.server.protocol_gbn import ServerProtocolGbn
@@ -11,14 +11,14 @@ from lib.server.protocol_gbn import ServerProtocolGbn
 class GoBackNReceiver:
     def __init__(
         self,
-        logger: Logger,
+        logger: CoolLogger,
         protocol: ServerProtocolGbn,
         file_handler: FileHandler,
         sequence_number: SequenceNumber,
         ack_number: SequenceNumber,
     ) -> None:
         self.base: int = 0
-        self.logger: Logger = logger
+        self.logger: CoolLogger = logger
         self.protocol: ServerProtocolGbn = protocol
         self.sqn_number: SequenceNumber = sequence_number
         self.sqn_number_last_received: SequenceNumber = sequence_number

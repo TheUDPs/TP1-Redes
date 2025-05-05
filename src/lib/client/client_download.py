@@ -12,7 +12,7 @@ from lib.common.exceptions.retransmission_needed import RetransmissionNeeded
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.hash_compute import compute_chunk_sha256
-from lib.common.logger import Logger
+from lib.common.logger import CoolLogger
 from lib.common.constants import (
     DOWNLOAD_OPERATION,
     ERROR_EXIT_CODE,
@@ -28,7 +28,13 @@ from lib.common.socket_gbn import SocketGbn
 
 class DownloadClient(Client):
     def __init__(
-        self, logger: Logger, host: str, port: int, dst: str, name: str, protocol: str
+        self,
+        logger: CoolLogger,
+        host: str,
+        port: int,
+        dst: str,
+        name: str,
+        protocol: str,
     ):
         self.file_destination: str = dst
         self.filename_for_download: str = name

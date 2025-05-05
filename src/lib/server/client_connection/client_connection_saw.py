@@ -6,7 +6,7 @@ from lib.common.constants import (
 )
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.socket_shutdown import SocketShutdown
-from lib.common.logger import Logger
+from lib.common.logger import CoolLogger
 from lib.common.mutable_variable import MutableVariable
 from lib.common.packet.packet import Packet
 from lib.common.socket_saw import SocketSaw
@@ -24,7 +24,7 @@ class ClientConnectionSaw(ClientConnection):
         connection_address: Address,
         client_address: Address,
         protocol: str,
-        logger: Logger,
+        logger: CoolLogger,
         file_handler: FileHandler,
         packet: Packet,
     ):

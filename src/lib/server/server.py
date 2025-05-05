@@ -8,7 +8,7 @@ from threading import Thread
 
 from lib.common.address import Address
 from lib.common.constants import ERROR_EXIT_CODE
-from lib.common.logger import Logger
+from lib.common.logger import CoolLogger
 from lib.common.wait_for_quit import wait_for_quit
 from lib.server.accepter import Accepter
 from lib.server.exceptions.cannot_bind_socket import CannotBindSocket
@@ -18,9 +18,9 @@ from lib.server.exceptions.invalid_directory import InvalidDirectory
 
 class Server:
     def __init__(
-        self, logger: Logger, host: str, port: int, storage: str, protocol: str
+        self, logger: CoolLogger, host: str, port: int, storage: str, protocol: str
     ):
-        self.logger: Logger = logger
+        self.logger: CoolLogger = logger
         self.host: str = host
         self.port: int = port
         self.storage: str = storage

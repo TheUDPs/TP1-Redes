@@ -7,11 +7,11 @@ from lib.common.constants import (
 )
 from lib.common.exceptions.retransmission_needed import RetransmissionNeeded
 from lib.common.exceptions.socket_shutdown import SocketShutdown
-from lib.common.logger import Logger
+from lib.common.logger import CoolLogger
 
 
 class SocketGbn:
-    def __init__(self, _socket: Socket, logger: Logger):
+    def __init__(self, _socket: Socket, logger: CoolLogger):
         self.socket = _socket
         self.logger = logger
         self.timeout = SOCKET_RETRANSMIT_WINDOW_TIMEOUT

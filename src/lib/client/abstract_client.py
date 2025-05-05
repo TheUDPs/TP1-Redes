@@ -22,15 +22,15 @@ from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.message_not_fin_nor_ack import MessageNotFinNorAck
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
-from lib.common.logger import Logger
+from lib.common.logger import CoolLogger
 from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_saw import SocketSaw
 from lib.common.wait_for_quit import wait_for_quit
 
 
 class Client:
-    def __init__(self, logger: Logger, host: str, port: int, protocol: str):
-        self.logger: Logger = logger
+    def __init__(self, logger: CoolLogger, host: str, port: int, protocol: str):
+        self.logger: CoolLogger = logger
         self.server_host: str = host
         self.server_port: int = port
 

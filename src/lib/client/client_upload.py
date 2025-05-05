@@ -19,14 +19,20 @@ from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.file_handler import FileHandler
-from lib.common.logger import Logger
+from lib.common.logger import CoolLogger
 from lib.client.go_back_n_sender_client import GoBackNSender
 from lib.common.socket_gbn import SocketGbn
 
 
 class UploadClient(Client):
     def __init__(
-        self, logger: Logger, host: str, port: int, src: str, name: str, protocol: str
+        self,
+        logger: CoolLogger,
+        host: str,
+        port: int,
+        src: str,
+        name: str,
+        protocol: str,
     ):
         self.src_filepath: str = src
         self.filename_in_server: str = name

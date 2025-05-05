@@ -1,6 +1,6 @@
 from lib.common.address import Address
 from lib.common.constants import STOP_AND_WAIT_PROTOCOL_TYPE
-from lib.common.logger import Logger
+from lib.common.logger import CoolLogger
 from lib.common.packet.packet import Packet
 from lib.common.socket_saw import SocketSaw
 from lib.server.client_connection.abstract_client_connection import ClientConnection
@@ -11,9 +11,9 @@ from lib.common.file_handler import FileHandler
 
 
 class ClientManager:
-    def __init__(self, logger: Logger, protocol: str, client_pool: ClientPool):
+    def __init__(self, logger: CoolLogger, protocol: str, client_pool: ClientPool):
         self.clients: ClientPool = client_pool
-        self.logger: Logger = logger
+        self.logger: CoolLogger = logger
         self.protocol: str = protocol
 
     def add_client(
@@ -62,13 +62,15 @@ class ClientManager:
         file_handler: FileHandler,
         packet: Packet,
     ) -> ClientConnection:
+        new_logger = CoolLogger(self.logger.current_level)
+        new_logger.set_prefix("")
         if self.protocol == STOP_AND_WAIT_PROTOCOL_TYPE:
             new_connection: ClientConnectionSaw = ClientConnectionSaw(
                 connection_socket,
                 connection_address,
                 client_address,
                 self.protocol,
-                self.logger.clone(),
+                new_logger,
                 file_handler,
                 packet,
             )
@@ -78,7 +80,7 @@ class ClientManager:
                 connection_address,
                 client_address,
                 self.protocol,
-                self.logger.clone(),
+                new_logger,
                 file_handler,
                 packet,
             )

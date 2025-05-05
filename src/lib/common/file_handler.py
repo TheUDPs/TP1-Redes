@@ -7,7 +7,7 @@ from lib.common.constants import (
     FOPEN_READ_MODE,
     FOPEN_WRITE_TRUNCATE_MODE,
 )
-from lib.common.logger import Logger
+from lib.common.logger import CoolLogger
 from lib.common.mutable_variable import MutableVariable
 from lib.common.packet.packet import Packet
 from lib.server.exceptions.invalid_directory import InvalidDirectory
@@ -18,9 +18,9 @@ FROM_CURRENT_POSITION = 1
 
 
 class FileHandler:
-    def __init__(self, dirpath: str, logger: Logger):
+    def __init__(self, dirpath: str, logger: CoolLogger):
         self.dirpath: str = dirpath
-        self.logger: Logger = logger
+        self.logger: CoolLogger = logger
 
         if not path.isdir(self.dirpath):
             raise InvalidDirectory()

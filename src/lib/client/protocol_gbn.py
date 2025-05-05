@@ -6,7 +6,7 @@ from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.exceptions.message_not_fin import MessageIsNotFin
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
-from lib.common.logger import Logger
+from lib.common.logger import CoolLogger
 from lib.common.packet.packet import Packet, PacketGbn, PacketParser
 from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_gbn import SocketGbn
@@ -15,13 +15,13 @@ from lib.common.socket_gbn import SocketGbn
 class ClientProtocolGbn:
     def __init__(
         self,
-        logger: Logger,
+        logger: CoolLogger,
         client_socket: SocketGbn,
         server_address: Address,
         my_address: Address,
         protocol_version: str,
     ):
-        self.logger: Logger = logger
+        self.logger: CoolLogger = logger
         self.socket: SocketGbn = client_socket
         self.server_host: str = server_address.host
         self.server_port: int = server_address.port

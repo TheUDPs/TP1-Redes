@@ -10,7 +10,7 @@ from lib.common.exceptions.retransmission_needed import RetransmissionNeeded
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
 from lib.common.file_handler import FileHandler
 from lib.common.hash_compute import compute_chunk_sha256
-from lib.common.logger import Logger
+from lib.common.logger import CoolLogger
 from typing import List
 
 from lib.common.mutable_variable import MutableVariable
@@ -21,14 +21,14 @@ from lib.server.protocol_gbn import ServerProtocolGbn
 class GoBackNSender:
     def __init__(
         self,
-        logger: Logger,
+        logger: CoolLogger,
         protocol: ServerProtocolGbn,
         file_handler: FileHandler,
         sequence_number: SequenceNumber,
         ack_number: SequenceNumber,
     ) -> None:
         self.base: SequenceNumber = SequenceNumber(1, protocol.protocol_version)
-        self.logger: Logger = logger
+        self.logger: CoolLogger = logger
         self.protocol: ServerProtocolGbn = protocol
         self.sqn_number: SequenceNumber = sequence_number
         self.offset_initial_seq_number: SequenceNumber = sequence_number

@@ -7,7 +7,7 @@ from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.retransmission_needed import RetransmissionNeeded
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.hash_compute import compute_chunk_sha256
-from lib.common.logger import Logger
+from lib.common.logger import CoolLogger
 from lib.common.mutable_variable import MutableVariable
 from lib.common.packet.packet import Packet
 from lib.common.socket_gbn import SocketGbn
@@ -27,7 +27,7 @@ class ClientConnectionGbn(ClientConnection):
         connection_address: Address,
         client_address: Address,
         protocol: str,
-        logger: Logger,
+        logger: CoolLogger,
         file_handler: FileHandler,
         packet: Packet,
     ):

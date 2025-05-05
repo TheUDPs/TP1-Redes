@@ -1,14 +1,4 @@
 from datetime import datetime
-from logging import Logger
-
-
-def get_logger(verbose, quiet) -> Logger:
-    if verbose:
-        return Logger(Logger.DEBUG_LOG_LEVEL)
-    elif quiet:
-        return Logger(Logger.QUIET_LOG_LEVEL)
-    else:
-        return Logger(Logger.INFO_LOG_LEVEL)
 
 
 class Colors:
@@ -19,7 +9,7 @@ class Colors:
     RESET = "\033[0m"
 
 
-class Logger:
+class CoolLogger:
     DEBUG_LOG_LEVEL = 4  # debug + info + errors + warns
     WARN_LEVEL = 3.5
     INFO_LOG_LEVEL = 3  # info + errors + warns
@@ -82,11 +72,14 @@ class Logger:
     def set_prefix(self, prefix: str):
         self.prefix = " " + prefix.strip()
 
-    def clone(self, keep_prefix=False) -> Logger:
-        logger = Logger()
-        logger.current_level = self.current_level
+    def clone(self) -> "CoolLogger":
+        return CoolLogger(self.current_level)
 
-        if keep_prefix:
-            logger.prefix = self.prefix
 
-        return logger
+def get_logger(verbose, quiet) -> CoolLogger:
+    if verbose:
+        return CoolLogger(CoolLogger.DEBUG_LOG_LEVEL)
+    elif quiet:
+        return CoolLogger(CoolLogger.QUIET_LOG_LEVEL)
+    else:
+        return CoolLogger(CoolLogger.INFO_LOG_LEVEL)

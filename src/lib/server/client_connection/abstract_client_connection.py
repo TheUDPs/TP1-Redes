@@ -14,7 +14,7 @@ from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.message_not_fin_ack import MessageIsNotFinAck
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
-from lib.common.logger import Logger
+from lib.common.logger import CoolLogger
 from lib.common.mutable_variable import MutableVariable
 from lib.common.packet.packet import Packet, PacketGbn
 from lib.common.sequence_number import SequenceNumber
@@ -49,14 +49,14 @@ class ClientConnection:
         connection_address: Address,
         client_address: Address,
         protocol: str,
-        logger: Logger,
+        logger: CoolLogger,
         file_handler: FileHandler,
         packet: Packet,
     ):
         self.socket: SocketSaw = connection_socket
         self.address: Address = connection_address
         self.client_address: Address = client_address
-        self.logger: Logger = logger.clone()
+        self.logger: CoolLogger = logger
         self.logger.set_prefix(f"[CONN:{connection_address.port}]")
         self.socket.logger.set_prefix(f"[CONN:{connection_address.port}]")
         self.initial_sequence_number: SequenceNumber = SequenceNumber(

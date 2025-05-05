@@ -6,7 +6,7 @@ from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.message_not_fin import MessageIsNotFin
 from lib.common.exceptions.socket_shutdown import SocketShutdown
 from lib.common.exceptions.unexpected_fin import UnexpectedFinMessage
-from lib.common.logger import Logger
+from lib.common.logger import CoolLogger
 from lib.common.packet.packet import PacketGbn, Packet, PacketParser
 from lib.common.sequence_number import SequenceNumber
 from lib.common.socket_gbn import SocketGbn
@@ -17,14 +17,14 @@ from lib.server.exceptions.missing_client_address import MissingClientAddress
 class ServerProtocolGbn:
     def __init__(
         self,
-        logger: Logger,
+        logger: CoolLogger,
         socket: SocketGbn,
         client_address: Address,
         address: Address,
         protocol_version: str,
         clients: ClientPool,
     ):
-        self.logger: Logger = logger
+        self.logger: CoolLogger = logger
         self.socket: SocketGbn = socket
         self.host: str = address.host
         self.port: int = address.port
