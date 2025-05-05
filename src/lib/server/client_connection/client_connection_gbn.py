@@ -1,7 +1,7 @@
 from _socket import SHUT_RDWR
 
 from lib.common.address import Address
-from lib.common.constants import FILE_CHUNK_SIZE_GBN
+from lib.common.constants import FILE_CHUNK_SIZE_GBN, SHOULD_PRINT_CHUNK_HASH
 from lib.common.exceptions.connection_lost import ConnectionLost
 from lib.common.exceptions.message_not_ack import MessageIsNotAck
 from lib.common.exceptions.retransmission_needed import RetransmissionNeeded
@@ -121,7 +121,9 @@ class ClientConnectionGbn(ClientConnection):
         chunk_len = len(chunk)
 
         msg = f"Sending chunk {chunk_number}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB. "
-        msg += f"Hash is: {compute_chunk_sha256(chunk)}"
+        if SHOULD_PRINT_CHUNK_HASH:
+            msg += f"Hash is: {compute_chunk_sha256(chunk)}"
+
         self.logger.debug(msg)
 
         if chunk_number == total_chunks:

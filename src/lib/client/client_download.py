@@ -18,6 +18,7 @@ from lib.common.constants import (
     ERROR_EXIT_CODE,
     GO_BACK_N_PROTOCOL_TYPE,
     STOP_AND_WAIT_PROTOCOL_TYPE,
+    SHOULD_PRINT_CHUNK_HASH,
 )
 from lib.common.exceptions.invalid_filename import InvalidFilename
 from lib.common.file_handler import FileHandler
@@ -171,9 +172,13 @@ class DownloadClient(Client):
         if not packet.is_fin:
             self.protocol.send_ack(self.sequence_number, self.ack_number)
 
-        self.logger.debug(
-            f"Received chunk {chunk_number}. Hash is: {compute_chunk_sha256(packet.data)}"
-        )
+        msg = f"Received chunk {chunk_number}. "
+
+        if SHOULD_PRINT_CHUNK_HASH:
+            msg += f"Hash is: {compute_chunk_sha256(packet.data)}"
+
+        self.logger.debug(msg)
+
         self.file_handler.append_to_file(self.file, packet)
 
         if not packet.is_fin:

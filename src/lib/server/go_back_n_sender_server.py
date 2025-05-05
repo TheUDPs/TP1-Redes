@@ -4,6 +4,7 @@ from lib.common.constants import (
     WINDOW_SIZE,
     FILE_CHUNK_SIZE_GBN,
     SOCKET_RETRANSMIT_WINDOW_TIMEOUT,
+    SHOULD_PRINT_CHUNK_HASH,
 )
 from lib.common.exceptions.invalid_ack_number import InvalidAckNumber
 from lib.common.exceptions.retransmission_needed import RetransmissionNeeded
@@ -96,7 +97,9 @@ class GoBackNSender:
             chunk_len = len(chunk_to_send)
 
             msg = f"Sending chunk {self.next_seq_num.value + 1}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB. "
-            msg += f"Hash is: {compute_chunk_sha256(chunk_to_send)}"
+            if SHOULD_PRINT_CHUNK_HASH:
+                msg += f"Hash is: {compute_chunk_sha256(chunk_to_send)}"
+
             self.logger.debug(msg)
 
             seq_number_to_send = SequenceNumber(

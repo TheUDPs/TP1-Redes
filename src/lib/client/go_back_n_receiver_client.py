@@ -1,4 +1,5 @@
 from lib.client.protocol_gbn import ClientProtocolGbn
+from lib.common.constants import SHOULD_PRINT_CHUNK_HASH
 from lib.common.exceptions.invalid_sequence_number import InvalidSequenceNumber
 from lib.common.file_handler import FileHandler
 from lib.common.hash_compute import compute_chunk_sha256
@@ -33,7 +34,10 @@ class GoBackNReceiver:
             self.protocol.send_ack(self.sqn_number, self.ack_number)
 
         if chunk_number > 1:
-            msg = f"Received chunk {chunk_number}. Hash is: {compute_chunk_sha256(packet.data)}"
+            msg = f"Received chunk {chunk_number}. "
+            if SHOULD_PRINT_CHUNK_HASH:
+                msg += f"Hash is: {compute_chunk_sha256(packet.data)}"
+
             self.logger.debug(msg)
 
         return packet
@@ -101,7 +105,10 @@ class GoBackNReceiver:
         chunk_number: int = 1
 
         if not should_continue_reception.value and packet.payload_length > 0:
-            msg = f"Received chunk {chunk_number + 1}. Hash is: {compute_chunk_sha256(packet.data)}"
+            msg = f"Received chunk {chunk_number + 1}. "
+            if SHOULD_PRINT_CHUNK_HASH:
+                msg += f"Hash is: {compute_chunk_sha256(packet.data)}"
+
             self.logger.debug(msg)
             self.file_handler.append_to_file(file, packet)
 

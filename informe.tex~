@@ -50,7 +50,7 @@
  pdftitle={},
  pdfkeywords={},
  pdfsubject={},
- pdfcreator={Emacs 27.1 (Org mode 9.3)}, 
+ pdfcreator={Emacs 27.1 (Org mode 9.3)},
  pdflang={Spanish}}
 \begin{document}
 
@@ -81,12 +81,12 @@
 \section{Introducción}
 \label{sec:org8bdafbf}
 
-En el presente trabajo práctico se desarrolla una aplicación de red para la transferencia de archivos, basada en una arquitectura 
-cliente-servidor, con el objetivo principal de implementar mecanismos de transferencia de datos confiable. Para ello, se trabajará 
-sobre la capa de transporte, utilizando específicamente el protocolo UDP, lo cual requiere diseñar e implementar soluciones 
-personalizadas que garanticen la entrega de datos confiable. En este marco, se explorarán los principios del concepto de  
-Reliable Data Transfer (RDT), implementando dos de sus variantes: Stop-and-Wait y Go-Back-N (GBN). La comunicación entre procesos 
-se llevará a cabo mediante la interfaz de sockets de Python, y se utilizará la herramienta Mininet para simular diferentes 
+En el presente trabajo práctico se desarrolla una aplicación de red para la transferencia de archivos, basada en una arquitectura
+cliente-servidor, con el objetivo principal de implementar mecanismos de transferencia de datos confiable. Para ello, se trabajará
+sobre la capa de transporte, utilizando específicamente el protocolo UDP, lo cual requiere diseñar e implementar soluciones
+personalizadas que garanticen la entrega de datos confiable. En este marco, se explorarán los principios del concepto de
+Reliable Data Transfer (RDT), implementando dos de sus variantes: Stop-and-Wait y Go-Back-N (GBN). La comunicación entre procesos
+se llevará a cabo mediante la interfaz de sockets de Python, y se utilizará la herramienta Mininet para simular diferentes
 condiciones de red y evaluar el comportamiento de las implementaciones, incluyendo escenarios con pérdida de paquetes.
 
 
