@@ -21,6 +21,7 @@ from tests.common import (
     start_download_client2,
     poll_results,
     ErrorDetected,
+    print_outputs2,
 )
 
 P_LOSS = MutableVariable(0)
@@ -241,14 +242,15 @@ def test_01_server_can_handle_correctly_3_downloads_and_1_upload_simultaneously(
     kill_process(h6, download_client_2_pid)
     kill_process(h7, download_client_3_pid)
 
-    tmp_dirpath, timestamp = setup_directories(TESTS_DIR)
-    filepath_to_download1 = "test_file_download1.txt"
-    filepath_to_download2 = "test_file_download2.txt"
-    filepath_to_download3 = "test_file_download3.txt"
-
-    filepath_for_upload = f"{tmp_dirpath}/client/test_file_upload.txt"
-
-    file_in_server = f"{tmp_dirpath}/server/test_file.txt"
+    print_outputs2(
+        server_log,
+        [
+            download_client_1_log,
+            download_client_2_log,
+            download_client_3_log,
+            upload_client_1_log,
+        ],
+    )
 
     hash_server_for_download = compute_sha256(file_in_server)
     hash_client_1_download = compute_sha256(
@@ -280,8 +282,6 @@ def test_01_server_can_handle_correctly_3_downloads_and_1_upload_simultaneously(
         "SHA256 mismatch: uploaded file (client 1) is not identical to the original"
     )
 
-    teardown_directories(tmp_dirpath)
-
     assert was_server_successful.value
 
     assert were_client_downloaders_successful_array[0].value
@@ -289,3 +289,5 @@ def test_01_server_can_handle_correctly_3_downloads_and_1_upload_simultaneously(
     assert were_client_downloaders_successful_array[0].value
     assert were_client_downloaders_successful_array[1].value
     assert were_client_downloaders_successful_array[2].value
+
+    teardown_directories(tmp_dirpath)

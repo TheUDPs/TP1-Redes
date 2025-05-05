@@ -135,6 +135,25 @@ def print_outputs(server_log, client_log):
         print(f"Error reading client log: {e}")
 
 
+def print_outputs2(server_log, client_logs_array):
+    print("\n=== SERVER OUTPUT ===")
+    try:
+        if server_log is not None:
+            with open(server_log, "r") as f:
+                print(f.read())
+    except Exception as e:
+        print(f"Error reading server log: {e}")
+
+    for i, client_log in enumerate(client_logs_array):
+        print(f"\n=== CLIENT OUTPUT index array [{i}] ===")
+        try:
+            if client_log is not None:
+                with open(client_log, "r") as f:
+                    print(f.read())
+        except Exception as e:
+            print(f"Error reading client log: {e}")
+
+
 def emergency_directory_teardown():
     prefix = "tmp_"
     for name in os.listdir(TESTS_DIR):
