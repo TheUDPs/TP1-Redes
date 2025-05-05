@@ -181,3 +181,5 @@ devenv.local.nix
 
 *.bbl
 *.tex
+tmp/
+tests/tmp

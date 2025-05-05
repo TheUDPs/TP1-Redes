@@ -11,7 +11,7 @@ on:
 
 jobs:
   check-pep8:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: ruff-action
         uses: astral-sh/ruff-action@v3

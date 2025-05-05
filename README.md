@@ -22,10 +22,79 @@
 
 # How to run
 
+- How to start the server:
+
+```bash
+> ./src/start-server.py  -h
+usage: start-server.py [-h] [-v | -q] [-H ADDR] [-p PORT] [-s DIRPATH] [-r PROTOCOL]
+
+Server side application to upload and download files from
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         increase output verbosity
+  -q, --quiet           decrease output verbosity
+  -H ADDR, --host ADDR  service IP address
+  -p PORT, --port PORT  service port
+  -s DIRPATH, --storage DIRPATH
+                        storage dir path
+  -r PROTOCOL, --protocol PROTOCOL
+                        error recovery protocol
+```
+
+If a storage dirpath is not provided, the default is the current directory.
+
+- How to run the upload operation as a client:
+
+```bash
+> ./src/upload.py  -h
+uusage: upload.py [-h] [-v | -q] -H ADDR [-p PORT] -s FILEPATH [-n FILENAME]
+                 [-r PROTOCOL]
+
+Client side application to upload files to the server side
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         increase output verbosity
+  -q, --quiet           decrease output verbosity
+  -H ADDR, --host ADDR  server IP address
+  -p PORT, --port PORT  server port
+  -s FILEPATH, --src FILEPATH
+                        source file path
+  -n FILENAME, --name FILENAME
+                        file name on the server
+  -r PROTOCOL, --protocol PROTOCOL
+                        error recovery protocol
+```
+
+- How to run the download operation as a client:
+
+```bash
+> ./src/download.py  -h
+usage: download.py [-h] [-v | -q] -H ADDR [-p PORT] -d FILEPATH -n FILENAME
+                   [-r PROTOCOL]
+
+Client side application to download files from the server side
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         increase output verbosity
+  -q, --quiet           decrease output verbosity
+  -H ADDR, --host ADDR  server IP address
+  -p PORT, --port PORT  server port
+  -d FILEPATH, --dst FILEPATH
+                        destination file path
+  -n FILENAME, --name FILENAME
+                        file name on the server
+  -r PROTOCOL, --protocol PROTOCOL
+                        error recovery protocol
+
+```
+
 Run mininet with the following command:
 
 ```bash
-sudo mn --mac --custom ./mininet/linear_ends_topo.py --topo linends,n,p_loss --link tc
+sudo mn --mac --custom ./mininet_topo/linear_ends_topo.py --topo linends,n,p_loss --link tc
 ```
 
 Where:
@@ -37,12 +106,12 @@ Where:
 If you simply run:
 
 ```bash
-sudo mn --mac --custom ./mininet/linear_ends_topo.py --topo linends
+sudo mn --mac --custom ./mininet_topo/linear_ends_topo.py --topo linends
 ```
 
 It is assumed `n=1` and `p_loss=0`, given there is no loss `--link tc` is no longer necessary.
 
-More about LineadEnds in the next section.
+More about LinearEnds in the next section.
 
 # Mininet
 
@@ -66,7 +135,7 @@ There is one customization parameter for adding more hosts to the right end, a.k
 To launch Mininet with the LinearEnds topology execute the next command:
 
 ```bash
-sudo mn --mac --custom ./mininet/linear_ends_topo.py --topo linends
+sudo mn --mac --custom ./mininet_topo/linear_ends_topo.py --topo linends
 ```
 
 The `--mac` argument is to simplify the MAC addresses of the hosts making the more semantic.
@@ -74,13 +143,13 @@ The `--mac` argument is to simplify the MAC addresses of the hosts making the mo
 To have more Client hosts, let's say `n` total client hosts, execute the next command:
 
 ```bash
-sudo mn --mac --custom ./mininet/linear_ends_topo.py --topo linends,n
+sudo mn --mac --custom ./mininet_topo/linear_ends_topo.py --topo linends,n
 ```
 
 To add a certain packet loss percentage, let's say `p_loss` (expressed as an integer between `1` and `100`), in the link between the server (h1) and its switch (s1) you have to execute the next command:
 
 ```bash
-sudo mn --mac --custom ./mininet/linear_ends_topo.py --topo linends,n,p_loss --link tc
+sudo mn --mac --custom ./mininet_topo/linear_ends_topo.py --topo linends,n,p_loss --link tc
 ```
 
 Where `--link tc` is to setup the link type as TrafficControl to be able to modify the packet loss.
@@ -96,7 +165,7 @@ If you don't have Mininet run in Linux the script `scripts/install_deps.sh` or y
 Once mininet is up with a certain packet loss setup:
 
 ```bash
-sudo mn --mac --custom ./mininet/linear_ends_topo.py --topo linends,n,p_loss --link tc
+sudo mn --mac --custom ./mininet_topo/linear_ends_topo.py --topo linends,n,p_loss --link tc
 ```
 
 Open xterm terminals in 2 hosts, let's say h1 and h2:
@@ -183,12 +252,22 @@ Given the node that can fragment is in the middle and the MTU is lowered on the 
 
 # Tests
 
-## Mininet IP Fragmentation tests
+### File Transfer tests with packet loss
+
+To run the file transfer tests for the LinearEnds topology you can use the tests with the next command:
+
+```bash
+sudo pytest
+```
+
+Or you can use the script `./test.sh`.
+
+### Mininet IP Fragmentation tests
 
 To run IP fragmentation tests for the LinearEnds topology run the tests with the next command:
 
 ```bash
-sudo python3 ./mininet/fragmentation_tests.py
+sudo python3 ./mininet_topo/fragmentation_tests.py
 ```
 
 # Informe

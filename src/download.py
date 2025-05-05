@@ -1,89 +1,22 @@
 #!/usr/bin/env python3
-
-import argparse
-from lib.constants import (
-    DEFAULT_PORT,
-    GO_BACK_N_PROTOCOL_TYPE,
-    STOP_AND_WAIT_PROTOCOL_TYPE,
-)
+from lib.client.client_download import DownloadClient
+from lib.client.parser_download import ClientDownloadArgParser
+from lib.common.logger import get_logger
 
 
-def parse_arguments():
-    parser = argparse.ArgumentParser(
-        description="Client side application to download files from the server side"
-    )
+def download():
+    arg_parser = ClientDownloadArgParser()
+    args = arg_parser.parse()
 
-    verbosity_group = parser.add_mutually_exclusive_group(required=False)
+    logger = get_logger(args.verbose, args.quiet)
 
-    verbosity_group.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="increase output verbosity",
-    )
+    args_dict = vars(args)
+    args_dict.pop("verbose")
+    args_dict.pop("quiet")
 
-    verbosity_group.add_argument(
-        "-q",
-        "--quiet",
-        action="store_true",
-        help="decrease output verbosity",
-    )
-
-    parser.add_argument(
-        "-H",
-        "--host",
-        required=True,
-        type=str,
-        metavar="ADDR",
-        help="server IP address",
-    )
-
-    parser.add_argument(
-        "-p",
-        "--port",
-        required=False,
-        default=DEFAULT_PORT,
-        type=int,
-        metavar="PORT",
-        help="server port",
-    )
-
-    parser.add_argument(
-        "-d",
-        "--dst",
-        required=True,
-        type=str,
-        metavar="FILEPATH",
-        help="destination file path",
-    )
-
-    parser.add_argument(
-        "-n",
-        "--name",
-        required=True,
-        type=str,
-        metavar="FILENAME",
-        help="file name on the server",
-    )
-
-    parser.add_argument(
-        "-r",
-        "--protocol",
-        required=False,
-        choices=[STOP_AND_WAIT_PROTOCOL_TYPE, GO_BACK_N_PROTOCOL_TYPE],
-        default=GO_BACK_N_PROTOCOL_TYPE,
-        metavar="PROTOCOL",
-        help="error recovery protocol",
-    )
-
-    return parser.parse_args()
-
-
-def main():
-    args = parse_arguments()
-    print("Args received:")
-    print(args)
+    client: DownloadClient = DownloadClient(logger, **args_dict)
+    client.run()
 
 
 if __name__ == "__main__":
-    main()
+    download()
