@@ -129,9 +129,8 @@ class ClientConnectionSaw(ClientConnection):
                 self.client_address,
             )
 
-            self.logger.debug(f"Waiting confirmation for chunk {chunk_number}")
-
             if not is_last_chunk:
+                self.logger.debug(f"Waiting confirmation for chunk {chunk_number}")
                 self.protocol.wait_for_ack(sequence_number.value)
 
             chunk_number += 1

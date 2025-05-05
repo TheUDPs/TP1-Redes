@@ -96,7 +96,14 @@ class DownloadClient(Client):
                 exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
             )
             return packet
-        except (UnexpectedFinMessage, MessageIsNotAck):
+        except UnexpectedFinMessage as e:
+            if e.packet.payload_length > 0:
+                return e.packet
+            else:
+                self.logger.debug("Filename confirmation failed")
+                raise FileDoesNotExist()
+
+        except MessageIsNotAck:
             self.logger.debug("Filename confirmation failed")
             raise FileDoesNotExist()
 
