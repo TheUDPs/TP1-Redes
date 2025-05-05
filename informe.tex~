@@ -1,0 +1,577 @@
+% Created 2025-05-05 lun 19:15
+% Intended LaTeX compiler: pdflatex
+\documentclass[titlepage,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{grffile}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{textcomp}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue,bookmarksopen=true}
+\usepackage{a4wide}
+\usepackage{bookmark}
+\usepackage{fancyhdr}
+\usepackage[spanish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{minted}
+\usepackage{svg}
+\usepackage{xcolor}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{TP1 - Grupo 2}
+\fancyhead[R]{Redes - FIUBA}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancyfoot[C]{\thepage}
+\renewcommand{\footrulewidth}{0.4pt}
+\usemintedstyle{stata-light}
+\newminted{c}{bgcolor={rgb}{0.95,0.95,0.95}}
+\usepackage{color}
+\usepackage[utf8]{inputenc}
+\usepackage{fancyvrb}
+\fvset{framesep=1mm,fontfamily=courier,fontsize=\scriptsize,numbers=left,framerule=.3mm,numbersep=1mm}
+\usepackage[nottoc]{tocbibind}
+\usepackage{amsmath}
+\usepackage{changepage}
+\author{Vicky}
+\date{\today}
+\title{}
+\hypersetup{
+ pdfauthor={Vicky},
+ pdftitle={},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={Emacs 27.1 (Org mode 9.3)}, 
+ pdflang={Spanish}}
+\begin{document}
+
+\begin{titlepage}
+    \hfill\includegraphics[width=6cm]{docs/imgs/logofiuba.jpg}
+    \centering
+    \vfill
+    \Huge \textbf{Trabajo Práctico 1}
+    \vskip2cm
+    \Large [TA048] Redes \\
+    Primer cuatrimestre de 2025\\
+    \vfill
+    \begin{tabular}{ | l | l | l | }
+      \hline
+      Alumno & Padron & Email \\ \hline
+      AVALOS, Victoria & 108434 & vavalos@fi.uba.ar \\ \hline
+      CASTRO MARTINEZ, Jose Ignacio & 106957 & jcastrom@fi.uba.ar \\ \hline
+      CIPRIANO, Victor & 106593 & vcipriano@fi.uba.ar \\ \hline
+      DEALBERA, Pablo Andres & 106858 & pdealbera@fi.uba.ar \\ \hline
+      DIEM, Walter Gabriel & 105618 & wdiem@fi.uba.ar \\ \hline
+    \end{tabular}
+    \vfill
+\end{titlepage}
+\tableofcontents
+\newpage
+\definecolor{bg}{rgb}{0.95,0.95,0.95}
+
+\section{Introducción}
+\label{sec:org8bdafbf}
+
+En el presente trabajo práctico se desarrolla una aplicación de red para la transferencia de archivos, basada en una arquitectura 
+cliente-servidor, con el objetivo principal de implementar mecanismos de transferencia de datos confiable. Para ello, se trabajará 
+sobre la capa de transporte, utilizando específicamente el protocolo UDP, lo cual requiere diseñar e implementar soluciones 
+personalizadas que garanticen la entrega de datos confiable. En este marco, se explorarán los principios del concepto de  
+Reliable Data Transfer (RDT), implementando dos de sus variantes: Stop-and-Wait y Go-Back-N (GBN). La comunicación entre procesos 
+se llevará a cabo mediante la interfaz de sockets de Python, y se utilizará la herramienta Mininet para simular diferentes 
+condiciones de red y evaluar el comportamiento de las implementaciones, incluyendo escenarios con pérdida de paquetes.
+
+
+\section{Hipótesis y suposiciones realizadas}
+\label{sec:org9668019}
+
+\begin{itemize}
+\item La carga/descarga no va a conservar la metadata del archivo. Es decir, si yo descargo un archivo, ese archivo va a tener metadata como si yo hubiera creado el archivo desde cero usando `touch archivo`.
+\item Si el cliente utiliza otro protocolo para comunicarse con el server, el server debe rechazar este pedido. (PROTOCOL MISSMATCH). El header tendra un campo dedicado a esto.
+\item El argumento de FILENAME sera opcional, en caso de no estar, se utiliza el nombre original del archivo.
+\item Por simplicidad, vamos a guardar todos los archivos en DIRPATH sin ningún nivel de subdirectorios.
+\item Por simplicidad, vamos a tener un tamaño máximo de 2GB para la subida y descarga de archivos.
+\item Los archivos en proceso de escritura se van a escribir en una ubicación temporal para evitar que se corrompan en la ubicación que el cliente pidió.
+\item Usar seek y bufferear para leer el archivo. Leer con slices del buffer.
+\end{itemize}
+
+\section{Implementación}
+\label{sec:org57c781f}
+\subsection{Topología}
+\label{sec:org421bd57}
+
+\begin{center}
+\includegraphics[width=0.5\textwidth]{docs/imgs/linear_ends_multiple_clients_with_loss.png}
+\end{center}
+
+La topología es una red lineal con 1 host servidor conectado a 3 switches en serie cuyo ultimo switch esta conectado a n hosts clientes. El primer enlace (el conectado entre el servidor y el primero switch) tiene configurado un packet loss del 10$\backslash$% configurado de forma simetrica 5\% de cada lado del enlace.
+
+\subsection{Especificación del protocolo Stop-and-Wait}
+\label{sec:org6f5093b}
+
+\subsubsection{General}
+\label{sec:org91a4806}
+
+\begin{enumerate}
+\item Tamaño máximo de payload
+\label{sec:org9ccdb99}
+
+El tamaño máximo de payload es el tamaño máximo de un datagrama UDP menos el tamaño de los headers de IP, UDP y SAW.
+
+Como el MTU que usamos en mininet es 1500, el tamaño máximo de payload es:
+
+\begin{align*}
+  \text{HISTORICAL\_MTU} &= 1500 \\
+  \text{MAX\_IP\_HEADER\_SIZE} &= 60 \\
+  \text{UDP\_HEADER\_SIZE} &= 8 \\
+  \text{SAW\_PROTOCOL\_HEADER\_SIZE} &= 6 \\
+\end{align*}
+
+\begin{align*}
+\text{FILE\_CHUNK\_SIZE} = \text{HISTORICAL\_MTU} - \text{MAX\_IP\_HEADER\_SIZE} \\
+                        -\ \text{UDP\_HEADER\_SIZE} - \text{SAW\_PROTOCOL\_HEADER\_SIZE}
+\end{align*}
+\end{enumerate}
+
+\subsubsection{Handshake}
+\label{sec:org0b44162}
+
+\begin{center}
+\includegraphics[width=0.5\textwidth]{docs/imgs/connection-handshake.png}
+\end{center}
+
+La idea es usar este handshake para inicialización de recursos del servidor y check de protocolo. \\
+
+Se usa la nomenclatura S para mencionar al servidor y C para el cliente.
+
+\uline{Mensajes para caso Download y caso Upload}:
+
+\begin{enumerate}
+\item C \(\rightarrow\) S: con flag SYN para declarar una solicitud de conexión y el protocolo
+\end{enumerate}
+
+\textbf{Flujo normal (mismo protocolo)}:
+
+\begin{enumerate}
+\setcounter{enumi}{1}
+\item S \(\rightarrow\) C: con flag de SYN y ACK para declarar que se acepta la conexión y el puerto donde se va a escuchar el resto.
+\item C \(\rightarrow\) S: con flag ACK al mismo welcoming socket.
+\end{enumerate}
+
+\textbf{Flujo de error (distinto protocolo)}:
+
+\begin{enumerate}
+\setcounter{enumi}{1}
+\item S \(\rightarrow\) C: con flag FIN para denegar la conexión por usar un protocolo distinto.
+\end{enumerate}
+
+Se hace una transferencia de puerto para que el welcoming socket se encargue solamente de establecer conexiones y el nuevo puerto maneje la transferencia de datos del archivo. El último ACK de parte del cliente asegura que se recibió el puerto donde se tiene que comunicar y es seguro hacer el cambio de socket.
+
+\subsubsection{Etapa de configuración y Transferencia}
+\label{sec:orgfef3448}
+
+El cliente ya sabe que tiene que comunicarse con el nuevo puerto.
+
+Se envía primero la configuración para saber si la operación es valida y tener en cuenta casos de error, y luego se hace la transferencia. \\
+
+\uline{Mensajes para caso Download y caso Upload}:
+
+\begin{enumerate}
+\item C \(\rightarrow\) S: se declara la operación (OP), que puede ser download (0) o upload (1)
+\item S \(\rightarrow\) C: ACK de la operación (no falla)
+\end{enumerate}
+
+\uline{Continuación de mensajes para caso Download}:
+
+\begin{enumerate}
+\setcounter{enumi}{2}
+\item Mensaje 3 C \(\rightarrow\) S: filename
+\end{enumerate}
+
+\textbf{Flujo Normal}:
+
+\begin{enumerate}
+\setcounter{enumi}{3}
+\item S \(\rightarrow\) C: ACK + comienzo de datos (piggybacked)
+\item C \(\rightarrow\) S: ACK
+\item S \(\rightarrow\) C: continuacion de datos
+\end{enumerate}
+
+\textbf{Flujo de error (no existe un archivo con ese nombre)}:
+
+\begin{enumerate}
+\setcounter{enumi}{3}
+\item S \(\rightarrow\) C: FIN, se termina la conexión
+\end{enumerate}
+
+\uline{Continuación de mensajes para caso Upload}:
+
+\begin{enumerate}
+\setcounter{enumi}{2}
+\item C \(\rightarrow\) S: filename
+\end{enumerate}
+
+\textbf{Flujo de error (ya existe un archivo con ese nombre)}:
+
+\begin{enumerate}
+\setcounter{enumi}{3}
+\item S \(\rightarrow\) C: FIN, se termina la conexión
+\end{enumerate}
+
+\textbf{Flujo normal}:
+
+\begin{enumerate}
+\setcounter{enumi}{3}
+\item S \(\rightarrow\) C: ACK
+\item C \(\rightarrow\) S: filesize
+\end{enumerate}
+
+\textbf{Flujo de error (archivo es más grande que el tamaño máximo o [TODO] no hay más espacio en disco)}:
+
+\begin{enumerate}
+\setcounter{enumi}{5}
+\item S \(\rightarrow\) C: FIN, se termina la conexión
+\end{enumerate}
+
+\textbf{Flujo normal}:
+
+\begin{enumerate}
+\setcounter{enumi}{5}
+\item S \(\rightarrow\) C: ACK
+\item C \(\rightarrow\) S: comienzo de datos
+\item S \(\rightarrow\) C: ACK
+\item C \(\rightarrow\) S: continuacion de datos
+\end{enumerate}
+
+\subsubsection{Cierre}
+\label{sec:org92cbb26}
+
+El flag FIN va piggybacked con la última data para que sea más eficiente. El receptor confirma con un ACK + FIN para que el emisor sepa que le llego la informacion, y por si este se pierde está el último ACK para confirmar el cierre de parte del emisor. \\
+
+\begin{enumerate}
+\item Mensajes para caso Download
+\label{sec:orgc18febb}
+
+\begin{center}
+\includegraphics[width=0.5\textwidth]{docs/imgs/download.png}
+\end{center}
+
+\begin{enumerate}
+\item S \(\rightarrow\) C: ultima data, va piggybacked el flag FIN
+\item C \(\rightarrow\) S: ACK + FIN
+\item S \(\rightarrow\) C: ACK
+\end{enumerate}
+
+\item Mensajes para caso Upload:
+\label{sec:org4623842}
+
+\begin{center}
+\includegraphics[width=0.5\textwidth]{docs/imgs/upload.png}
+\end{center}
+
+\begin{enumerate}
+\item C \(\rightarrow\) S: ultima data, va piggybacked el flag FIN
+\item S \(\rightarrow\) C: ACK + FIN
+\item C \(\rightarrow\) S: ACK
+\end{enumerate}
+\end{enumerate}
+
+\subsection{Especificación del protocolo Go-Back-N}
+\label{sec:org39444ad}
+\subsubsection{Ciclo de Vida}
+\label{sec:org3bbfed7}
+
+\begin{center}
+\includegraphics[width=0.7\textwidth]{docs/imgs/gbn.png}
+\end{center}
+
+
+\subsubsection{Análisis del ciclo de vida de una transferencia con Go-Back-N}
+\label{sec:org7f493aa}
+
+El siguiente análisis describe el comportamiento de una transferencia de
+archivos mediante el protocolo Go-Back-N (GBN) con una ventana de tamaño 2. En
+este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el
+servidor. El ciclo de vida de la request se puede dividir en cuatro fases
+principales:
+
+\begin{enumerate}
+\item Establecimiento de la conexión (Handshake):
+\label{sec:org5b9cddb}
+\begin{itemize}
+\item El cliente inicia la conexión enviando un paquete con las banderas `SYN`, con `seq=0` y `ack=0`.
+\item El servidor responde con un paquete combinado `SYN, ACK` manteniendo los mismos valores de secuencia y acuse.
+\item El cliente confirma la recepción enviando un paquete `ACK` con `seq=1` y `ack=1`, incluyendo una operación de configuración (data=1 op\textsubscript{code}).
+\item El servidor responde con un `ACK` para confirmar la recepción del mensaje de configuración.
+\end{itemize}
+
+\item Configuración:
+\label{sec:org7962727}
+\begin{itemize}
+\item El cliente envía un paquete con `seq=2`, `ack=2` y `data=report.pdf`, indicando el nombre del archivo solicitado.
+\item El servidor responde con un paquete de datos con `seq=2`, `ack=2`, una longitud de carga útil de 1416 bytes y los primeros bits del archivo.
+\item El cliente confirma la recepción con un `ACK` correspondiente.
+\end{itemize}
+
+\item Transferencia del archivo:
+\label{sec:org3e306f7}
+\begin{itemize}
+\item El servidor envía el segundo fragmento de datos (`seq=3`, `ack=2`), también de 1416 bytes.
+\item Posteriormente, se envía un paquete con la bandera `FIN` (`seq=4`, `ack=2`, `payload\textsubscript{length}=168`), marcando el fin de la transferencia.
+\item El cliente responde con dos `ACK`, uno para cada paquete recibido correctamente: `seq=3, ack=3` y `seq=4, ack=4`.
+\end{itemize}
+
+\item Cierre de la conexión (Closing handshake):
+\label{sec:org1da898a}
+\begin{itemize}
+\item El cliente envía un `FIN` para finalizar su lado de la comunicación (`seq=4, ack=4`).
+\item El servidor responde con un `ACK` final (`seq=5, ack=5`), completando el cierre de la conexión de manera ordenada.
+\end{itemize}
+\end{enumerate}
+
+\section{Pruebas}
+\label{sec:org76bebbd}
+
+En esta sección mostraremos capturas de diferentes casos de uso de la aplicación.
+
+\subsection{Casos de error}
+\label{sec:org2a14768}
+
+\begin{itemize}
+\item Protocol Mismatch
+\end{itemize}
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=.9\linewidth]{docs/imgs/protocol_mismatch.png}
+\caption{Ejemplo de protocol mismatch.}
+\end{figure}
+
+En caso de que un cliente intente conectarse con un servidor utilizando un protocolo diferente al suyo, el servidor lo rechazará. En la imagen se puede observar un ejemplo en el que un servidor que utiliza Stop \& Wait rechaza a un cliente que hace una petición con Go Back N.
+
+\begin{itemize}
+\item Archivo ya existente.
+\end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=.9\linewidth]{docs/imgs/file_already_exists.png}
+\caption{Ejemplo de upload de un archivo que ya existe en el servidor.}
+\end{figure}
+
+Para ambos protocolos, si el cliente intenta subir un archivo que el servidor ya tiene, se rechaza.
+
+\subsection{Stop \& Wait}
+\label{sec:org5eef636}
+
+Para mostrar el funcionamiento de stop and wait, primero mostraremos los logs de las operaciones upload y download de un archivo pequeño de 5kB a modo de ejemplo, y luego cómo se ve una captura de whireshark de un archivo más grande.
+
+\begin{itemize}
+\item Upload
+\end{itemize}
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=.9\linewidth]{docs/imgs/saw_upload.png}
+\caption{Ejemplo de Upload con Stop \& Wait.}
+\end{figure}
+
+\begin{itemize}
+\item Download
+\end{itemize}
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=.9\linewidth]{docs/imgs/saw_download.png}
+\caption{Ejemplo de Download con Stop \& Wait.}
+\end{figure}
+
+\subsubsection{Tabla de Datos de Wireshark}
+\label{sec:org172b74c}
+
+\begin{adjustwidth}{-3cm}{-3cm}
+\begin{center}
+\begin{tabular}{rrrrlrlrlllrrl}
+No & Time & Src & Dst & Proto & Len & Type & SEQ & ACK & SYN & FIN & SrcPort & DstPort\\[0pt]
+\hline
+1 & 0.000000000 & 10.0.1.1 & 10.0.0.1 & SAW & 48 & Stop-and-Wait & 0 & False & True & False & 52515 & 0\\[0pt]
+2 & 0.000191297 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 0 & True & True & False & 41367 & 0\\[0pt]
+3 & 0.002208402 & 10.0.1.1 & 10.0.0.1 & SAW & 50 & Stop-and-Wait & 1 & True & False & False & 52515 & 2\\[0pt]
+4 & 0.002801150 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 1 & True & False & False & 41367 & 0\\[0pt]
+5 & 0.004355272 & 10.0.1.1 & 10.0.0.1 & SAW & 53 & Stop-and-Wait & 0 & False & False & False & 52515 & 5\\[0pt]
+6 & 0.004722710 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 0 & True & False & False & 41367 & 0\\[0pt]
+7 & 0.005754904 & 10.0.1.1 & 10.0.0.1 & SAW & 52 & Stop-and-Wait & 1 & False & False & False & 52515 & 4\\[0pt]
+8 & 0.005879502 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 1 & True & False & False & 41367 & 0\\[0pt]
+9 & 0.006562696 & 10.0.1.1 & 10.0.0.1 & SAW & 1474 & Stop-and-Wait & 0 & False & False & False & 52515 & 1426\\[0pt]
+10 & 0.006634214 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 0 & True & False & False & 41367 & 0\\[0pt]
+11 & 0.006819155 & 10.0.1.1 & 10.0.0.1 & SAW & 1474 & Stop-and-Wait & 1 & False & False & False & 52515 & 1426\\[0pt]
+12 & 0.006887880 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 1 & True & False & False & 41367 & 0\\[0pt]
+\ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{}\ldots{}\\[0pt]
+384 & 0.036747322 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 1 & True & False & False & 41367 & 0\\[0pt]
+385 & 0.036806828 & 10.0.1.1 & 10.0.0.1 & SAW & 1474 & Stop-and-Wait & 0 & False & False & False & 52515 & 1426\\[0pt]
+386 & 0.036860606 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 0 & True & False & False & 41367 & 0\\[0pt]
+387 & 0.037000220 & 10.0.1.1 & 10.0.0.1 & SAW & 1474 & Stop-and-Wait & 1 & False & False & False & 52515 & 1426\\[0pt]
+388 & 0.037084310 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 1 & True & False & False & 41367 & 0\\[0pt]
+389 & 0.037217987 & 10.0.1.1 & 10.0.0.1 & SAW & 363 & Stop-and-Wait & 0 & False & False & True & 52515 & 315\\[0pt]
+390 & 0.037459011 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 0 & True & False & False & 41367 & 0\\[0pt]
+391 & 0.037511183 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 0 & False & False & True & 41367 & 0\\[0pt]
+392 & 0.037580397 & 10.0.1.1 & 10.0.0.1 & SAW & 48 & Stop-and-Wait & 1 & True & False & False & 52515 & 0\\[0pt]
+\end{tabular}
+\end{center}
+\end{adjustwidth}
+
+\subsection{Análisis de la comunicación Stop-and-Wait}
+\label{sec:org4da624b}
+
+La tabla presentada muestra una traza de paquetes intercambiados entre dos nodos de mininet (10.0.1.1 y 10.0.0.1) utilizando el protocolo desarrollado con el esquema Stop-and-Wait. Este protocolo garantiza la entrega ordenada y libre de errores mediante el envío secuencial de paquetes, esperando una confirmación (ACK) por cada uno antes de continuar con el siguiente.
+
+El ciclo de vida de la comunicación puede dividirse en tres fases:
+
+\textbf{\textbf{1. Establecimiento de la conexión:}}
+\begin{itemize}
+\item El cliente (10.0.1.1) inicia la conexión enviando un paquete con la bandera `SYN` activada.
+\item El servidor (10.0.0.1) responde con un paquete que contiene tanto `SYN` como `ACK`, indicando aceptación.
+\item Finalmente, el cliente responde con un `ACK`, completando el procedimiento de handshake.
+\end{itemize}
+
+\textbf{\textbf{2. Transferencia de datos:}}
+\begin{itemize}
+\item Una vez establecida la conexión, el cliente comienza a enviar datos, alternando los números de secuencia (SEQ) entre 0 y 1. Este comportamiento es característico del protocolo Stop-and-Wait.
+\item Por cada paquete de datos enviado, el servidor responde con un paquete de confirmación (`ACK`) para indicar que ha recibido correctamente el contenido.
+\item El campo `Len` refleja el tamaño de los datos transportados, y los puertos de origen y destino se utilizan para mantener la sesión activa entre los procesos involucrados.
+\end{itemize}
+
+\textbf{\textbf{3. Finalización de la conexión:}}
+\begin{itemize}
+\item El cliente inicia el cierre de la sesión enviando un paquete con la bandera `FIN` activada.
+\item El servidor responde primero con un `ACK`, y luego con su propio paquete `FIN`, indicando que también desea cerrar la conexión.
+\item Finalmente, el cliente responde con un `ACK`, completando el cierre de la comunicación de manera ordenada.
+\end{itemize}
+
+En resumen, esta captura de paquetes evidencia el funcionamiento correcto de una implementación del protocolo Stop-and-Wait, en donde cada paquete enviado es seguido por una respuesta de confirmación, y el inicio y cierre de la conexión se realizan mediante el protocolo RDT.
+
+\section{Preguntas a Responder}
+\label{sec:org7cf437b}
+\subsection{Describa la arquitectura Cliente-Servidor.}
+\label{sec:orgb8ad6e9}
+La arquitectura Cliente-Servidor es una de dos arquitecturas más comunes. En esta arquitectura hay un \emph{host} (\emph{end system}) llamado \emph{server} que esta siempre encendido que pasivamente escucha \emph{requests} de otros \emph{hosts} llamados \emph{clients} que son agentes activos que inician la comunicación con el \emph{server}.
+
+Un ejemplo de esta arquitectura es una aplicacion Web donde hay un \emph{Web server} que escucha \emph{requests} de navegadores web. El navegador web es el cliente que inicia la comunicación y el \emph{Web server} es el servidor que responde a los \emph{requests}. Estos mensajes tienen el formato de Capa de Aplicación HTTP.
+
+\subsubsection{Caracteristicas}
+\label{sec:org4ceb66c}
+\begin{itemize}
+\item Los clientes son agentes activos que inician la comunicación.
+\item Los clientes no se comunican entre si.
+\item Los clientes no necesitan estar encendidos todo el tiempo ni tener una IP fija.
+\item Los servidores son pasivos y siempre están encendidos.
+\item Los servidores \textbf{deben} tener una IP fija bien conocida (\emph{well-known IP address}) que se puede resolver con un nombre de dominio DNS (\emph{domain name}).
+\item Los servidores pueden tener múltiples clientes conectados al mismo tiempo.
+\end{itemize}
+
+\subsubsection{Ventajas}
+\label{sec:org16aca82}
+\begin{itemize}
+\item Diseño simple usando protocolos sin estado como HTTP donde el servidor no
+necesita mantener informacion sobre clientes ya que se puede guardar
+informacion del cliente en \emph{cookies} del cliente y estos se transmitidos en
+\emph{headers} HTTP.
+\item Puede soportar un gran numero de clientes.
+\end{itemize}
+
+\subsubsection{Desventajas}
+\label{sec:org6754a9a}
+\begin{itemize}
+\item Un solo punto de falla. Si el servidor se cae, el servicio se cae.
+\item El servidor debe estar encendido todo el tiempo.
+\item Gran costo para escalar, ya que a medida de que el servicio tiene mas
+usuarios, el servidor debe tambien aumentar su capacidad de procesar mas
+clientes.
+\end{itemize}
+
+\subsection{¿Cuál es la función de un protocolo de capa de aplicación?}
+\label{sec:org7c72177}
+
+Un protocolo de capa de aplicación especifica cómo los procesos de una aplicación, que se ejecutan en diferentes sistemas finales, intercambian mensajes entre sí. Este tipo de protocolo define:
+
+\begin{itemize}
+\item Los tipos de mensajes que se envían, como mensajes de solicitud y de respuesta.
+
+\item La sintaxis de los mensajes, es decir, la estructura de los campos dentro de cada mensaje y cómo se separan o identifican esos campos.
+
+\item La semántica de los campos, indicando qué significa la información contenida en cada uno.
+
+\item Las reglas de comunicación, que establecen cuándo un proceso debe enviar un mensaje y cómo debe reaccionar al recibir uno.
+\end{itemize}
+
+En resumen, los protocolos de capa de aplicación aseguran que las aplicaciones puedan comunicarse correctamente y coordinarse en la red, haciendo posible servicios como el correo electrónico, la web o la transferencia de archivos.
+
+\subsection{Detalle el protocolo de aplicación desarrollado en este trabajo.}
+\label{sec:org8c728c3}
+
+\subsection{La capa de transporte del stack TCP/IP ofrece dos protocolos: TCP y UDP.}
+\label{sec:org7f9afc7}
+
+\subsubsection{¿Qué servicios proveen dichos protocolos?}
+\label{sec:orgeb2a46a}
+
+Ambos protocolos proveen los siguientes servicios:
+
+\begin{itemize}
+\item \textbf{Multiplexación/Demultiplexación}: son los mecanismos que permiten extender el servicio de entrega de IP entre dos end systems a un servicio de entrega entre dos procesos que se ejecutan en esos sistemas. Dichos mecanismos permiten identificar a qué proceso pertenece cada ssegmento recibido.
+\item \textbf{Chequeo de integridad}: se verifica que no haya errores en los datos mediante un campo de checksum en los headers de ambos protocolos.
+\end{itemize}
+
+UDP no realiza ninguna otra función extra. Por lo tanto, su servicio es:
+\begin{itemize}
+\item \textbf{No confiable}: no garantiza que la entrega de los paquetes sea exitosa, ni tampoco que lleguen en orden.
+\item \textbf{Sin conexión}: cada paquete datagrama se envía de manera independiente, sin garantías de que el receptor esté listo o incluso disponible.
+\end{itemize}
+
+Por su parte, TCP ofrece las siguientes funcionalidades adicionales:
+\begin{itemize}
+\item \textbf{Orientado a la conexión}: antes de que un proceso de aplicación pueda comenzar a enviar datos a otro, ambos procesos deben comunicarse entre sí; es decir, deben enviarse algunos segmentos preliminares para establecer los parámetros de la transferencia de datos subsiguiente. Se trata de una conexión lógica con un estado en común que reside en TCP de los hosts.
+\item \textbf{Transferencia de datos confiable}: garantiza la entrega, el orden y la no corrupción de los datos. Esto lo logra mediante timers, numeros de secuencia y ACKs (flags que indican que un paquete fue entregado correctamente).
+\item \textbf{Control de congestión}: festiona que no se saturen los enlaces. Es más bien un servicio para la red.
+\item \textbf{Control de flujo}: para eliminar la posibilidad de que el remitente desborde el búfer del receptor. Hace coincidir la velocidad a la que el remitente envía con la velocidad a la que la aplicación receptora lee.
+\end{itemize}
+
+\subsubsection{¿Cuáles son sus características?}
+\label{sec:orgd2bbec7}
+
+Algunas de las características de UDP son las siguientes:
+\begin{itemize}
+\item \textbf{Pequeño overhead de header por paquete}: UDP posee un header pequeño (8 bytes) en comparación con TCP (20 bytes)
+\item \textbf{Sin estado de conexión}: UDP no mantiene un estado de conexión en los end systems, por lo que no rastrea ningún parámetro. Por esta razón, un servidor dedicado a una aplicación específica generalmente puede admitir muchos más clientes activos cuando la aplicación se ejecuta mediante UDP en lugar de TCP.
+\item \textbf{Sin retraso por conexión}: UDP no induce ningún retraso para establecer una conexión, a diferencia de TCP que posee un handshake de tres pasos.
+\end{itemize}
+
+Por su parte, TCP posee las siguientes características:
+
+\begin{itemize}
+\item \textbf{Full-duplex}: dada una conexión TCP entre dos hosts, digamos A y B, la información puede fluir de A a B al mismo tiempo que fluye información de B a A.
+\item \textbf{Conexión point-to-point}: la conexión de TCP únicamente se puede establecer entre un único remitente y un único receptor, no admite multicasting.
+\item \textbf{Three-Way Handshake}: para establecer la conexión mencionada anteriormente se realiza un procedimiento donde se envían tres segmentos.
+\end{itemize}
+
+\subsubsection{¿Cuando es apropiado utilizar cada uno?}
+\label{sec:org0fbbadc}
+
+Ninguno de estos protocolos es mejor que el otro. Para decidir cuál de ellos utilizar, se deben tener en cuenta las necesidades de la aplicación.
+Debido a las características mencionadas anteriormente, UDP resulta más apropiado para aplicaciones que requieran mayor velocidad sin que sea tan sensible a algunas pérdidas de paquetes, por ejemplo plataformas de streaming, y si se tiene un servidor dedicado a una aplicación específica que necesita poder admitir muchos más clientes activos.
+Por otro lado, TCP es más ventajoso para las aplicaciones que necesitan un transporte confiable de los datos. Algunos ejemplos son el email y la web.
+
+\section{Dificultades Encontradas}
+\label{sec:org06bb7a8}
+\section{Conclusión}
+\label{sec:org9fcaaad}
+\section{Anexo: Fragmentacion IPv4}
+\label{sec:org1935064}
+\subsection{Analisis}
+\label{sec:orgac5ae8d}
+\end{document}

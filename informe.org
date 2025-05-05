@@ -341,7 +341,36 @@ principales:
 
 * Pruebas
 
-** Tabla de Datos de Wireshark
+En esta sección mostraremos capturas de diferentes casos de uso de la aplicación.
+
+** Casos de error
+
+- Protocol Mismatch
+#+caption: Ejemplo de protocol mismatch.
+[[file:docs/imgs/protocol_mismatch.png]]
+
+En caso de que un cliente intente conectarse con un servidor utilizando un protocolo diferente al suyo, el servidor lo rechazará. En la imagen se puede observar un ejemplo en el que un servidor que utiliza Stop & Wait rechaza a un cliente que hace una petición con Go Back N.
+
+- Archivo ya existente.
+
+#+caption: Ejemplo de upload de un archivo que ya existe en el servidor.
+[[file:docs/imgs/file_already_exists.png]]
+
+Para ambos protocolos, si el cliente intenta subir un archivo que el servidor ya tiene, se rechaza.
+
+** Stop & Wait
+
+Para mostrar el funcionamiento de stop and wait, primero mostraremos los logs de las operaciones upload y download de un archivo pequeño de 5kB a modo de ejemplo, y luego cómo se ve una captura de whireshark de un archivo más grande.
+
+- Upload
+#+caption: Ejemplo de Upload con Stop & Wait.
+[[file:docs/imgs/saw_upload.png]]
+
+- Download
+#+caption: Ejemplo de Download con Stop & Wait.
+[[file:docs/imgs/saw_download.png]]
+
+*** Tabla de Datos de Wireshark
 
 \begin{adjustwidth}{-3cm}{-3cm}
 \begin{center}
@@ -480,7 +509,7 @@ Debido a las características mencionadas anteriormente, UDP resulta más apropi
 Por otro lado, TCP es más ventajoso para las aplicaciones que necesitan un transporte confiable de los datos. Algunos ejemplos son el email y la web.
 
 * Dificultades Encontradas
-* Conclusion
+* Conclusión
 * Anexo: Fragmentacion IPv4
 ** Enunciado :noexport:
 El siguiente ejercicio se plantea como objetivo la comprensión y la puesta en
