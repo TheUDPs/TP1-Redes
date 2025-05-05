@@ -105,7 +105,7 @@ class ClientConnectionGbn(ClientConnection):
         ack_number: MutableVariable,
         filename: str,
         filesize: int,
-    ):
+    ) -> bool:
         chunk_number: int = 1
         total_chunks: int = self.file_handler.get_number_of_chunks(
             filesize, FILE_CHUNK_SIZE_GBN
@@ -145,6 +145,8 @@ class ClientConnectionGbn(ClientConnection):
         if not is_last_chunk:
             self.protocol.wait_for_ack(sequence_number.value)
 
+        return is_last_chunk
+
     def send_file(
         self,
         sequence_number: MutableVariable,
@@ -156,9 +158,12 @@ class ClientConnectionGbn(ClientConnection):
         )
         filename_for_download.value = _filename
 
-        self.send_first_packet(
+        is_last_chunk = self.send_first_packet(
             sequence_number, ack_number, filename_for_download.value, filesize
         )
+
+        if is_last_chunk:
+            return False
 
         self.socket.reset_state()
         socket_gbn = SocketGbn(self.socket.socket, self.logger)

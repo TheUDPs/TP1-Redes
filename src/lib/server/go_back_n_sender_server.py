@@ -177,8 +177,12 @@ class GoBackNSender:
             filesize, FILE_CHUNK_SIZE_GBN
         )
 
+        amount_to_unwind = (
+            filesize if filesize < FILE_CHUNK_SIZE_GBN else FILE_CHUNK_SIZE_GBN
+        )
+
         chunk_list: list[bytes] = []
-        self.file_handler.unwind(file, FILE_CHUNK_SIZE_GBN)
+        self.file_handler.unwind(file, amount_to_unwind)
 
         for _ in range(total_chunks):
             chunk = self.file_handler.read(file, FILE_CHUNK_SIZE_GBN)

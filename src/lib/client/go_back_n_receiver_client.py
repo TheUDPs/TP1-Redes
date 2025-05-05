@@ -52,7 +52,7 @@ class GoBackNReceiver:
             packet_storage.value = packet
         else:
             self.logger.warn(
-                f"Found invalid sequence number, expected seq {self.sqn_number.value}, got {packet.sequence_number}"
+                f"Found invalid sequence number, expected seq {self.ack_number.value + 1}, got {packet.sequence_number}"
             )
             self.logger.debug("Resending last ACK")
             self.protocol.socket.sendto(
@@ -92,13 +92,18 @@ class GoBackNReceiver:
         self.logger.debug("Beginning file reception in GBN manner")
         should_continue_reception = MutableVariable(True)
 
-        _packet = self.receive_first_gbn_chunk(
+        packet = self.receive_first_gbn_chunk(
             last_transmitted_packet, 1, should_continue_reception
         )
 
         self.sqn_number.step()
         self.ack_number.step()
         chunk_number: int = 1
+
+        if not should_continue_reception.value and packet.payload_length > 0:
+            msg = f"Received chunk {chunk_number + 1}. Hash is: {compute_chunk_sha256(packet.data)}"
+            self.logger.debug(msg)
+            self.file_handler.append_to_file(file, packet)
 
         while should_continue_reception.value:
             chunk_number += 1
