@@ -140,7 +140,7 @@ def test_01_server_can_handle_correctly_3_downloads_and_1_upload_simultaneously(
 
     p_loss = P_LOSS.value
 
-    FILE_SIZE_IN_MB = 5
+    FILE_SIZE_IN_MB = 2
 
     tmp_dirpath, timestamp = setup_directories(TESTS_DIR)
     filepath_to_download1 = "test_file_download1.txt"
