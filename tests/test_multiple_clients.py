@@ -88,6 +88,7 @@ def check_results_multiple_clients(
 
     while time() < end_time:
         sleep(TEST_POLLING_TIME)
+        should_break = MutableVariable(False)
 
         for i in range(len(was_client_successful_array)):
             client_log = client_logs_array[i]
@@ -106,14 +107,17 @@ def check_results_multiple_clients(
                 )
             except ErrorDetected:
                 print("Failure: error detected.")
-                break
+                should_break.value = True
 
             was_client_successful.value = _was_client_successful.value
             was_server_successful.value = _was_server_successful.value
 
             if are_all_successful(was_client_successful_array, was_server_successful):
                 print("Success! All clients and the server reported completion.")
-                break
+                should_break.value = True
+
+        if should_break.value:
+            break
 
     elapsed = time() - start_time
     print(f"Test finished after {elapsed:.1f}s")
@@ -135,7 +139,7 @@ def test_01_server_can_handle_correctly_3_downloads_and_1_upload_simultaneously(
 
     p_loss = P_LOSS.value
 
-    FILE_SIZE_IN_MB = 0.5
+    FILE_SIZE_IN_MB = 5
 
     tmp_dirpath, timestamp = setup_directories(TESTS_DIR)
     filepath_to_download1 = "test_file_download1.txt"
@@ -165,6 +169,8 @@ def test_01_server_can_handle_correctly_3_downloads_and_1_upload_simultaneously(
         saved_as=filepath_to_download1,
     )
 
+    sleep(0.5)  # wait for client start
+
     download_client_2_pid, download_client_2_log = start_download_client2(
         h6,
         tmp_dirpath,
@@ -173,6 +179,8 @@ def test_01_server_can_handle_correctly_3_downloads_and_1_upload_simultaneously(
         file_to_download="test_file.txt",
         saved_as=filepath_to_download2,
     )
+
+    sleep(0.5)  # wait for client start
 
     download_client_3_pid, download_client_3_log = start_download_client2(
         h7,
@@ -183,9 +191,13 @@ def test_01_server_can_handle_correctly_3_downloads_and_1_upload_simultaneously(
         saved_as=filepath_to_download3,
     )
 
+    sleep(0.5)  # wait for client start
+
     upload_client_1_pid, upload_client_1_log = start_upload_client(
         h2, tmp_dirpath, port, PROTOCOL.value, file_to_upload=filepath_for_upload
     )
+
+    sleep(0.5)  # wait for client start
 
     were_client_uploaders_successful_array = [MutableVariable(False)]
     were_client_downloaders_successful_array = [
