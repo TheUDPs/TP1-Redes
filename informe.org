@@ -985,13 +985,15 @@ Desde el punto de vista de TCP nunca ve los fragmentos individuales. Solo sabe q
 
 De esta forma, TCP en el servidor no responde porque no tiene nada que confirmar y TCP en el cliente eventualmente detecta la pérdida (por timeout o falta de ACK) y retransmite el segmento TCP completo.
 
-Capturando el output del comando iperf (ejecutado durante 3 segundos) se puede observar el resultado final de la comunicación en cliente y servidor:
+Capturando el output del comando iperf (ejecutado durante 7 segundos) se puede observar el resultado final de la comunicación en cliente y servidor:
 
 \noindent \includegraphics[width=\textwidth]{docs/frag_imgs/iperf_client_tcp.png}
 \captionof{figure}{Captura de iperf TCP desde cliente}
 
 \noindent \includegraphics[width=\textwidth]{docs/frag_imgs/iperf_server_tcp.png}
 \captionof{figure}{Captura de iperf TCP desde servidor}
+
+La performance se ve significativamente comprometida comparado a un escenario sin fragmentación ni pérdida de paquetes, situación donde el bitrate alcanza sin mayores problemas los 28 Gbits/s enviando 23 GB en los 7 segundos. Este comportamiento es parte del mismo control de flujo y congestión de TCP.
 
 *** Funcionamiento de UDP ante la pérdida de un fragmento
 
