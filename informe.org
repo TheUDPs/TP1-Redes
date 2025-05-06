@@ -345,7 +345,7 @@ end
 #+RESULTS:
 [[file:docs/imgs/saw_upload.png]]
 
-/newpage
+\newpage
 
 *** Análisis del Ciclo de Vida de Upload de una transferencia con Stop-and-Wait
 
@@ -653,6 +653,8 @@ caption \nGo-Back-N protocol with window of\n 2 packets. Client downloads file \
 #+RESULTS:
 [[file:docs/imgs/gbn_download.png]]
 
+\newpage
+
 *** Análisis del Ciclo de Vida de Download de una transferencia con Go-Back-N
 
 Se observa el comportamiento de una transferencia de archivos con una ventana de tamaño 2. En
@@ -677,6 +679,8 @@ este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el 
 **** Cierre de la conexión (Closing handshake):
 - El cliente envía un ~FIN~ para finalizar su lado de la comunicación (~seq=4, ack=4~).
 - El servidor responde con un ~ACK~ final (~seq=5, ack=5~), completando el cierre de la conexión de manera ordenada.
+
+\newpage
 
 * Pruebas
 
@@ -1032,7 +1036,7 @@ En términos de avance del proyecto, primero desarrollamos el procolo SAW, por l
 
 De esta manera, analizamos y tomamos la decisión de mantener las etapas de handshake, configuración y closing handshake de SAW, ya que esto no tenía sentido hacerlo de manera GBN, teniendo en cuenta los pocos paquetes que son, en comparación a un envío de archivo de miles de paquetes.
 
-Esto llevó a realizar un manejo especial del primer y último chunk dentro de la base de código para asegurar el RDT, chunks que se podrían considerar como la "transición" entre modos de comunicación.
+Esto llevó a realizar un manejo especial del primer y último chunk dentro de la base de código para asegurar el RDT, chunks que se podrían considerar como la ``transición'' entre modos de comunicación.
 
 Al comienzo del proyecto debatimos sobre si usar un mismo formato de header para ambos protocolos o si utilizar dos distintos. La decisión que tomamos fue utilizar un header apropiado para cada protocolo, de tal manera no arrastraríamos decisiones tomadas para GBN (como el ACK number, o el tamaño del sequence number) que no tienen sentido para SAW.
 
