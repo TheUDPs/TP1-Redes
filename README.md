@@ -1,4 +1,4 @@
-# TP1-Redes
+# TP1-Redes - Grupo 2
 
 ### Table of contents
 
@@ -15,7 +15,7 @@
 
 This project implements a file transfer application using a client-server architecture that supports multiple clients at once. This is achieved using the UDP protocol and adding reliable data transfer logic. It provides two functionalities for the client: uploading and downloading files.
 
-Members:
+Members of Grupo 2:
 
 | **Name**                  | **Padrón** | **Email**              |
 |-----------------------------|------------|------------------------|
@@ -198,7 +198,7 @@ If Wireshark is tapping into a switch the packets will be visualized.
 Once mininet is up with a certain MTU defined:
 
 ```bash
-sudo mn --mac --custom ./linear_ends_topo.py --topo linends,n,mtu --link tc
+sudo mn --mac --custom ./linear_ends_topo.py --topo linends,n,p_loss,mtu --link tc
 ```
 
 Open xterm terminals on hosts h1 and h2:
