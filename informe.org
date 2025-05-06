@@ -465,7 +465,7 @@ Ahora que se detalló los mensajes que se intercambian entre el cliente y el ser
 
 La retransmisión se da siempre por parte de quien está esperando un mensaje, en otras palabras, quien esté bloqueado en un wait del socket tendrá la responsabilidad de re-enviar su último mensaje si no recibe lo que esperaba, o si no recibe nada. Se hace una retransmisión si en una determinada ventana de tiempo pre-establecida (15ms definido como una constante) no se recibe un mensaje, esto provee una rápida recuperación en la comunicación ante una pérdida de paquetes. Si el mensaje esperado es erróneo también se hace una retransmisión, ya que el socket podría estar leyendo un mensaje duplicado (retransmisión del otro participante de la interacción).
 
-El accepter del servidor es un caso particular, es quien maneja el welcoming socket y hace la transferencia de la conexión a otro socket específico para ese flujo, y si recibe mensajes que no son un connection request para iniciar el handshake, o no son una continuación de un handshake en progreso, los rechaza y no retransmite.
+El accepter del servidor es un caso particular. Es quien maneja el welcoming socket y hace la transferencia de la conexión a otro socket específico para ese flujo, y si recibe mensajes que no son un connection request para iniciar el handshake, o no son una continuación de un handshake en progreso, los rechaza y no retransmite.
 
 ** Especificación del protocolo Go-Back-N
 
@@ -678,7 +678,7 @@ este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el 
 
 Para la sección de handshake y configuración se sigue la misma forma de actuar del protocolo SAW ante una necesidad de retransmisión.
 
-Durante la etapa de transferencia del archivo, la parte de la transmisión que actúa de sender tiene la responsabilidad de re-enviar toda la ventana que tiene disponible desde el último paquete que fue confirmado con un ACK por parte del receiver. Para que el sender pueda considerar un paquete correctamente confirmado debe tener el mismo ACK number que está esperando recibir o que haya llegado un ACK con ACK number mayor, por lo que se entiende que el receiver recibió correctamente todos los paquetes hasta el ACK number que envío. Esto último despeja de repente una buena porción de la ventana para enviar consecutivamente nuevos paquetes. El tamaño de la ventana utilizado, que mediante comprobación empírica es el que mejor resultados trajo, es de tamaño de 10 paquetes.
+Durante la etapa de transferencia del archivo, la parte de la transmisión que actúa de sender tiene la responsabilidad de re-enviar toda la ventana que tiene disponible desde el siguiente paquete al último que haya sido confirmado con un ACK (conocido como base) por parte del receiver. Para que el sender pueda considerar un paquete correctamente confirmado debe tener el mismo ACK number que está esperando recibir o que haya llegado un ACK con un número mayor, por lo que se entiende que el receiver recibió correctamente todos los paquetes hasta el ACK number que envío. Esto último despeja de repente una buena porción de la ventana para enviar consecutivamente nuevos paquetes. El tamaño de la ventana utilizado, que mediante comprobación empírica es el que mejor resultado trajo, es de tamaño de 10 paquetes.
 
 * Rendimiento
 
