@@ -6,6 +6,7 @@ from mininet.log import setLogLevel, info
 from mininet.net import Mininet
 from subprocess import call
 import time
+# from mininet.cli import CLI
 
 PACKET_LOSS_PERCENTAGE = 20
 REDUCED_MTU = 800  # MTU to apply to a router interface
@@ -36,14 +37,12 @@ def run_automated_test(protocol, h1, h2, s2):
     info(f"\n*** Running automated {protocol} fragmentation test ***\n")
 
     info(f"Starting tcpdump captures for {protocol}...\n")
-    pid_server = run_tcpdump(h1, "h1-eth0", f"{CAPTURE_DIR}/h1_{protocol_lower}.pcap")
     pid_eth1 = run_tcpdump(
         s2, "s2-eth1", f"{CAPTURE_DIR}/router_eth1_{protocol_lower}.pcap"
     )
     pid_eth0 = run_tcpdump(
         s2, "s2-eth0", f"{CAPTURE_DIR}/router_eth0_{protocol_lower}.pcap"
     )
-    pid_client = run_tcpdump(h2, "h2-eth0", f"{CAPTURE_DIR}/h2_{protocol_lower}.pcap")
 
     time.sleep(WAIT_TIME)
 
@@ -64,10 +63,8 @@ def run_automated_test(protocol, h1, h2, s2):
         f.write(client_output)
 
     info("Stopping tcpdump and iperf processes...\n")
-    kill_process(h2, pid_client)
-    for i in [pid_eth0, pid_eth1]:
-        kill_process(s2, i)
-    kill_process(h1, pid_server)
+    kill_process(s2, pid_eth0)
+    kill_process(s2, pid_eth1)
     kill_processes(h1, "iperf")
     time.sleep(WAIT_TIME)
 
@@ -125,6 +122,7 @@ def fragmentation_test():
     info("This will show fragmented packets in the captures\n\n")
 
     info("Tests completed. Exiting Mininet.\n\n")
+    # CLI(net) In case you want to interact with the Mininet CLI
     net.stop()
 
 
