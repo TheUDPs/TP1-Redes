@@ -518,7 +518,8 @@ scale 2.0
 participant Client
 participant Server
 
-group [Handshake]
+' Special invisible space to avoid bugged grouping
+group ‎  [Handshake]
 
 Client ->(10) Server : [SYN]\nseq=0, ack=0
 Server ->(10) Client : [SYN], [ACK]\nseq=0, ack=0
@@ -568,43 +569,31 @@ Se observa el comportamiento de una transferencia de archivos con una ventana de
 
 **** Establecimiento de la conexión (Handshake):
 
-    El cliente inicia la conexión enviando un paquete con el flag ~SYN~, con ~seq=0~ y ~ack=0~.
-
-    El servidor responde con un paquete con flags ~SYN~ y ~ACK~, manteniendo los mismos valores de seq y ack.
-
-    El cliente confirma la recepción enviando un paquete ~ACK~ con ~seq=1~ y ~ack=1~, incluyendo en datos la configuración del código de operación (en este caso de subida) ~data=2~ (op_code).
-
-    El servidor responde con un ~ACK~ para confirmar la recepción del mensaje de configuración (~seq=1~, ~ack=1~).
+- El cliente inicia la conexión enviando un paquete con el flag ~SYN~, con ~seq=0~ y ~ack=0~.
+- El servidor responde con un paquete con flags ~SYN~ y ~ACK~, manteniendo los mismos valores de seq y ack.
+- El cliente confirma la recepción enviando un paquete ~ACK~ con ~seq=1~ y ~ack=1~, incluyendo en datos la configuración del código de operación (en este caso de subida) ~data=2~ (op_code).
+- El servidor responde con un ~ACK~ para confirmar la recepción del mensaje de configuración (~seq=1~, ~ack=1~).
 
 **** Configuración:
 
-    El cliente envía un paquete con ~seq=2~, ~ack=2~ y ~data=report.pdf~, indicando el nombre del archivo a subir.
-
-    El servidor responde con un paquete ~ACK~ (~seq=2~, ~ack=2~) para confirmar la petición.
-
-    El cliente envía un paquete con ~seq=3~, ~ack=3~ y ~data=3000~, informando el tamaño total del archivo en bytes.
-
-    El servidor confirma la recepción de esta información con otro ~ACK~ (~seq=3~, ~ack=3~).
+- El cliente envía un paquete con ~seq=2~, ~ack=2~ y ~data=report.pdf~, indicando el nombre del archivo a subir.
+- El servidor responde con un paquete ~ACK~ (~seq=2~, ~ack=2~) para confirmar la petición.
+- El cliente envía un paquete con ~seq=3~, ~ack=3~ y ~data=3000~, informando el tamaño total del archivo en bytes.
+- El servidor confirma la recepción de esta información con otro ~ACK~ (~seq=3~, ~ack=3~).
 
 **** Transferencia del archivo:
 
-    El cliente envía el primer chunk de datos con ~seq=4~, ~ack=4~, ~payload_length=1416~ y ~data=101110~.
-
-    A continuación, envía el segundo chunk con ~seq=5~, ~ack=4~, ~payload_length=1416~ y ~data=101110~.
-
-    El servidor confirma la recepción del primer chunk enviando un ~ACK~ (~seq=4~, ~ack=4~).
-
-    Luego, confirma el segundo chunk con otro ~ACK~ (~seq=5~, ~ack=5~).
+- El cliente envía el primer chunk de datos con ~seq=4~, ~ack=4~, ~payload_length=1416~ y ~data=101110~.
+- A continuación, envía el segundo chunk con ~seq=5~, ~ack=4~, ~payload_length=1416~ y ~data=101110~.
+- El servidor confirma la recepción del primer chunk enviando un ~ACK~ (~seq=4~, ~ack=4~).
+- Luego, confirma el segundo chunk con otro ~ACK~ (~seq=5~, ~ack=5~).
 
 **** Cierre de la conexión (Closing handshake):
 
-    El cliente inicia el cierre enviando un paquete ~FIN~ con ~seq=6~, ~ack=5~, ~payload_length=168~ y ~data=101110~.
-
-    El servidor responde con un ~ACK~ final (~seq=6~, ~ack=6~).
-
-    El servidor envía a su vez un paquete ~FIN~ (~seq=6~, ~ack=6~) para cerrar su lado de la comunicación.
-
-    Finalmente, el cliente completa el cierre con un último ~ACK~ (~seq=7~, ~ack=6~).
+- El cliente inicia el cierre enviando un paquete ~FIN~ con ~seq=6~, ~ack=5~, ~payload_length=168~ y ~data=101110~.
+- El servidor responde con un ~ACK~ final (~seq=6~, ~ack=6~).
+- El servidor envía a su vez un paquete ~FIN~ (~seq=6~, ~ack=6~) para cerrar su lado de la comunicación.
+- Finalmente, el cliente completa el cierre con un último ~ACK~ (~seq=7~, ~ack=6~).
 
 *** Ciclo de Vida de Download
 
@@ -616,7 +605,8 @@ scale 2.0
 participant Client
 participant Server
 
-group [Handshake]
+' Special invisible space to avoid bugged grouping
+group ‎  [Handshake]
 
 Client ->(10) Server : [SYN]\nseq=0, ack=0
 Server ->(10) Client : [SYN], [ACK]\nseq=0, ack=0
@@ -664,7 +654,7 @@ este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el 
 - El cliente inicia la conexión enviando un paquete con el flag ~SYN~, con ~seq=0~ y ~ack=0~.
 - El servidor responde con un paquete con flags ~SYN~ y ~ACK~ manteniendo los mismos valores de ~seq~ y ~ack~.
 - El cliente confirma la recepción enviando un paquete ~ACK~ con ~seq=1~ y ~ack=1~, incluyendo en datos la configuración del código de operación (en este caso de descarga) ~data=1 (op_code)~.
-- El servidor responde con un ~ACK~ para confirmar la recepción del mensaje de configuración.
+- El servidor responde con un ~ACK~ para confirmar la recepción del mensaje de operación.
 
 **** Configuración:
 - El cliente envía un paquete con ~seq=2~, ~ack=2~ y ~data=report.pdf~, indicando el nombre del archivo a descargar.
@@ -673,7 +663,7 @@ este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el 
 
 **** Transferencia del archivo:
 - El servidor envía el segundo ~chunk~ de datos (~seq=3~, ~ack=2~), también de 1416 bytes.
-- Posteriormente, se envía un paquete con el flag ~FIN~ (~seq=4~, ~ack=2~, ~payload_length=168~), marcando el fin de la transferencia.
+- Posteriormente, se envía un paquete con el flag ~FIN~ (~seq=4~, ~ack=2~, ~payload_length=168~), marcando el último chunk.
 - El cliente responde con dos ~ACK~, uno para cada paquete recibido correctamente: ~seq=3, ack=3~ y ~seq=4, ack=4~.
 
 **** Cierre de la conexión (Closing handshake):
@@ -681,6 +671,10 @@ este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el 
 - El servidor responde con un ~ACK~ final (~seq=5, ack=5~), completando el cierre de la conexión de manera ordenada.
 
 \newpage
+
+*** Manejo de retransmisiones
+
+
 
 * Pruebas
 
