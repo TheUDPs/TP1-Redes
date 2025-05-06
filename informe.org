@@ -138,6 +138,43 @@ Server ->(10) Client : SYN, ACK, seq 1
 Client ->(10) Server : ACK, OP_CODE (piggybacked)
 Server ->(10) Client : ACK
 @enduml
+
+@startuml
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 100
+scale 2.0
+participant Client
+participant Server
+
+group ‎  [Handshake]
+
+Client ->(10) Server : [SYN]\nseq=0, ack=0
+Server ->(10) Client : [SYN], [ACK]\nseq=0, ack=0
+
+Client ->(10) Server : [ACK]\nseq=1, ack=1\n data=1 (op_code)
+Server ->(10) Client : [ACK]\nseq=1, ack=1
+
+else Configuration
+
+Client ->(10) Server : seq=2, ack=2\n data=report.pdf
+Server ->(10) Client : [ACK]\nseq=2, ack=2\npayload_length=1416\n data=101110...
+Client ->(10) Server : [ACK]\nseq=2, ack=2
+
+else File transfer
+
+Server ->(10) Client : seq=3, ack=2\npayload_length=1416\n data=101110...
+Server ->(10) Client : [FIN]\nseq=4, ack=2\npayload_length=168\n data=101110...
+
+Client ->(10) Server : [ACK]\nseq=3, ack=3
+Client ->(10) Server : [ACK]\nseq=4, ack=4
+
+else Closing handshake
+
+Client ->(10) Server : [FIN]\nseq=4, ack=4
+Server ->(10) Client : [ACK]\nseq=5, ack=5
+
+end
+@enduml
 #+END_SRC
 
 #+ATTR_LATEX: :width 0.5\textwidth
@@ -289,9 +326,63 @@ Client ->(10) Server : Data
    |                             Data                              |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-*** Ciclo de Vida
+*** Ciclo de Vida de Upload
 
-#+BEGIN_SRC plantuml :file docs/imgs/gbn.png :exports results
+#+BEGIN_SRC plantuml :file docs/imgs/gbn_upload.png :exports results
+@startuml
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 100
+scale 2.0
+participant Client
+participant Server
+
+group ‎  [Handshake]
+
+Client ->(10) Server : [SYN]\nseq=0, ack=0
+Server ->(10) Client : [SYN], [ACK]\nseq=0, ack=0
+
+Client ->(10) Server : [ACK]\nseq=1, ack=1\n data=2 (op_code)
+Server ->(10) Client : [ACK]\nseq=1, ack=1
+
+else Configuration
+
+Client ->(10) Server : seq=2, ack=2\n data=report.pdf
+Server ->(10) Client : [ACK]\nseq=2, ack=2
+
+Client ->(10) Server : seq=3, ack=3\n data=3000
+Server ->(10) Client : [ACK]\nseq=3, ack=3
+
+else File transfer
+
+Client ->(10) Server : seq=4, ack=4\npayload_length=1416\n data=101110...
+Client ->(10) Server : seq=5, ack=4\npayload_length=1416\n data=101110...
+
+Server ->(10) Client : [ACK]\nseq=4, ack=4
+Server ->(10) Client : [ACK]\nseq=5, ack=5
+
+else Closing handshake
+
+Client ->(10) Server : [FIN]\nseq=6, ack=5\npayload_length=168\n data=101110...
+
+Server ->(10) Client : [ACK]\nseq=6, ack=6
+Server ->(10) Client : [FIN]\nseq=6, ack=6
+
+Client ->(10) Server : [ACK]\nseq=7, ack=6
+
+end
+
+caption \nGo-Back-N protocol with window of\n 2 packets. Client uploads file \n(report.pdf of size 3000 bytes) to server
+
+@enduml
+#+END_SRC
+
+#+ATTR_LATEX: :width 0.65\textwidth
+#+RESULTS:
+[[file:docs/imgs/gbn_upload.png]]
+
+*** Ciclo de Vida de Download
+
+#+BEGIN_SRC plantuml :file docs/imgs/gbn_download.png :exports results
 @startuml
 skinparam sequenceMessageAlign center
 skinparam ParticipantPadding 100
@@ -333,8 +424,7 @@ caption \nGo-Back-N protocol with window of\n 2 packets. Client downloads file \
 
 #+ATTR_LATEX: :width 0.7\textwidth
 #+RESULTS:
-[[file:docs/imgs/gbn.png]]
-
+[[file:docs/imgs/gbn_download.png]]
 
 *** Análisis del ciclo de vida de una transferencia con Go-Back-N
 
