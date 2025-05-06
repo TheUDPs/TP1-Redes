@@ -674,7 +674,9 @@ este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el 
 
 *** Manejo de retransmisiones
 
+Para la sección de handshake y configuración se sigue la misma forma de actuar del protocolo SAW ante una necesidad de retransmisión.
 
+Durante la etapa de transferencia del archivo, la parte de la transmisión que actúa de sender tiene la responsabilidad de re-enviar toda la ventana que tiene disponible desde el último paquete que fue confirmado con un ACK por parte del receiver. Para que el sender pueda considerar un paquete correctamente confirmado debe tener el mismo ACK number que está esperando recibir o que haya llegado un ACK con ACK number mayor, por lo que se entiende que el receiver recibió correctamente todos los paquetes hasta el ACK number que envío. Esto último despeja de repente una buena porción de la ventana para enviar consecutivamente nuevos paquetes. El tamaño de la ventana utilizado, que mediante comprobación empírica es el que mejor resultados trajo, es de tamaño de 10 paquetes.
 
 * Pruebas
 
