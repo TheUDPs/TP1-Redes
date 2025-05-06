@@ -874,7 +874,7 @@ Ninguno de estos protocolos es mejor que el otro. Para decidir cuál de ellos ut
 Debido a las características mencionadas anteriormente, UDP resulta más apropiado para aplicaciones que requieran mayor velocidad sin que sea tan sensible a algunas pérdidas de paquetes, por ejemplo plataformas de streaming, y si se tiene un servidor dedicado a una aplicación específica que necesita poder admitir muchos más clientes activos.
 Por otro lado, TCP es más ventajoso para las aplicaciones que necesitan un transporte confiable de los datos. Algunos ejemplos son el email y la web.
 
-* Anexo: Fragmentacion IPv4
+* Anexo: Fragmentación IPv4
 ** Enunciado :noexport:
 El siguiente ejercicio se plantea como objetivo la comprensión y la puesta en
 práctica de los conceptos y herramientas necesarias para la comprobación del
@@ -896,22 +896,33 @@ para poder analizar el comportamiento del protocolo IPv4:
 
 ** Consideraciones iniciales
 
-Se propuso inicialmente una red de topología lineal que une a un host servidor, tres switches conectados en serie y un host cliente donde haya pérdida de paquetes en el enlace próximo al host receptor y que el switch central tenga la capacidad de fragmentar paquetes IPv4. Sin embargo, los switches en mininet no tienen la capacidad de fragmentar paquetes, por lo que al forzar fragmentación (es decir, reducir el MTU de alguna de sus interfaces) causaría una pérdida total de todo paquete de tamaño mayor al MTU.
+Se propuso inicialmente una red de topología lineal que una a:
+- Un host servidor
+- Tres switches conectados en serie
+- Un host cliente
 
-La solución propuesta fue sustituir ese switch central por un "router" central, un tipo de nodo de mininet similar a los hosts pero que además cuenta con la capacidad de hacer forwarding de paquetes IPv4. Conceptualmente un switch, al ser un elemento de Link Layer, no debe tener la capacidad de fragmentar paquetes de otra capa de red.
+Donde haya pérdida de paquetes en el enlace próximo al host receptor y que el switch central tenga la capacidad de fragmentar paquetes que excedan el MTU de alguna de sus interfaces.
 
-Otro de los conflictos presentados es la comunicación bidireccional. Reducir el MTU de alguna interfaz de un router implica que se reduce sobre el enlace de esta interfaz. Y si este enlace está conectado a un router y a un switch, la comunicación andará bien en sentido router \rightarrow switch pero se perderán los paquetes en el sentido switch \rightarrow router que tengan un tamaño mayor al MTU. Por lo que si se desea una comunicación bidireccional en la red y se requiere reducir el MTU de alguna interfaz de la topología esta NO debe estar vinculada a un switch, de lo contrario se perderá todo paquete que exceda el MTU reducido. Dicho esto, se decidió arbitrariamente que basta con tener comunicación unidireccional (C \rightarrow S) para poder provocar el fenómeno de fragmentación de paquetes IPv4.
+
+Sin embargo, los switches en mininet no tienen la capacidad de fragmentar paquetes, por lo que forzar este fenómeno causaría una pérdida total de todo paquete de tamaño mayor al MTU. Conceptualmente un switch, al ser un elemento de Link Layer, no debe tener la capacidad de fragmentar paquetes de otra capa de red.
+La solución propuesta fue sustituir ese switch central por un "router" central, un tipo de nodo de mininet similar a los hosts pero que además cuenta con la capacidad de hacer forwarding de paquetes IPv4.
+
+
+Otro de los conflictos presentados es la comunicación bidireccional. Reducir el MTU de alguna interfaz de un router implica que se reduce sobre el enlace de esta interfaz. Y si este enlace está conectado a un router y a un switch, la comunicación andará bien en sentido router \rightarrow switch pero se perderán los paquetes en el sentido switch \rightarrow router.
+
+
+Por lo tanto, si se desea una tráfico bidireccional de paquetes excedentes al MTU de alguna de las interfaces de la ruta esta NO debe estar vinculada a un switch, de lo contrario se perderá todo paquete que exceda el MTU reducido. Dicho esto, se decidió arbitrariamente que basta con tener comunicación unidireccional (C \rightarrow S) para poder provocar el fenómeno de fragmentación de paquetes.
 
 ** Análisis
 *** Topología
 \noindent \includegraphics[width=\textwidth]{docs/frag_imgs/linear_ends_fragmentation_item.png}
 \captionof{figure}{Red con un servidor, dos switches, un router y un cliente}
 
-Se define una pérdida de 20% de paquetes sobre el enlace próximo al servidor, un MTU de 800 en la interfaz saliente del router (s2-eth0) y un tamaño de paquetes de 1000B (arbitrariamente, basta con que sea ligeramente superior al MTU reducido) para estudiar este fenómeno.
+Se define una pérdida de 20% de paquetes sobre el enlace próximo al servidor, un MTU de 800 en la interfaz saliente del router (s2-eth0) y un tamaño de paquetes de 1000B siendo ambos valores elegidos arbitrariamente, basta con generar tráfico de paquetes de tamaño superior al MTU reducido para estudiar este fenómeno.
 
 *** Proceso de fragmentación
 
-Habiendo definido la red como se mencionó anteriormente, basta generar tráfico de cliente a servidor usando iperf y capturar los paquetes recibidos y enviados por el router (s2) con Wireshark para estudiar este fenómeno. Por ejemplo:
+Habiendo definido la red como se mencionó anteriormente, se genera tráfico de cliente a servidor usando iperf y se capturan los paquetes recibidos y enviados por las interfaces del router (s2) con Wireshark para estudiar este fenómeno. Por ejemplo:
 
 \noindent \includegraphics[width=\textwidth]{docs/frag_imgs/s2-eth1_tcp.png}
 \captionof{figure}{Paquetes capturados en interfaz de entrada del router (s2-eth1)}
@@ -919,17 +930,33 @@ Habiendo definido la red como se mencionó anteriormente, basta generar tráfico
 \noindent \includegraphics[width=\textwidth]{docs/frag_imgs/s2-eth0_tcp.png}
 \captionof{figure}{Paquetes capturados en interfaz de salida del router (s2-eth0)}
 
-Se observa que tras establecer la comunicación inicial, se envían paquetes de un tamaño que lleva a forzar que el router fragmente los paquetes TCP recibidos en varios paquetes TCP/IPv4, esto según que tan grande sea la relación tamaño de paquete/MTU del enlace. Se logra identificar que paquete se fragmentó según los números de secuencia que muestra Wireshark en su columna de información, y para paquetes que no tienen número de secuencia coincidente indica que se requirió fragmentar más de una vez.
+Una vez establecida la conexión TCP, los paquetes que superan el MTU de la interfaz de salida son fragmentados por el router. Cada fragmento se encapsula en su propio datagrama IPv4 (con el mismo Identification y flags MF/Offset adecuados) y se envía por la red.
 
-Si se hace una suma del tamaño de los fragmentos hasta que coincidan paquetes de ambas tablas, se observa como el router termina enviando más bytes de los que recibió. Esto debido a que el reensamblado de paquetes se produce incluyendo encabezados de todas las capas de red.
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/frag_packet_1.png}
+\captionof{figure}{Secuencia de un paquete fragmentado (1) a detalle}
+
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/frag_packet_2.png}
+\captionof{figure}{Secuencia de un paquete fragmentado (2) a detalle}
+
+Wireshark agrupa los fragmentos bajo un mismo “Reassembled in #” basándose en el Identification y los offsets; tras inspeccionar la columna de secuencia TCP, se puede  mapear fácilmente cada fragmento al segmento original. Si un segmento requiere más de dos fragmentos, se observará varios “Reassembled in #” con offsets crecientes. Sin embargo, cabe destacar que el reensamblado ocurre únicamente en el host destino, no en el router. Esto debido a que si cada router tuviese que reensamblar paquetes sería un proceso muy costoso y afectaría al rendimiento de la red.
+
+Sumando las longitudes de los fragmentos observamos que el router termina transmitiendo más datos que los recibidos originalmente: esto se debe a que cada fragmento es un paquete en si mismo, y por cada fragmento generado es un nuevo header.
 
 *** Funcionamiento de TCP ante la pérdida de un fragmento
 TCP es un protocolo de transporte que maneja la retransmisión de datos tras pérdida y detección a partir de ACKs duplicados. Este fenómeno es muy simple de visualizar en Wireshark, donde se señala en la columna de información cuando un paquete corresponde a información retransmitida.
 
-\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/tcp_retransmission.png}
-\captionof{figure}{TCP Retransmission}
+Cuando un paquete TCP es demasiado grande para pasar por una interfaz con un MTU pequeño y no tiene activado el bit "Don't Fragment", el router lo fragmenta a nivel IP. Esto significa que el paquete IP original se divide en varios fragmentos IP, cada uno con su propio encabezado IP, pero todos parte del mismo datagrama original.
 
-Este mecanismo garantiza que no se pierden datos durante la comunicación en el caso de pérdida de paquetes. Para esta experiencia, como se fuerza la fragmentación de paquetes IPv4 antes del enlace con pérdida de paquetes, en su mayoría lo que se retransmite son fragmentos IPv4 perdidos, esto salvo que se pierdan datos referentes a la conexión como los ACKs de handshake/cierre de conexión u otros paquetes como la actualización de ventanas de transmisión. Dicho esto, el fenómeno de retransmisión de paquetes es el mismo para todo tipo de paquete del protocolo.
+Los fragmentos no se reensamblan en los routers intermedios sino que el host de destino es quien reensambla todos los fragmentos en el paquete IP original antes de entregárselo al stack TCP.
+
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/tcp_retransmission.png}
+\captionof{figure}{Retransmisión TCP vista en el router}
+
+Es decir, si se pierde un solo fragmento, el paquete IP no puede ser reensamblado, y por lo tanto no llega al protocolo TCP. El sistema operativo desecha todos los fragmentos recibidos de ese datagrama después de un tiempo de espera (timeout).
+
+Desde el punto de vista de TCP nunca ve los fragmentos individuales. Solo sabe que no recibió un segmento TCP completo porque fue descartado en capa IP.
+
+De esta forma, TCP en el servidor no responde porque no tiene nada que confirmar y TCP en el cliente eventualmente detecta la pérdida (por timeout o falta de ACK) y retransmite el segmento TCP completo.
 
 Capturando el output del comando iperf (ejecutado durante 3 segundos) se puede observar el resultado final de la comunicación en cliente y servidor:
 
