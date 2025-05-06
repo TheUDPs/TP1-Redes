@@ -11,7 +11,7 @@ PACKET_LOSS_PERCENTAGE = 20
 REDUCED_MTU = 800  # MTU to apply to a router interface
 FRAG_MSS = REDUCED_MTU + 200  # MSS > Reduced MTU to cause fragmentation
 CAPTURE_DIR = "/tmp/captures"
-TEST_DURATION = 3
+TEST_DURATION = 5
 WAIT_TIME = 1
 
 
@@ -59,11 +59,11 @@ def run_automated_test(protocol, h1, h2, s2):
     info(f"Running iperf {protocol} client on h2...\n")
     if protocol == "TCP":
         client_output = h2.cmd(
-            f"iperf -c 10.0.0.1 -t {TEST_DURATION} -i 1 -M {FRAG_MSS}"
+            f"iperf -c 10.0.0.1 -t {TEST_DURATION} -M {FRAG_MSS}"
         )
     else:
         client_output = h2.cmd(
-            f"iperf -c 10.0.0.1 -u -b 10m -l {FRAG_MSS} -t {TEST_DURATION} -i 1"
+            f"iperf -c 10.0.0.1 -u -b 10m -t {TEST_DURATION} -l {FRAG_MSS}"
         )
 
     with open(f"{CAPTURE_DIR}/iperf_{protocol_lower}_client.log", "w") as f:
