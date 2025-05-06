@@ -2,28 +2,23 @@
 
 ### Table of contents
 
-1. [Introduction](#Introduction)
 1. [How to run](#How-to-run)
 1. [Mininet](#Mininet)
     1. [LinearEnds topology](#LinearEnds-topology)
     1. [Launch parameters](#Launch-parameters)
     1. [Visualize packet loss](#Visualize-packet-loss)
     1. [Visualize MTU fragmentation](#Visualize-MTU-fragmentation)
+1. [Tests](#Tests)
+    1. [Mininet IP Fragmentation tests](#Mininet-IP-Fragmentation-tests)
+1. [Informe](#Informe)
+    1. [Compiling the PDF](#Compiling-the-PDF)
+    1. [Org Mode Syntax](#Org-Mode-Syntax)
+1. [Contribute](#Contribute)
+    1. [Pre-commit](#Pre-commit)
+    1. [Nix](#Nix)
+        1. [devenv](#devenv)
+        1. [direnv](#direnv)
 1. [References](#References)
-
-# Introduction
-
-This project implements a file transfer application using a client-server architecture that supports multiple clients at once. This is achieved using the UDP protocol and adding reliable data transfer logic. It provides two functionalities for the client: uploading and downloading files.
-
-Members:
-
-| **Name**                  | **Padrón** | **Email**              |
-|-----------------------------|------------|------------------------|
-| AVALOS, Victoria            | 108434     | vavalos@fi.uba.ar      |
-| CASTRO MARTINEZ, Jose Ignacio | 106957     | jcastrom@fi.uba.ar     |
-| CIPRIANO, Victor            | 106593     | vcipriano@fi.uba.ar    |
-| DEALBERA, Pablo Andres      | 106858     | pdealbera@fi.uba.ar    |
-| DIEM, Walter Gabriel        | 105618     | wdiem@fi.uba.ar        |
 
 # How to run
 
@@ -255,7 +250,104 @@ iperf3 -c 10.0.0.1 -u
 
 Given the node that can fragment is in the middle and the MTU is lowered on the link s2->s1 fragmentation will only occur for traffic that travels from h2 -> h1 (a.k.a. server in h1, client in h2), if traffic going h1 -> h2 needs to be fragmented it will end up being dropped by the switch s1, because it cannot fragment like s2 does.
 
+# Tests
 
+### File Transfer tests with packet loss
+
+To run the file transfer tests for the LinearEnds topology you can use the tests with the next command:
+
+```bash
+sudo pytest
+```
+
+Or you can use the script `./test.sh`.
+
+### Mininet IP Fragmentation tests
+
+To run IP fragmentation tests for the LinearEnds topology run the tests with the next command:
+
+```bash
+sudo python3 ./mininet_topo/fragmentation_tests.py
+```
+
+# Informe
+
+The informe.pdf file is generated using Org Mode that uses LaTeX to generate the PDF. To generate the PDF, you need to have some system dependencies which can be used from the Nix devenv or installed from your distribution.
+
+You need to have Emacs and Org Mode installed on your system. You can install Emacs by following the instructions on the [Emacs website](https://www.gnu.org/software/emacs/).
+
+Also you need to have LaTeX installed on your system. You can install LaTeX by following the instructions on the [LaTeX website](https://www.latex-project.org/get/).
+
+## Compiling the PDF
+To compile the PDF, you need to run the following command:
+
+```bash
+make
+```
+
+## Org Mode Syntax
+To learn more about Org Mode syntax, you can refer to this [Org Mode Cheat Sheet](https://emacsclub.github.io/html/org_tutorial.html).
+
+# Contribute
+
+## Pre-commit
+
+Pre-commit hooks are run on every commit.
+
+To install pre-commit, run the following command:
+
+```bash
+pip install pre-commit
+```
+
+Then, run the following command to install the pre-commit hooks:
+
+```bash
+pre-commit install
+```
+
+To run all pre-commit hooks without making a commit run:
+
+```shell
+pre-commit run --all-files
+```
+
+To create a commit without running the pre-commit hooks run:
+
+```shell
+git commit --no-verify
+```
+
+## Nix
+
+### devenv
+To use the Nix development environment, you need to have Nix installed on your system. You can install Nix by following the instructions on the [Determinate Nix Installer page](https://github.com/DeterminateSystems/nix-installer).
+
+Once you have Nix installed, you need to install devenv. You can do this by running the following command:
+
+```bash
+nix profile install nixpkgs\#devenv
+```
+
+Then, you can enter the development environment by running the following command:
+
+```bash
+devenv shell
+```
+
+### direnv
+
+Optionally, you can install direnv to automatically load the development environment when you enter the project directory. You can do this by running the following command:
+
+```bash
+nix profile install nixpkgs\#direnv
+```
+
+Then, allow direnv to load the development environment by running the following command:
+
+```bash
+direnv allow
+```
 
 # References
 
