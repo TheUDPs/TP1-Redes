@@ -51,7 +51,8 @@ class DownloadClient(Client):
             exit(ERROR_EXIT_CODE)
 
         super().__init__(logger, host, port, self.protocol_version)
-        self.logger.debug(f"Location to save downloaded file: {self.file_destination}")
+        self.logger.debug(
+            f"Location to save downloaded file: {self.file_destination}")
         self.download_completed = False
 
         if self.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
@@ -62,7 +63,8 @@ class DownloadClient(Client):
 
     def perform_download(self, server_address: Address) -> None:
         try:
-            self.send_operation_intention(DOWNLOAD_OPERATION, server_address)
+            self.send_operation_intention(
+                DOWNLOAD_OPERATION, server_address)
             packet = self.inform_name_to_download()
             self.receive_file(packet)
             self.handle_connection_finalization()
@@ -92,15 +94,17 @@ class DownloadClient(Client):
             f"Informing filename to download: {self.filename_for_download}"
         )
         self.protocol.inform_filename(
-            self.sequence_number, self.ack_number, self.filename_for_download
-        )
+            self.sequence_number,
+            self.ack_number,
+            self.filename_for_download)
 
         self.logger.debug("Waiting for filename confirmation")
         try:
             packet = self.protocol.wait_for_ack(
                 self.sequence_number,
                 self.ack_number,
-                exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
+                exceptions_to_let_through=[
+                    UnexpectedFinMessage, MessageIsNotAck],
             )
             return packet
         except UnexpectedFinMessage as e:
@@ -119,8 +123,7 @@ class DownloadClient(Client):
             self.sequence_number.step()
 
         self.sequence_number, packet = self.protocol.receive_file_chunk_saw(
-            self.sequence_number
-        )
+            self.sequence_number)
 
         if self.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
             if not self.expected_sqn_number == self.sequence_number:
@@ -209,7 +212,8 @@ class DownloadClient(Client):
                 self.sequence_number = _seq
                 self.ack_number = _ack
             except RetransmissionNeeded:
-                self.logger.error("Retransmission needed. Unhandled exception")
+                self.logger.error(
+                    "Retransmission needed. Unhandled exception")
 
         self.logger.force_info("Download completed")
         self.download_completed = True

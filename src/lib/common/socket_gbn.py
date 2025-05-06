@@ -25,7 +25,8 @@ class SocketGbn:
     def recvfrom(self, buffer_size: int):
         try:
             self.socket.settimeout(self.timeout)
-            raw_packet, server_address_tuple = self.socket.recvfrom(buffer_size)
+            raw_packet, server_address_tuple = self.socket.recvfrom(
+                buffer_size)
             return raw_packet, server_address_tuple
 
         except SocketTimeout:

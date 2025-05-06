@@ -11,13 +11,11 @@ from lib.common.constants import (
 class ServerArgParser:
     def __init__(self):
         self.internal_parser = argparse.ArgumentParser(
-            description="Serve side application to upload and download files from"
-        )
+            description="Serve side application to upload and download files from")
 
     def parse(self) -> argparse.Namespace:
         verbosity_group = self.internal_parser.add_mutually_exclusive_group(
-            required=False
-        )
+            required=False)
 
         verbosity_group.add_argument(
             "-v",

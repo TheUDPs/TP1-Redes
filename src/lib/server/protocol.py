@@ -45,18 +45,25 @@ class ServerProtocol:
         self.clients: ClientPool = clients
 
     def socket_receive_from(
-        self, buffer_size: int, should_retransmit: bool, do_not_timeout: bool = False
-    ):
+            self,
+            buffer_size: int,
+            should_retransmit: bool,
+            do_not_timeout: bool = False):
         raw_packet, client_address_tuple = self.socket.recvfrom(
             buffer_size, should_retransmit, do_not_timeout
         )
         return raw_packet, client_address_tuple
 
-    def socket_send_to(self, packet_to_send: Packet, client_address: Address):
+    def socket_send_to(
+            self,
+            packet_to_send: Packet,
+            client_address: Address):
         if self.protocol_version == STOP_AND_WAIT_PROTOCOL_TYPE:
-            packet_bin: bytes = PacketParser.compose_packet_saw_for_net(packet_to_send)
+            packet_bin: bytes = PacketParser.compose_packet_saw_for_net(
+                packet_to_send)
         else:
-            packet_bin: bytes = PacketParser.compose_packet_gbn_for_net(packet_to_send)
+            packet_bin: bytes = PacketParser.compose_packet_gbn_for_net(
+                packet_to_send)
 
         self.socket.sendto(packet_bin, client_address)
 
@@ -72,7 +79,8 @@ class ServerProtocol:
         client_address: Address = Address(
             client_address_tuple[0], client_address_tuple[1]
         )
-        packet, packet_type = PacketParser.get_packet_from_bytes(raw_packet)
+        packet, packet_type = PacketParser.get_packet_from_bytes(
+            raw_packet)
 
         return packet, client_address
 
@@ -96,8 +104,9 @@ class ServerProtocol:
     ) -> None:
         if sequence_number.value != packet.sequence_number:
             self.logger.debug(
-                f"Expected seq {sequence_number.value} got {packet.sequence_number}"
-            )
+                f"Expected seq {
+                    sequence_number.value} got {
+                    packet.sequence_number}")
             raise InvalidSequenceNumber()
 
     def build_packet(
@@ -151,7 +160,8 @@ class ServerProtocol:
     def process_operation_intention(
         self, packet: Packet
     ) -> tuple[int, SequenceNumber, SequenceNumber]:
-        op_code: int = int.from_bytes(packet.data, INT_DESERIALIZATION_BYTEORDER)
+        op_code: int = int.from_bytes(
+            packet.data, INT_DESERIALIZATION_BYTEORDER)
 
         if op_code != UPLOAD_OPERATION and op_code != DOWNLOAD_OPERATION:
             raise UnexpectedOperation()
@@ -159,7 +169,8 @@ class ServerProtocol:
         ack_number = None
         if self.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
             _packet: PacketGbn = packet
-            ack_number = SequenceNumber(_packet.ack_number, self.protocol_version)
+            ack_number = SequenceNumber(
+                _packet.ack_number, self.protocol_version)
 
         return (
             op_code,
@@ -222,7 +233,8 @@ class ServerProtocol:
         filename: str = packet.data.decode(STRING_ENCODING_FORMAT)
 
         self.validate_sequence_number(packet, sequence_number)
-        return SequenceNumber(packet.sequence_number, self.protocol_version), filename
+        return SequenceNumber(packet.sequence_number,
+                              self.protocol_version), filename
 
     @re_listen_if_failed()
     def receive_filesize(
@@ -234,10 +246,12 @@ class ServerProtocol:
         packet, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
         )
-        filesize: int = int.from_bytes(packet.data, INT_DESERIALIZATION_BYTEORDER)
+        filesize: int = int.from_bytes(
+            packet.data, INT_DESERIALIZATION_BYTEORDER)
 
         self.validate_sequence_number(packet, sequence_number)
-        return SequenceNumber(packet.sequence_number, self.protocol_version), filesize
+        return SequenceNumber(packet.sequence_number,
+                              self.protocol_version), filesize
 
     @re_listen_if_failed()
     def receive_file_chunk(
@@ -251,7 +265,8 @@ class ServerProtocol:
             raw_packet, client_address_tuple
         )
         self.validate_sequence_number(packet, sequence_number)
-        return SequenceNumber(packet.sequence_number, self.protocol_version), packet
+        return SequenceNumber(packet.sequence_number,
+                              self.protocol_version), packet
 
     @re_listen_if_failed()
     def wait_for_ack(self, sequence_number: SequenceNumber) -> None:

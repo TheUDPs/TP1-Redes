@@ -27,13 +27,15 @@ class GoBackNSender:
         sequence_number: SequenceNumber,
         ack_number: SequenceNumber,
     ) -> None:
-        self.base: SequenceNumber = SequenceNumber(0, protocol.protocol_version)
+        self.base: SequenceNumber = SequenceNumber(
+            0, protocol.protocol_version)
         self.logger: CoolLogger = logger
         self.protocol: ClientProtocolGbn = protocol
         self.sqn_number: SequenceNumber = sequence_number
         self.offset_initial_seq_number: SequenceNumber = sequence_number
         self.ack_number: SequenceNumber = ack_number
-        self.next_seq_num: SequenceNumber = SequenceNumber(0, protocol.protocol_version)
+        self.next_seq_num: SequenceNumber = SequenceNumber(
+            0, protocol.protocol_version)
         self.file_handler: FileHandler = file_handler
 
         self.last_ack = self.ack_number.clone()
@@ -45,8 +47,8 @@ class GoBackNSender:
 
     def reset_window(self):
         self.logger.debug(
-            f"Reseting next sequence number to base packet number {self.base.value + 1}"
-        )
+            f"Reseting next sequence number to base packet number {
+                self.base.value + 1}")
         self.next_seq_num.value = self.base.value
         self.spent_in_reception = 0.0
 
@@ -54,8 +56,7 @@ class GoBackNSender:
         self, file, filesize: int, filename: str
     ) -> tuple[SequenceNumber, SequenceNumber, bytes, bool]:
         self.logger.debug(
-            f"Sending file '{filename}' with window size of {WINDOW_SIZE} packets"
-        )
+            f"Sending file '{filename}' with window size of {WINDOW_SIZE} packets")
 
         chunks: List[bytes] = self.split_file_in_chunks(file, filesize)
         total_chunks: int = len(chunks)
@@ -64,7 +65,8 @@ class GoBackNSender:
         already_received_fin_back = MutableVariable(False)
 
         while self.base.value < total_chunks and not pending_last_ack:
-            last_raw_packet.value = self.send_packets_in_window(total_chunks, chunks)
+            last_raw_packet.value = self.send_packets_in_window(
+                total_chunks, chunks)
 
             try:
                 pending_last_ack = self.await_ack_phase(
@@ -76,15 +78,22 @@ class GoBackNSender:
 
         return (
             SequenceNumber(
-                self.next_seq_num.value + self.offset_initial_seq_number.value - 1,
+                self.next_seq_num.value +
+                self.offset_initial_seq_number.value -
+                1,
                 self.protocol.protocol_version,
             ),
-            SequenceNumber(self.ack_number.value, self.protocol.protocol_version),
+            SequenceNumber(
+                self.ack_number.value,
+                self.protocol.protocol_version),
             last_raw_packet.value,
             already_received_fin_back.value,
         )
 
-    def send_packets_in_window(self, total_chunks: int, chunks: List[bytes]) -> bytes:
+    def send_packets_in_window(
+            self,
+            total_chunks: int,
+            chunks: List[bytes]) -> bytes:
         packet = MutableVariable(None)
 
         while (
@@ -95,7 +104,9 @@ class GoBackNSender:
             chunk_to_send = chunks[self.next_seq_num.value]
             chunk_len = len(chunk_to_send)
 
-            msg = f"Sending chunk {self.next_seq_num.value + 1}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB. "
+            msg = f"Sending chunk {
+                self.next_seq_num.value + 1}/{total_chunks} of size {
+                self.file_handler.bytes_to_kilobytes(chunk_len)} KB. "
 
             if SHOULD_PRINT_CHUNK_HASH:
                 msg += f"Hash is: {compute_chunk_sha256(chunk_to_send)}"
@@ -103,7 +114,8 @@ class GoBackNSender:
             self.logger.debug(msg)
 
             seq_number_to_send = SequenceNumber(
-                self.next_seq_num.value + self.offset_initial_seq_number.value,
+                self.next_seq_num.value +
+                self.offset_initial_seq_number.value,
                 self.protocol.protocol_version,
             )
 
@@ -121,13 +133,15 @@ class GoBackNSender:
     def await_ack_phase(
         self, total_chunks: int, already_received_fin_back: MutableVariable
     ) -> bool:
-        is_last_chunk_acked = MutableVariable(self.base.value + 1 == total_chunks)
+        is_last_chunk_acked = MutableVariable(
+            self.base.value + 1 == total_chunks)
         if is_last_chunk_acked.value:
             return True
 
         start_time: float = time()
         try:
-            packet = self.protocol.wait_for_ack(self.sqn_number, self.ack_number)
+            packet = self.protocol.wait_for_ack(
+                self.sqn_number, self.ack_number)
         except UnexpectedFinMessage as e:
             packet = e.packet
             if not packet.is_ack and packet.is_fin:
@@ -138,20 +152,25 @@ class GoBackNSender:
 
         if packet.ack_number >= self.ack_number.value:
             self.base.value += packet.ack_number - self.ack_number.value
-            self.logger.debug(f"Received ack of packet {self.base.value + 1}")
+            self.logger.debug(
+                f"Received ack of packet {
+                    self.base.value + 1}")
             self.last_ack = self.ack_number.clone()
             self.ack_number = SequenceNumber(
                 packet.ack_number, self.protocol.protocol_version
             )
-            self.protocol.socket.set_timeout(SOCKET_RETRANSMIT_WINDOW_TIMEOUT)
+            self.protocol.socket.set_timeout(
+                SOCKET_RETRANSMIT_WINDOW_TIMEOUT)
             self.spent_in_reception = 0
         else:
             self.logger.warn(
-                f"Detected ACK from packet {packet.ack_number - self.offset_initial_seq_number.value + 1}"
-            )
+                f"Detected ACK from packet {
+                    packet.ack_number -
+                    self.offset_initial_seq_number.value +
+                    1}")
             self.logger.debug(
-                f"Acumulated {reception_duration} before retransmission needed. Totalling {self.spent_in_reception}"
-            )
+                f"Acumulated {reception_duration} before retransmission needed. Totalling {
+                    self.spent_in_reception}")
             self.spent_in_reception += reception_duration
             if self.spent_in_reception >= SOCKET_RETRANSMIT_WINDOW_TIMEOUT:
                 raise RetransmissionNeeded()

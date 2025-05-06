@@ -27,8 +27,11 @@ from lib.server.protocol import (
 
 class Accepter:
     def __init__(
-        self, adress: Address, protocol: str, logger, file_handler: FileHandler
-    ):
+            self,
+            adress: Address,
+            protocol: str,
+            logger,
+            file_handler: FileHandler):
         self.host: str = adress.host
         self.port: int = adress.port
         self.adress: Address = adress
@@ -50,14 +53,16 @@ class Accepter:
         try:
             welcoming_socket.bind(self.adress.to_tuple())
         except OSError as e:
-            self.logger.error(f"Cannot bind socket to port {self.port}. {e}")
+            self.logger.error(
+                f"Cannot bind socket to port {
+                    self.port}. {e}")
             raise CannotBindSocket()
 
-        self.welcoming_socket: SocketSaw = SocketSaw(welcoming_socket, self.logger)
+        self.welcoming_socket: SocketSaw = SocketSaw(
+            welcoming_socket, self.logger)
 
         self.protocol: AccepterProtocol = AccepterProtocol(
-            self.logger, self.welcoming_socket, self.adress, protocol, self.clients
-        )
+            self.logger, self.welcoming_socket, self.adress, protocol, self.clients)
 
     def run(self) -> None:
         while self.is_alive:
@@ -89,7 +94,8 @@ class Accepter:
             self.logger.set_prefix("[ACCEP]")
 
         except MissingClientAddress:
-            self.logger.debug("Client address not found, discarding message")
+            self.logger.debug(
+                "Client address not found, discarding message")
 
         except ClientAlreadyConnected:
             self.logger.debug(
@@ -98,8 +104,8 @@ class Accepter:
 
         except ProtocolMismatch:
             self.logger.info(
-                f"Rejecting client {client_address} due to protocol mismatch, expected {self.protocol.protocol_version}"
-            )
+                f"Rejecting client {client_address} due to protocol mismatch, expected {
+                    self.protocol.protocol_version}")
 
         except (MessageIsNotSyn, MessageIsNotSyn, MessageIsNotAck) as e:
             self.logger.debug(f"{e.message}")
@@ -120,15 +126,18 @@ class Accepter:
 
         connection_socket_raw: Socket = Socket(AF_INET, SOCK_DGRAM)
         connection_socket_raw.bind((self.host, USE_ANY_AVAILABLE_PORT))
-        connection_sockname: tuple[str, int] = connection_socket_raw.getsockname()
+        connection_sockname: tuple[str,
+                                   int] = connection_socket_raw.getsockname()
         connection_address: Address = Address(
             connection_sockname[0], connection_sockname[1]
         )
-        connection_socket: SocketSaw = SocketSaw(connection_socket_raw, self.logger)
+        connection_socket: SocketSaw = SocketSaw(
+            connection_socket_raw, self.logger)
 
         self.logger.debug(f"Accepting connection for {client_address}")
 
-        sequence_number = SequenceNumber(packet.sequence_number, packet.protocol)
+        sequence_number = SequenceNumber(
+            packet.sequence_number, packet.protocol)
         ack_number = (
             SequenceNumber(packet.ack_number, self.protocol.protocol_version)
             if packet.protocol == GO_BACK_N_PROTOCOL_TYPE
@@ -142,7 +151,8 @@ class Accepter:
         if ack_number is not None:
             ack_number.step()
 
-        packet, packet_type, _ = self.protocol.expect_handshake_completion(ack_number)
+        packet, packet_type, _ = self.protocol.expect_handshake_completion(
+            ack_number)
         self.logger.debug(f"Transferred to {connection_address}")
         self.logger.debug("Handhsake completed")
 

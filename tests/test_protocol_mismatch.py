@@ -36,8 +36,7 @@ def mininet_net_setup(request):
     )
     net = Mininet(topo=topo, link=TCLink)
     print(
-        f"[Fixture] Starting Mininet network with p_loss={packet_loss_percentage}%..."
-    )
+        f"[Fixture] Starting Mininet network with p_loss={packet_loss_percentage}%...")
 
     net.start()
 
@@ -91,12 +90,8 @@ def test_01_server_saw_rejects_download_gbn(mininet_net_setup):
 
     teardown_directories(tmp_dirpath)
 
-    assert was_client_successful.value, (
-        f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
-    )
-    assert was_server_successful.value, (
-        f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
-    )
+    assert was_client_successful.value, f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
+    assert was_server_successful.value, f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
 
 
 def test_02_server_saw_rejects_upload_gbn(mininet_net_setup):
@@ -142,12 +137,8 @@ def test_02_server_saw_rejects_upload_gbn(mininet_net_setup):
 
     teardown_directories(tmp_dirpath)
 
-    assert was_client_successful.value, (
-        f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
-    )
-    assert was_server_successful.value, (
-        f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
-    )
+    assert was_client_successful.value, f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
+    assert was_server_successful.value, f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
 
 
 def test_03_server_gbn_rejects_download_saw(mininet_net_setup):
@@ -193,12 +184,8 @@ def test_03_server_gbn_rejects_download_saw(mininet_net_setup):
 
     teardown_directories(tmp_dirpath)
 
-    assert was_client_successful.value, (
-        f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
-    )
-    assert was_server_successful.value, (
-        f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
-    )
+    assert was_client_successful.value, f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
+    assert was_server_successful.value, f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
 
 
 def test_04_server_gbn_rejects_upload_saw(mininet_net_setup):
@@ -244,9 +231,5 @@ def test_04_server_gbn_rejects_upload_saw(mininet_net_setup):
 
     teardown_directories(tmp_dirpath)
 
-    assert was_client_successful.value, (
-        f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
-    )
-    assert was_server_successful.value, (
-        f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
-    )
+    assert was_client_successful.value, f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
+    assert was_server_successful.value, f"Did not find {server_message_expected} in server logs. Or found an unexpected error"

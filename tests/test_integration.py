@@ -34,9 +34,13 @@ P_LOSS = MutableVariable(0)
 PROTOCOL = MutableVariable("saw")
 
 
-@pytest.fixture(
-    scope="module", params=["saw;0", "saw;10", "saw;40", "gbn;0", "gbn;10", "gbn;40"]
-)
+@pytest.fixture(scope="module",
+                params=["saw;0",
+                        "saw;10",
+                        "saw;40",
+                        "gbn;0",
+                        "gbn;10",
+                        "gbn;40"])
 def mininet_net_setup(request):
     protocol = request.param.split(";")[0]
     packet_loss_percentage = int(request.param.split(";")[1])
@@ -49,8 +53,7 @@ def mininet_net_setup(request):
     )
     net = Mininet(topo=topo, link=TCLink)
     print(
-        f"[Fixture] Starting Mininet network with p_loss={packet_loss_percentage}%..."
-    )
+        f"[Fixture] Starting Mininet network with p_loss={packet_loss_percentage}%...")
 
     net.start()
 
@@ -74,7 +77,8 @@ def test_01_upload_is_correct(mininet_net_setup):
     port = get_random_port()
 
     print(f"Starting server on {h1.name}...")
-    server_pid, server_log = start_server(h1, tmp_dirpath, port, PROTOCOL.value)
+    server_pid, server_log = start_server(
+        h1, tmp_dirpath, port, PROTOCOL.value)
 
     sleep(1)  # wait for server start
 
@@ -106,12 +110,8 @@ def test_01_upload_is_correct(mininet_net_setup):
 
     teardown_directories(tmp_dirpath)
 
-    assert was_client_successful.value, (
-        f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
-    )
-    assert was_server_successful.value, (
-        f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
-    )
+    assert was_client_successful.value, f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
+    assert was_server_successful.value, f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
 
     if os.path.exists(filepath) and os.path.exists(
         f"{tmp_dirpath}/server/test_file.txt"
@@ -122,12 +122,13 @@ def test_01_upload_is_correct(mininet_net_setup):
         print(f"Client file hash: {hash_client}")
         print(f"Server file hash: {hash_server}")
 
-        assert hash_client == hash_server, (
-            "SHA256 mismatch: uploaded file is not identical to the original"
-        )
+        assert (
+            hash_client == hash_server
+        ), "SHA256 mismatch: uploaded file is not identical to the original"
 
 
-def test_02_upload_fails_when_is_already_present_in_server(mininet_net_setup):
+def test_02_upload_fails_when_is_already_present_in_server(
+        mininet_net_setup):
     h1 = mininet_net_setup.get("h1")
     h2 = mininet_net_setup.get("h2")
     p_loss = P_LOSS.value
@@ -138,7 +139,8 @@ def test_02_upload_fails_when_is_already_present_in_server(mininet_net_setup):
 
     port = get_random_port()
     print(f"Starting server on {h1.name}...")
-    server_pid, server_log = start_server(h1, tmp_dirpath, port, PROTOCOL.value)
+    server_pid, server_log = start_server(
+        h1, tmp_dirpath, port, PROTOCOL.value)
 
     sleep(1)  # wait for server start
 
@@ -172,15 +174,12 @@ def test_02_upload_fails_when_is_already_present_in_server(mininet_net_setup):
 
     teardown_directories(tmp_dirpath)
 
-    assert was_client_successful.value, (
-        f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
-    )
-    assert was_server_successful.value, (
-        f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
-    )
+    assert was_client_successful.value, f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
+    assert was_server_successful.value, f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
 
 
-def test_03_upload_fails_when_file_to_upload_does_not_exist(mininet_net_setup):
+def test_03_upload_fails_when_file_to_upload_does_not_exist(
+        mininet_net_setup):
     h2 = mininet_net_setup.get("h2")
     print(mininet_net_setup.topo)
     p_loss = P_LOSS.value
@@ -213,9 +212,7 @@ def test_03_upload_fails_when_file_to_upload_does_not_exist(mininet_net_setup):
 
     teardown_directories(tmp_dirpath)
 
-    assert was_client_successful.value, (
-        f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
-    )
+    assert was_client_successful.value, f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
 
 
 def test_04_download_is_correct(mininet_net_setup):
@@ -229,14 +226,14 @@ def test_04_download_is_correct(mininet_net_setup):
 
     port = get_random_port()
     print(f"Starting server on {h1.name}...")
-    server_pid, server_log = start_server(h1, tmp_dirpath, port, PROTOCOL.value)
+    server_pid, server_log = start_server(
+        h1, tmp_dirpath, port, PROTOCOL.value)
 
     sleep(1)  # wait for server start
 
     print(f"Starting client on {h2.name}...")
     client_pid, client_log = start_download_client(
-        h2, tmp_dirpath, port, PROTOCOL.value, file_to_download="test_file.txt"
-    )
+        h2, tmp_dirpath, port, PROTOCOL.value, file_to_download="test_file.txt")
 
     was_client_successful = MutableVariable(False)
     was_server_successful = MutableVariable(False)
@@ -261,28 +258,24 @@ def test_04_download_is_correct(mininet_net_setup):
 
     teardown_directories(tmp_dirpath)
 
-    assert was_client_successful.value, (
-        f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
-    )
-    assert was_server_successful.value, (
-        f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
-    )
+    assert was_client_successful.value, f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
+    assert was_server_successful.value, f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
 
-    if os.path.exists(f"{tmp_dirpath}/client/test_file.txt") and os.path.exists(
-        filepath
-    ):
+    if os.path.exists(
+            f"{tmp_dirpath}/client/test_file.txt") and os.path.exists(filepath):
         hash_client = compute_sha256(f"{tmp_dirpath}/client/test_file.txt")
         hash_server = compute_sha256(filepath)
 
         print(f"Client file hash: {hash_client}")
         print(f"Server file hash: {hash_server}")
 
-        assert hash_client == hash_server, (
-            "SHA256 mismatch: downloaded file is not identical to the original"
-        )
+        assert (
+            hash_client == hash_server
+        ), "SHA256 mismatch: downloaded file is not identical to the original"
 
 
-def test_05_download_fails_when_is_not_present_in_server(mininet_net_setup):
+def test_05_download_fails_when_is_not_present_in_server(
+        mininet_net_setup):
     h1 = mininet_net_setup.get("h1")
     h2 = mininet_net_setup.get("h2")
     p_loss = P_LOSS.value
@@ -291,14 +284,14 @@ def test_05_download_fails_when_is_not_present_in_server(mininet_net_setup):
 
     port = get_random_port()
     print(f"Starting server on {h1.name}...")
-    server_pid, server_log = start_server(h1, tmp_dirpath, port, PROTOCOL.value)
+    server_pid, server_log = start_server(
+        h1, tmp_dirpath, port, PROTOCOL.value)
 
     sleep(1)  # wait for server start
 
     print(f"Starting client on {h2.name}...")
     client_pid, client_log = start_download_client(
-        h2, tmp_dirpath, port, PROTOCOL.value, file_to_download="test_file.txt"
-    )
+        h2, tmp_dirpath, port, PROTOCOL.value, file_to_download="test_file.txt")
     was_client_successful = MutableVariable(False)
     was_server_successful = MutableVariable(False)
 
@@ -325,15 +318,12 @@ def test_05_download_fails_when_is_not_present_in_server(mininet_net_setup):
 
     teardown_directories(tmp_dirpath)
 
-    assert was_client_successful.value, (
-        f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
-    )
-    assert was_server_successful.value, (
-        f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
-    )
+    assert was_client_successful.value, f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
+    assert was_server_successful.value, f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
 
 
-def test_06_download_fails_when_file_already_exists_in_client(mininet_net_setup):
+def test_06_download_fails_when_file_already_exists_in_client(
+        mininet_net_setup):
     h2 = mininet_net_setup.get("h2")
     p_loss = P_LOSS.value
 
@@ -369,9 +359,7 @@ def test_06_download_fails_when_file_already_exists_in_client(mininet_net_setup)
 
     teardown_directories(tmp_dirpath)
 
-    assert was_client_successful.value, (
-        f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
-    )
+    assert was_client_successful.value, f"Did not find {client_message_expected} in client logs. Or found an unexpected error"
 
 
 def test_07_cannot_boot_server_with_invalid_storage(mininet_net_setup):
@@ -383,7 +371,8 @@ def test_07_cannot_boot_server_with_invalid_storage(mininet_net_setup):
 
     port = get_random_port()
     print(f"Starting server on {h1.name}...")
-    server_pid, server_log = start_server(h1, tmp_dirpath, port, PROTOCOL.value)
+    server_pid, server_log = start_server(
+        h1, tmp_dirpath, port, PROTOCOL.value)
 
     sleep(1)  # wait for server start
 
@@ -409,6 +398,4 @@ def test_07_cannot_boot_server_with_invalid_storage(mininet_net_setup):
 
     teardown_directories(tmp_dirpath)
 
-    assert was_server_successful.value, (
-        f"Did not find {server_message_expected} in server logs. Or found an unexpected error"
-    )
+    assert was_server_successful.value, f"Did not find {server_message_expected} in server logs. Or found an unexpected error"

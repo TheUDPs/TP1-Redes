@@ -44,18 +44,25 @@ class ClientProtocol:
         self.protocol_version: str = protocol_version
 
     def socket_receive_from(
-        self, buffer_size: int, should_retransmit: bool, do_not_timeout: bool = False
-    ):
+            self,
+            buffer_size: int,
+            should_retransmit: bool,
+            do_not_timeout: bool = False):
         raw_packet, client_address_tuple = self.socket.recvfrom(
             buffer_size, should_retransmit, do_not_timeout
         )
         return raw_packet, client_address_tuple
 
-    def socket_send_to(self, packet_to_send: Packet, client_address: Address):
+    def socket_send_to(
+            self,
+            packet_to_send: Packet,
+            client_address: Address):
         if self.protocol_version == STOP_AND_WAIT_PROTOCOL_TYPE:
-            packet_bin: bytes = PacketParser.compose_packet_saw_for_net(packet_to_send)
+            packet_bin: bytes = PacketParser.compose_packet_saw_for_net(
+                packet_to_send)
         else:
-            packet_bin: bytes = PacketParser.compose_packet_gbn_for_net(packet_to_send)
+            packet_bin: bytes = PacketParser.compose_packet_gbn_for_net(
+                packet_to_send)
 
         self.socket.sendto(packet_bin, client_address)
 
@@ -74,7 +81,8 @@ class ClientProtocol:
         server_address: Address = Address(
             server_address_tuple[0], server_address_tuple[1]
         )
-        packet, packet_type = PacketParser.get_packet_from_bytes(raw_packet)
+        packet, packet_type = PacketParser.get_packet_from_bytes(
+            raw_packet)
 
         return packet, packet_type, server_address
 
@@ -83,8 +91,9 @@ class ClientProtocol:
     ) -> None:
         if ack_number.value != packet.ack_number:
             self.logger.debug(
-                f"Expected ack {ack_number.value}, got ack {packet.ack_number}"
-            )
+                f"Expected ack {
+                    ack_number.value}, got ack {
+                    packet.ack_number}")
             raise InvalidAckNumber()
 
     def validate_inbound_ack(
@@ -115,8 +124,9 @@ class ClientProtocol:
     ) -> None:
         if sequence_number.value != packet.sequence_number:
             self.logger.debug(
-                f"Expected seq {sequence_number.value} got {packet.sequence_number}"
-            )
+                f"Expected seq {
+                    sequence_number.value} got {
+                    packet.sequence_number}")
             raise InvalidSequenceNumber()
 
     def build_packet(
@@ -194,8 +204,10 @@ class ClientProtocol:
         return Address(server_address.host, packet.port)
 
     def send_operation_intention(
-        self, sequence_number: SequenceNumber, ack_number: SequenceNumber, op_code: int
-    ) -> None:
+            self,
+            sequence_number: SequenceNumber,
+            ack_number: SequenceNumber,
+            op_code: int) -> None:
         data = op_code.to_bytes(2, byteorder=INT_DESERIALIZATION_BYTEORDER)
 
         packet_to_send: Packet = self.build_packet(
@@ -269,8 +281,10 @@ class ClientProtocol:
         return packet
 
     def inform_filename(
-        self, sequence_number: SequenceNumber, ack_number: SequenceNumber, filename: str
-    ) -> None:
+            self,
+            sequence_number: SequenceNumber,
+            ack_number: SequenceNumber,
+            filename: str) -> None:
         data = filename.encode(STRING_ENCODING_FORMAT)
 
         packet_to_send: Packet = self.build_packet(
@@ -292,7 +306,8 @@ class ClientProtocol:
         ack_number: SequenceNumber,
         file_size: int,
     ) -> None:
-        data = file_size.to_bytes(4, byteorder=INT_DESERIALIZATION_BYTEORDER)
+        data = file_size.to_bytes(
+            4, byteorder=INT_DESERIALIZATION_BYTEORDER)
 
         packet_to_send: Packet = self.build_packet(
             protocol=self.protocol_version,
@@ -356,7 +371,8 @@ class ClientProtocol:
         )
 
         self.validate_sequence_number(packet, sequence_number)
-        return SequenceNumber(packet.sequence_number, self.protocol_version), packet
+        return SequenceNumber(packet.sequence_number,
+                              self.protocol_version), packet
 
     @re_listen_if_failed()
     def wait_for_fin_or_ack(
@@ -384,6 +400,7 @@ class ClientProtocol:
 
             if ack_number.value != packet_gbn.ack_number:
                 self.logger.debug(
-                    f"Expected ack {ack_number.value} got {packet_gbn.ack_number}"
-                )
+                    f"Expected ack {
+                        ack_number.value} got {
+                        packet_gbn.ack_number}")
                 raise InvalidAckNumber()

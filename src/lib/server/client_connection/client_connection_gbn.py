@@ -78,7 +78,8 @@ class ClientConnectionGbn(ClientConnection):
             ack_number.value,
         )
         try:
-            _seq, _ack = gbn_receiver.receive_file(self.file, last_transmitted_packet)
+            _seq, _ack = gbn_receiver.receive_file(
+                self.file, last_transmitted_packet)
             sequence_number.value = _seq
             ack_number.value = _ack
         except RetransmissionNeeded:
@@ -95,8 +96,10 @@ class ClientConnectionGbn(ClientConnection):
         filesize_for_upload: MutableVariable,
     ):
         self.receive_file(
-            sequence_number, ack_number, filename_for_upload, filesize_for_upload
-        )
+            sequence_number,
+            ack_number,
+            filename_for_upload,
+            filesize_for_upload)
         self.closing_handshake_for_upload(sequence_number, ack_number)
 
     def send_first_packet(
@@ -114,13 +117,14 @@ class ClientConnectionGbn(ClientConnection):
         is_first_chunk: bool = True
 
         self.logger.info(
-            f"Sending file {filename} of {self.file_handler.bytes_to_megabytes(filesize)} MB"
-        )
+            f"Sending file {filename} of {
+                self.file_handler.bytes_to_megabytes(filesize)} MB")
 
         chunk = self.file_handler.read(self.file, FILE_CHUNK_SIZE_GBN)
         chunk_len = len(chunk)
 
-        msg = f"Sending chunk {chunk_number}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB. "
+        msg = f"Sending chunk {chunk_number}/{total_chunks} of size {
+            self.file_handler.bytes_to_kilobytes(chunk_len)} KB. "
         if SHOULD_PRINT_CHUNK_HASH:
             msg += f"Hash is: {compute_chunk_sha256(chunk)}"
 
@@ -161,8 +165,7 @@ class ClientConnectionGbn(ClientConnection):
         filename_for_download.value = _filename
 
         is_last_chunk = self.send_first_packet(
-            sequence_number, ack_number, filename_for_download.value, filesize
-        )
+            sequence_number, ack_number, filename_for_download.value, filesize)
 
         if is_last_chunk:
             return False
@@ -188,8 +191,7 @@ class ClientConnectionGbn(ClientConnection):
         )
 
         _seq, _ack, last_raw_packet, already_received_fin_back = gbn_sender.send_file(
-            self.file, filesize, filename_for_download.value
-        )
+            self.file, filesize, filename_for_download.value)
         sequence_number.value = _seq
         ack_number.value = _ack
 
@@ -215,7 +217,8 @@ class ClientConnectionGbn(ClientConnection):
         self, sequence_number: MutableVariable, ack_number: MutableVariable
     ):
         try:
-            self.logger.debug("Connection finalization received. Confirming it")
+            self.logger.debug(
+                "Connection finalization received. Confirming it")
             self.protocol.send_ack(
                 sequence_number.value,
                 ack_number.value,
@@ -234,7 +237,8 @@ class ClientConnectionGbn(ClientConnection):
             sequence_number.value.step()
             try:
                 self.protocol.wait_for_ack(
-                    sequence_number.value, exceptions_to_let_through=[ConnectionLost]
+                    sequence_number.value, exceptions_to_let_through=[
+                        ConnectionLost]
                 )
             except (ConnectionLost, MessageIsNotAck):
                 pass

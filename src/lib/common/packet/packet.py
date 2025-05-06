@@ -171,11 +171,12 @@ class PacketParser:
         is_fin = header >> pos & 0b1
         is_fin = True if is_fin == 0b1 else False
 
-        port = int.from_bytes(packet[2:4], byteorder=INT_DESERIALIZATION_BYTEORDER)
+        port = int.from_bytes(
+            packet[2:4], byteorder=INT_DESERIALIZATION_BYTEORDER)
         payload_length = int.from_bytes(
             packet[4:6], byteorder=INT_DESERIALIZATION_BYTEORDER
         )
-        data = bytes(packet[6 : 6 + payload_length])
+        data = bytes(packet[6: 6 + payload_length])
 
         return PacketSaw(
             protocol,
@@ -204,7 +205,8 @@ class PacketParser:
         is_fin = header >> pos & 0b1
         is_fin = True if is_fin == 0b1 else False
 
-        port = int.from_bytes(packet[2:4], byteorder=INT_DESERIALIZATION_BYTEORDER)
+        port = int.from_bytes(
+            packet[2:4], byteorder=INT_DESERIALIZATION_BYTEORDER)
         payload_length = int.from_bytes(
             packet[4:8], byteorder=INT_DESERIALIZATION_BYTEORDER
         )
@@ -214,7 +216,7 @@ class PacketParser:
         ack_number = int.from_bytes(
             packet[12:16], byteorder=INT_DESERIALIZATION_BYTEORDER
         )
-        data = bytes(packet[16 : 16 + payload_length])
+        data = bytes(packet[16: 16 + payload_length])
 
         return PacketGbn(
             protocol,
@@ -230,7 +232,8 @@ class PacketParser:
 
     @staticmethod
     def get_packet_from_bytes(packet: bytes) -> tuple[Packet, str]:
-        header = int.from_bytes(packet[0:2], byteorder=INT_DESERIALIZATION_BYTEORDER)
+        header = int.from_bytes(
+            packet[0:2], byteorder=INT_DESERIALIZATION_BYTEORDER)
 
         pos = 16
         pos -= 2

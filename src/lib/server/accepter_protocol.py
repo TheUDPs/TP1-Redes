@@ -47,8 +47,10 @@ class AccepterProtocol:
         self.clients: ClientPool = clients
 
     def socket_receive_from(
-        self, buffer_size: int, should_retransmit: bool, do_not_timeout: bool = False
-    ):
+            self,
+            buffer_size: int,
+            should_retransmit: bool,
+            do_not_timeout: bool = False):
         raw_packet, client_address_tuple = self.socket.recvfrom(
             buffer_size, should_retransmit, do_not_timeout
         )
@@ -67,9 +69,11 @@ class AccepterProtocol:
             protocol = self.protocol_version
 
         if protocol == STOP_AND_WAIT_PROTOCOL_TYPE:
-            packet_bin: bytes = PacketParser.compose_packet_saw_for_net(packet_to_send)
+            packet_bin: bytes = PacketParser.compose_packet_saw_for_net(
+                packet_to_send)
         else:
-            packet_bin: bytes = PacketParser.compose_packet_gbn_for_net(packet_to_send)
+            packet_bin: bytes = PacketParser.compose_packet_gbn_for_net(
+                packet_to_send)
 
         self.socket.sendto(packet_bin, client_address)
 
@@ -121,7 +125,8 @@ class AccepterProtocol:
         client_address: Address = Address(
             client_address_tuple[0], client_address_tuple[1]
         )
-        packet, packet_type = PacketParser.get_packet_from_bytes(raw_packet)
+        packet, packet_type = PacketParser.get_packet_from_bytes(
+            raw_packet)
 
         return packet, packet_type, client_address
 
@@ -172,7 +177,10 @@ class AccepterProtocol:
 
         return packet, packet_type, client_address
 
-    def reject_connection(self, packet: Packet, client_address: Address) -> None:
+    def reject_connection(
+            self,
+            packet: Packet,
+            client_address: Address) -> None:
         packet_to_send: Packet = self.build_packet(
             protocol=packet.protocol,
             is_ack=False,
@@ -180,7 +188,8 @@ class AccepterProtocol:
             is_fin=True,
             port=client_address.port,
             payload_length=0,
-            sequence_number=SequenceNumber(packet.sequence_number, packet.protocol),
+            sequence_number=SequenceNumber(
+                packet.sequence_number, packet.protocol),
             ack_number=SequenceNumber(packet.ack_number, packet.protocol)
             if packet.protocol == GO_BACK_N_PROTOCOL_TYPE
             else None,
@@ -238,12 +247,14 @@ class AccepterProtocol:
             raw_packet, client_address_tuple
         )
 
-        op_code: int = int.from_bytes(packet.data, INT_DESERIALIZATION_BYTEORDER)
+        op_code: int = int.from_bytes(
+            packet.data, INT_DESERIALIZATION_BYTEORDER)
 
         if op_code != UPLOAD_OPERATION and op_code != DOWNLOAD_OPERATION:
             raise UnexpectedOperation()
 
-        return op_code, SequenceNumber(packet.sequence_number, self.protocol_version)
+        return op_code, SequenceNumber(
+            packet.sequence_number, self.protocol_version)
 
     def send_ack(
         self,
@@ -296,7 +307,8 @@ class AccepterProtocol:
         filename: str = packet.data.decode(STRING_ENCODING_FORMAT)
 
         self.validate_sequence_number(packet, sequence_number)
-        return SequenceNumber(packet.sequence_number, self.protocol_version), filename
+        return SequenceNumber(packet.sequence_number,
+                              self.protocol_version), filename
 
     @re_listen_if_failed()
     def receive_filesize(
@@ -308,10 +320,12 @@ class AccepterProtocol:
         packet, packet_type, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
         )
-        filesize: int = int.from_bytes(packet.data, INT_DESERIALIZATION_BYTEORDER)
+        filesize: int = int.from_bytes(
+            packet.data, INT_DESERIALIZATION_BYTEORDER)
 
         self.validate_sequence_number(packet, sequence_number)
-        return SequenceNumber(packet.sequence_number, self.protocol_version), filesize
+        return SequenceNumber(packet.sequence_number,
+                              self.protocol_version), filesize
 
     @re_listen_if_failed()
     def receive_file_chunk(
@@ -325,7 +339,8 @@ class AccepterProtocol:
             raw_packet, client_address_tuple
         )
         self.validate_sequence_number(packet, sequence_number)
-        return SequenceNumber(packet.sequence_number, self.protocol_version), packet
+        return SequenceNumber(packet.sequence_number,
+                              self.protocol_version), packet
 
     @re_listen_if_failed()
     def wait_for_ack(self, sequence_number: SequenceNumber) -> None:
