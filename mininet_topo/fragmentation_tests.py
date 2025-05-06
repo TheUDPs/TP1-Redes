@@ -36,12 +36,19 @@ def run_automated_test(protocol, h1, h2, s2):
     info(f"\n*** Running automated {protocol} fragmentation test ***\n")
 
     info(f"Starting tcpdump captures for {protocol}...\n")
-    pid1 = run_tcpdump(
-        s2, "s2-eth0", f"{CAPTURE_DIR}/router_eth0_{protocol_lower}.pcap"
+    pid_server = run_tcpdump(
+        h1, "h1-eth0", f"{CAPTURE_DIR}/h1_{protocol_lower}.pcap"
     )
-    pid2 = run_tcpdump(
+    pid_eth1 = run_tcpdump(
         s2, "s2-eth1", f"{CAPTURE_DIR}/router_eth1_{protocol_lower}.pcap"
     )
+    pid_eth0 = run_tcpdump(
+        s2, "s2-eth0", f"{CAPTURE_DIR}/router_eth0_{protocol_lower}.pcap"
+    )
+    pid_client = run_tcpdump(
+        h2, "h2-eth0", f"{CAPTURE_DIR}/h2_{protocol_lower}.pcap"
+    )
+
     time.sleep(WAIT_TIME)
 
     info(f"Starting iperf {protocol} server on h1...\n")
@@ -63,8 +70,9 @@ def run_automated_test(protocol, h1, h2, s2):
         f.write(client_output)
 
     info("Stopping tcpdump and iperf processes...\n")
-    kill_process(s2, pid1)
-    kill_process(s2, pid2)
+    kill_process(h2, pid_client)
+    for i in [pid_eth0, pid_eth1]: kill_process(s2, i)
+    kill_process(h1, pid_server)
     kill_processes(h1, "iperf")
     time.sleep(WAIT_TIME)
 
@@ -103,20 +111,21 @@ def fragmentation_test():
     info("TCP test captures:\n")
     info(f"  - {CAPTURE_DIR}/router_eth0_tcp.pcap\n")
     info(f"  - {CAPTURE_DIR}/router_eth1_tcp.pcap\n")
+    info(f"  - {CAPTURE_DIR}/h1_tcp.pcap\n")
+    info(f"  - {CAPTURE_DIR}/h2_tcp.pcap\n")
     info(f"  - {CAPTURE_DIR}/iperf_tcp_server.log\n")
     info(f"  - {CAPTURE_DIR}/iperf_tcp_client.log\n\n")
 
     info("UDP test captures:\n")
     info(f"  - {CAPTURE_DIR}/router_eth0_udp.pcap\n")
     info(f"  - {CAPTURE_DIR}/router_eth1_udp.pcap\n")
+    info(f"  - {CAPTURE_DIR}/h1_udp.pcap\n")
+    info(f"  - {CAPTURE_DIR}/h2_udp.pcap\n")
     info(f"  - {CAPTURE_DIR}/iperf_udp_server.log\n")
     info(f"  - {CAPTURE_DIR}/iperf_udp_client.log\n\n")
 
     info("To analyze the captures, you can run on other terminal:\n")
-    info(f"  wireshark {CAPTURE_DIR}/router_eth0_tcp.pcap\n")
-    info(f"  wireshark {CAPTURE_DIR}/router_eth1_tcp.pcap\n")
-    info(f"  wireshark {CAPTURE_DIR}/router_eth0_udp.pcap\n")
-    info(f"  wireshark {CAPTURE_DIR}/router_eth1_udp.pcap\n")
+    info(f"  wireshark {CAPTURE_DIR}/file_to_check.pcap\n")
     info("Apply filter: ip.flags.mf == 1 or ip.frag_offset > 0\n")
     info("This will show fragmented packets in the captures\n\n")
 

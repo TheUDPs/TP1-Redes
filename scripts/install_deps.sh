@@ -15,3 +15,7 @@ sudo apt install openvswitch-testcontroller
 print_colored_message "══ Enabling OpenVSwitch ══"
 
 sudo systemctl enable --now openvswitch-switch
+
+print_colored_message "══ Installing TCPDump ══" # To capture packets for fragmentation item
+
+sudo apt install tcpdump
