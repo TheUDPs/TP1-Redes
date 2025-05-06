@@ -678,7 +678,7 @@ Para la sección de handshake y configuración se sigue la misma forma de actuar
 
 Durante la etapa de transferencia del archivo, la parte de la transmisión que actúa de sender tiene la responsabilidad de re-enviar toda la ventana que tiene disponible desde el último paquete que fue confirmado con un ACK por parte del receiver. Para que el sender pueda considerar un paquete correctamente confirmado debe tener el mismo ACK number que está esperando recibir o que haya llegado un ACK con ACK number mayor, por lo que se entiende que el receiver recibió correctamente todos los paquetes hasta el ACK number que envío. Esto último despeja de repente una buena porción de la ventana para enviar consecutivamente nuevos paquetes. El tamaño de la ventana utilizado, que mediante comprobación empírica es el que mejor resultados trajo, es de tamaño de 10 paquetes.
 
-* Análisis
+* Rendimiento
 
 En esta sección compararemos el performance de los protocolos Go Back N y Stop & Wait bajo distintas configuraciones de pérdida de paquetes y utilizando archivos de distintos tamaños.
 
@@ -689,6 +689,8 @@ En esta sección compararemos el performance de los protocolos Go Back N y Stop 
 | **6 MB**      | 0.3748s      | 6.2843s       | 29.1048s      | 0.2684s      | 2.8044s       | 11.9307s      |
 | **25 MB**     | 1.3594s      | 27.1792s      | 123.2692s     | 0.8491s      | 11.9623s      | 51.3981s      |
 
+Se observa un aumento de tiempo en la transmisión a medida que aumenta el porcentaje de pérdida de paquetes, debido a que la aplicación debe tardar cada vez más tiempo en realizar las retransmisiones debido a un mayor volumen de paquetes perdidos.
+
 ** Download
 
 | **File Size** | **SAW (0%)** | **SAW (10%)** | **SAW (40%)** | **GBN (0%)** | **GBN (10%)** | **GBN (40%)** |
@@ -696,6 +698,7 @@ En esta sección compararemos el performance de los protocolos Go Back N y Stop 
 | **6 MB**      | 0.3745s      | 6.1496s       | 28.1998s      | 0.2326s      | 2.5937s       | 11.6761s      |
 | **25 MB**     | 1.6736s      | 27.7168s      | 120.4340s     | 1.0254s      | 11.7572s      | 51.7844s      |
 
+Se observa el mismo aumento de tiempo explicado para la operación de upload. También se detalla una gran similaridad de tiempos entre las dos operaciones, ya que en esencia, se está realizando lo mismo pero lados distintos de la arquitectura cliente-servidor.
 
 * Pruebas
 
