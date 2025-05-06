@@ -454,7 +454,13 @@ Esta transferencia ilustra el funcionamiento del protocolo Stop-and-Wait en una 
 - El cliente responde iniciando su propio cierre con un paquete FIN (~seq=0~).
 - Finalmente, el cliente envía un último ACK (~seq=1~), completando el cierre de la conexión.
 
-\newpage
+*** Manejo de retransmisiones
+
+Ahora que se detalló los mensajes que se intercambian entre el cliente y el servidor, se presenta cómo maneja el protocolo una pérdida de paquetes.
+
+La retransmisión se da siempre por parte de quien está esperando un mensaje, en otras palabras, quien esté bloqueado en un wait del socket tendrá la responsabilidad de re-enviar su último mensaje si no recibe lo que esperaba, o si no recibe nada. Se hace una retransmisión si en una determinada ventana de tiempo pre-establecida (15ms definido como una constante) no se recibe un mensaje, esto provee una rápida recuperación en la comunicación ante una pérdida de paquetes. Si el mensaje esperado es erróneo también se hace una retransmisión, ya que el socket podría estar leyendo un mensaje duplicado (retransmisión del otro participante de la interacción).
+
+El accepter del servidor es un caso particular, es quien maneja el welcoming socket y hace la transferencia de la conexión a otro socket específico para ese flujo, y si recibe mensajes que no son un connection request para iniciar el handshake, o no son una continuación de un handshake en progreso, los rechaza y no retransmite.
 
 ** Especificación del protocolo Go-Back-N
 
@@ -1021,3 +1027,6 @@ Por otro lado, el uso de la interfaz de sockets en Python y la simulación de re
 
 \bibitem{rfc-tcp}
 \textit{Transmission Control Protocol RFC793 - IETF}. Disponible en: \url{https://www.ietf.org/rfc/rfc793.txt}. Recuperado en Abril del 2025.
+
+\bibitem{rdt}
+James F. Kurose and Keith W. Ross, *Computer Networking: A Top-Down Approach*, 8th ed., Pearson, 2021. Chapter 3.4: Principles of Reliable Data Transfer. Recuperado en Abril del 2025.
