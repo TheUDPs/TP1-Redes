@@ -343,6 +343,39 @@ end
 #+RESULTS:
 [[file:docs/imgs/saw_upload.png]]
 
+
+*** Análisis del Ciclo de Vida de Upload de una transferencia con Stop-and-Wait
+
+En esta transferencia se utiliza el protocolo **Stop-and-Wait**, que asegura la entrega de datos mediante la espera de una confirmación (ACK) por cada paquete enviado antes de continuar. El archivo transferido es `report.pdf` y tiene un tamaño total de 3000 bytes.
+
+**** Establecimiento de la conexión (Handshake):
+
+- El **cliente** inicia la conexión enviando un paquete con el flag ~SYN~ y ~seq=0~.
+- El **servidor** responde con un paquete con flags ~SYN~, ~ACK~ y ~seq=0~.
+- El **cliente** confirma la recepción con un paquete ~ACK~ con ~seq=1~ y datos que indican el código de operación ~data=1~ (upload).
+- El **servidor** responde con un ~ACK~ (~seq=1~) para confirmar la configuración de operación.
+
+**** Configuración:
+
+- El **cliente** envía un paquete con ~seq=0~ y ~data=report.pdf~, indicando el nombre del archivo.
+- El **servidor** responde con un paquete ~ACK~ (~seq=0~) para confirmar la recepción del nombre.
+- El **cliente** envía otro paquete con ~seq=1~ y ~data=file_size~, indicando el tamaño del archivo.
+- El **servidor** responde con un ~ACK~ (~seq=1~).
+
+**** Transferencia del archivo:
+
+- El **cliente** envía un chunk de datos con ~seq=0~, ~payload_length=1426~, y datos binarios (~data=101110...~).
+
+- El **servidor** responde con un ~ACK~ (~seq=0~), permitiendo al cliente continuar.
+
+- El **cliente** envía un segundo y último paquete con ~FIN~, ~seq=1~, ~payload_length=100~, y más datos (~data=101110...~), indicando además el fin de la transferencia.
+
+**** Cierre de la conexión (Closing handshake):
+
+- El **servidor** confirma la recepción del último paquete con un ~ACK~ (~seq=1~).
+- Luego, el **servidor** también inicia su cierre con un paquete ~FIN~ (~seq=1~).
+- Finalmente, el **cliente** responde con un último ~ACK~ (~seq=1~), completando el cierre de la conexión.
+
 *** Ciclo de Vida de Download
 
 #+BEGIN_SRC plantuml :file docs/imgs/saw_download.png :exports results
@@ -388,6 +421,36 @@ end
 #+ATTR_LATEX: :width 0.75\textwidth
 #+RESULTS:
 [[file:docs/imgs/saw_download.png]]
+
+*** Análisis del Ciclo de Vida de Download de una transferencia con Stop-and-Wait
+
+Esta transferencia ilustra el funcionamiento del protocolo Stop-and-Wait en una operación de descarga de archivos. El archivo solicitado por el cliente es report.pdf, con un tamaño total de 3000 bytes, dividido en fragmentos de 1426 bytes. Cada paquete de datos enviado requiere una confirmación antes de que el servidor continúe con el siguiente.
+
+**** Establecimiento de la conexión (Handshake):
+
+- El cliente inicia la conexión con un paquete SYN con ~seq=0~.
+- El servidor responde con un paquete que incluye los flags SYN y ACK (~seq=0~).
+- El cliente confirma el establecimiento de la conexión con un ACK (~seq=1~) e indica en el cuerpo del mensaje el código de operación (~data=1~), correspondiente a una descarga.
+- El servidor responde con otro ACK (~seq=1~), confirmando la recepción del código de operación.
+
+**** Configuración:
+
+- El cliente solicita el archivo enviando un paquete con ~seq=0~ y ~data=report~.pdf.
+- El servidor, en lugar de enviar solo un ACK, responde directamente con el primer chunk de datos:
+-     ~seq=0~, ~payload_length=1426~, y ~data=101110~....
+- El cliente confirma la recepción de este primer fragmento con un ACK (~seq=0~).
+
+**** Transferencia del archivo:
+
+- El servidor envía el segundo fragmento: ~seq=1~, ~payload_length=1426~, y ~data=101110~....
+- El cliente responde con un ACK (~seq=1~), permitiendo continuar o finalizar.
+
+**** Cierre de la conexión (Closing handshake):
+
+- El servidor, al haber enviado todos los datos, indica el fin de la transmisión con un paquete FIN: ~seq=0~, ~payload_length=100~, y ~data=101110~....
+- El cliente responde iniciando su propio cierre con un paquete FIN (~seq=0~).
+- El servidor confirma la recepción del FIN con un ACK (~seq=1~).
+- Finalmente, el cliente envía un último ACK (~seq=1~), completando el cierre de la conexión.
 
 ** Especificación del protocolo Go-Back-N
 
