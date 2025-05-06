@@ -599,6 +599,31 @@ Para mostrar el funcionamiento de Go Back N, mostraremos las capturas de las ope
 \noindent \includegraphics[width=\textwidth]{docs/imgs2/gbn_10l_down_ws.png}
 \captionof{figure}{Captura de wireshark de Download con Go Back N.}
 
+** Pruebas automatizadas
+
+Si bien se detallaron ejemplos manuales donde se probaron las características del protocolo de aplicación desarrollado, también de desarrollaron pruebas automatizadas con /pytest/, siendo ventajoso el hecho de que Mininet está desarrollo en Python y ofrece una API.
+
+Se desarrollaron pruebas de integración que testean:
+
+- Upload y download correcto.
+- Caso download cuando la ubicación de guardado del archivo a descargar ya existe.
+- Caso download cuando el archivo a descargar no existe en el servidor.
+- Caso upload cuando la ubicación del archivo a subir no existe.
+- Caso download cuando el archivo a subir ya existe con el nombre proveido en el servidor.
+- Caso de comunicación fallida por protocol mismatch entre servidor y clientes.
+- Caso de descargas y subida múltiples y simultáneas.
+
+Todas estas pruebas se ejecutan, cada una, bajo las siguientes condiciones:
+
+- Protocolo SAW con 0% de packet loss.
+- Protocolo SAW con 10% de packet loss.
+- Protocolo SAW con 40% de packet loss.
+- Protocolo GBN con 0% de packet loss.
+- Protocolo GBN con 10% de packet loss.
+- Protocolo GBN con 40% de packet loss.
+
+Estas pruebas generan un alto consumo de CPU y poseen una cota de tiempo (establecida para que en el CI/CD no consuma recursos de más) por lo que requieren de hardware adecuado.
+
 * Preguntas a Responder
 ** Describa la arquitectura Cliente-Servidor.
 La arquitectura Cliente-Servidor es una de dos arquitecturas más comunes. En esta arquitectura hay un /host/ (/end system/) llamado /server/ que esta siempre encendido que pasivamente escucha /requests/ de otros /hosts/ llamados /clients/ que son agentes activos que inician la comunicación con el /server/.
@@ -682,8 +707,13 @@ Por su parte, TCP posee las siguientes características:
 Ninguno de estos protocolos es mejor que el otro. Para decidir cuál de ellos utilizar, se deben tener en cuenta las necesidades de la aplicación.
 Debido a las características mencionadas anteriormente, UDP resulta más apropiado para aplicaciones que requieran mayor velocidad sin que sea tan sensible a algunas pérdidas de paquetes, por ejemplo plataformas de streaming, y si se tiene un servidor dedicado a una aplicación específica que necesita poder admitir muchos más clientes activos.
 Por otro lado, TCP es más ventajoso para las aplicaciones que necesitan un transporte confiable de los datos. Algunos ejemplos son el email y la web.
+
 * Dificultades Encontradas
+
+
+
 * Conclusión
+
 * Anexo: Fragmentacion IPv4
 ** Enunciado :noexport:
 El siguiente ejercicio se plantea como objetivo la comprensión y la puesta en
