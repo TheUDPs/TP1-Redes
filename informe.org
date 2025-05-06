@@ -418,9 +418,9 @@ Se observa el comportamiento de una transferencia de archivos con una ventana de
 
 **** Transferencia del archivo:
 
-    El cliente envía el primer chunk de datos con ~seq=4~, ~ack=4~, ~payload_length=1416~ y ~data=101110~….
+    El cliente envía el primer chunk de datos con ~seq=4~, ~ack=4~, ~payload_length=1416~ y ~data=101110~.
 
-    A continuación, envía el segundo chunk con ~seq=5~, ~ack=4~, ~payload_length=1416~ y ~data=101110~….
+    A continuación, envía el segundo chunk con ~seq=5~, ~ack=4~, ~payload_length=1416~ y ~data=101110~.
 
     El servidor confirma la recepción del primer chunk enviando un ~ACK~ (~seq=4~, ~ack=4~).
 
@@ -428,7 +428,7 @@ Se observa el comportamiento de una transferencia de archivos con una ventana de
 
 **** Cierre de la conexión (Closing handshake):
 
-    El cliente inicia el cierre enviando un paquete ~FIN~ con ~seq=6~, ~ack=5~, ~payload_length=168~ y ~data=101110~….
+    El cliente inicia el cierre enviando un paquete ~FIN~ con ~seq=6~, ~ack=5~, ~payload_length=168~ y ~data=101110~.
 
     El servidor responde con un ~ACK~ final (~seq=6~, ~ack=6~).
 
