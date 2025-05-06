@@ -65,32 +65,38 @@
 
 * Introducción
 
-En el presente trabajo práctico se desarrolla una aplicación de red para la transferencia de archivos, basada en una arquitectura 
-cliente-servidor, con el objetivo principal de implementar mecanismos de transferencia de datos confiable. Para ello, se trabajará 
-sobre la capa de transporte, utilizando específicamente el protocolo UDP, lo cual requiere diseñar e implementar soluciones 
-personalizadas que garanticen la entrega de datos confiable. En este marco, se explorarán los principios del concepto de  
-Reliable Data Transfer (RDT), implementando dos de sus variantes: Stop-and-Wait y Go-Back-N (GBN). La comunicación entre procesos 
-se llevará a cabo mediante la interfaz de sockets de Python, y se utilizará la herramienta Mininet para simular diferentes 
+En el presente trabajo práctico se desarrolla una aplicación de red para la transferencia de archivos, basada en una arquitectura
+cliente-servidor, donde un servidor puede atender las operaciones de múltiples clientes de manera concurrente, con el objetivo principal de implementar mecanismos de transferencia de datos confiable. Para ello, se trabajará
+sobre la capa de transporte, utilizando específicamente el protocolo UDP, lo cual requiere diseñar e implementar soluciones
+personalizadas que garanticen la entrega de datos confiable (RDT - Reliable Data Transfer).
+
+En este marco, se explorarán los principios del concepto de RDT, implementando dos de sus variantes: Stop-and-Wait (SAW) y Go-Back-N (GBN). La comunicación entre procesos se llevará a cabo mediante la interfaz de sockets de Python, y se utilizará la herramienta Mininet para simular diferentes
 condiciones de red y evaluar el comportamiento de las implementaciones, incluyendo escenarios con pérdida de paquetes.
 
 
 * Hipótesis y suposiciones realizadas
 
 - La carga/descarga no va a conservar la metadata del archivo. Es decir, si yo descargo un archivo, ese archivo va a tener metadata como si yo hubiera creado el archivo desde cero usando `touch archivo`.
-- Si el cliente utiliza otro protocolo para comunicarse con el server, el server debe rechazar este pedido. (PROTOCOL MISSMATCH). El header tendrá un campo dedicado a esto.
+- Si el cliente utiliza otro protocolo para comunicarse con el server, el server debe rechazar este pedido, esta condición se la denominará *protocol mismatch*. El header tendrá un campo dedicado a la versión del protocolo.
 - El argumento de FILENAME sera opcional, en caso de no estar, se utiliza el nombre original del archivo.
 - Por simplicidad, vamos a guardar todos los archivos en DIRPATH sin ningún nivel de subdirectorios.
 - Si no se provee un DIRPATH para el storage del servidor, se utiliza el directorio actual.
 - Se verifica que hayan 100 megas disponibles en el disco para realizar un upload al server.
-- Si se cancela la descarga sin haberse finalizado correctamente, el archivo se borra.
+- Si se cancela la carga o la descarga sin haberse finalizado correctamente, el archivo se borra.
+- Si no se provee puerto por defecto se usa el 7777.
+- Si no se provee un host por defecto será 127.0.0.1.
+- El cliente hace un early bind con cualquier puerto UDP abierto disponible para uso justo antes de enviar el primer mensaje.
+- Tanto el server como el cliente finalizan la conexión después de 30 segundos sin respuesta. También la conexión puede ser finalizada por exceder 300 retransmisiones del mismo paquete de manera continua.
+- Se eliminan los archivos corruptos no enviados/recibidos de manera completa.
 
 * Implementación
-** Topología
+** Topología propia LinearEnds
 
 #+ATTR_LATEX: :width 0.5\textwidth
 [[file:docs/imgs/linear_ends_multiple_clients_with_loss.png]]
 
-La topología es una red lineal con 1 host servidor conectado a 3 switches en serie cuyo ultimo switch esta conectado a n hosts clientes. El primer enlace (el conectado entre el servidor y el primero switch) tiene configurado un packet loss del 10% configurado de forma simetrica 5% de cada lado del enlace.
+La topología diseñada es una red lineal con 1 host servidor (izquierda) conectado a 3 switches en serie cuyo ultimo switch esta conectado a *n* hosts clientes (derecha). El primer enlace (el conectado entre el servidor y el primer switch) tiene configurado un packet loss del 10% configurado de forma simetrica 5% en cada extremo del enlace.
+
 
 ** Especificación del protocolo Stop-and-Wait
 
@@ -98,17 +104,7 @@ La topología es una red lineal con 1 host servidor conectado a 3 switches en se
 
 **** Tamaño máximo de payload
 
-El tamaño máximo de payload es el tamaño máximo de un datagrama UDP menos el tamaño de los headers de IP, UDP y SAW. 
-
-Como el MTU que usamos en mininet es 1500, el tamaño máximo de payload es:
-
-HISTORICAL_MTU = 1500
-MAX_IP_HEADER_SIZE = 60
-UDP_HEADER_SIZE = 8
-SAW_PROTOCOL_HEADER_SIZE = 6
-
-
-FILE_CHUNK_SIZE = HISTORICAL_MTU − MAX_IP_HEADER_SIZE − UDP_HEADER_SIZE − SAW_PROTOCOL_HEADER_SIZE
+El tamaño máximo de payload permitido por el protolo está basado en el MTU establecido en el estándar Ethernet, es decir, 1500 bytes. Teniendo en cuenta que esto debería ser lo máximo que transporte un paquete de IP, se toman estos 1500 bytes como base, se le resta el tamaño de un header máximo de IP (60 bytes), lo mismo con el header de UDP (8 bytes) y se le resta el tamaño de header del protocolo (8 bytes). Quedando así un payload máximo de 1426 bytes.
 
 
 *** Handshake
@@ -121,10 +117,12 @@ scale 2.0
 participant Client
 participant Server
 
-Client ->(10) Server : SYN, seq 0
-Server ->(10) Client : SYN, ACK, seq 1
-Client ->(10) Server : ACK, OP_CODE (piggybacked)
-Server ->(10) Client : ACK
+Client ->(10) Server : [SYN]\nseq=0, ack=0
+Server ->(10) Client : [SYN], [ACK]\nseq=0, ack=0
+
+Client ->(10) Server : [ACK]\nseq=1, ack=1\n data=1 (op_code)
+Server ->(10) Client : [ACK]\nseq=1, ack=1
+
 @enduml
 #+END_SRC
 
@@ -132,7 +130,7 @@ Server ->(10) Client : ACK
 #+RESULTS:
 [[file:docs/imgs/connection-handshake.png]]
 
-La idea es usar este handshake para inicialización de recursos del servidor y check de protocolo. \\
+La idea es usar este handshake para inicialización de recursos del servidor y check de protocolo (que no haya protocol mismatch). \\
 
 Se usa la nomenclatura S para mencionar al servidor y C para el cliente.
 
@@ -147,7 +145,7 @@ _Mensajes para caso Download y caso Upload_:
 
 *Flujo de error (distinto protocolo)*:
 
-2. [@2] S \rightarrow C: con flag FIN para denegar la conexión por usar un protocolo distinto.
+2. [@2] S \rightarrow C: con flag FIN para denegar la conexión por usar un protocolo distinto (protocol mismatch).
 
 Se hace una transferencia de puerto para que el welcoming socket se encargue solamente de establecer conexiones y el nuevo puerto maneje la transferencia de datos del archivo. El último ACK de parte del cliente asegura que se recibió el puerto donde se tiene que comunicar y es seguro hacer el cambio de socket.
 
@@ -155,12 +153,12 @@ Se hace una transferencia de puerto para que el welcoming socket se encargue sol
 
 El cliente ya sabe que tiene que comunicarse con el nuevo puerto.
 
-Se envía primero la configuración para saber si la operación es valida y tener en cuenta casos de error, y luego se hace la transferencia. \\
+Se envía primero la configuración para saber si la operación es válida y tener en cuenta casos de error, y luego se hace la transferencia. \\
 
 _Mensajes para caso Download y caso Upload_:
 
-1. C \rightarrow S: se declara la operación (OP), que puede ser download (0) o upload (1)
-2. S \rightarrow C: ACK de la operación (no falla)
+1. C \rightarrow S: se declara la operación (OP), que puede ser download (1) o upload (2)
+2. S \rightarrow C: ACK de la operación
 
 _Continuación de mensajes para caso Download_:
 
@@ -260,8 +258,12 @@ Client ->(10) Server : Data
 2. S \rightarrow C: ACK + FIN
 3. C \rightarrow S: ACK
 
+*** Ejemplo del Ciclo de Vida
+
+
+
 ** Especificación del protocolo Go-Back-N
-*** Ciclo de Vida
+*** Ejemplo del Ciclo de Vida
 
 #+BEGIN_SRC plantuml :file docs/imgs/gbn.png :exports results
 @startuml
@@ -271,7 +273,7 @@ scale 2.0
 participant Client
 participant Server
 
-group ‎  [Handshake]
+group [Handshake]
 
 Client ->(10) Server : [SYN]\nseq=0, ack=0
 Server ->(10) Client : [SYN], [ACK]\nseq=0, ack=0
@@ -301,6 +303,7 @@ Server ->(10) Client : [ACK]\nseq=5, ack=5
 end
 
 caption \nGo-Back-N protocol with window of\n 2 packets. Client downloads file \n(report.pdf of size 3000 bytes) from server
+@enduml
 #+END_SRC
 
 #+ATTR_LATEX: :width 0.7\textwidth
@@ -310,11 +313,8 @@ caption \nGo-Back-N protocol with window of\n 2 packets. Client downloads file \
 
 *** Análisis del ciclo de vida de una transferencia con Go-Back-N
 
-El siguiente análisis describe el comportamiento de una transferencia de
-archivos mediante el protocolo Go-Back-N (GBN) con una ventana de tamaño 2. En
-este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el
-servidor. El ciclo de vida de la request se puede dividir en cuatro fases
-principales:
+Se observa el comportamiento de una transferencia de archivos con una ventana de tamaño 2. En
+este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el servidor.
 
 **** Establecimiento de la conexión (Handshake):
 - El cliente inicia la conexión enviando un paquete con las banderas `SYN`, con `seq=0` y `ack=0`.
@@ -338,7 +338,7 @@ principales:
 
 * Pruebas
 
-En esta sección mostraremos capturas de diferentes casos de uso de la aplicación.
+Se presentan capturas de diferentes casos de uso de la aplicación.
 
 ** Casos de error
 

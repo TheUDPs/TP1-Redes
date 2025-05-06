@@ -8,7 +8,7 @@
     1. [Launch parameters](#Launch-parameters)
     1. [Visualize packet loss](#Visualize-packet-loss)
     1. [Visualize MTU fragmentation](#Visualize-MTU-fragmentation)
-1. [Tests]
+1. [Tests](#Tests)
     1. [Mininet IP Fragmentation tests](#Mininet-IP-Fragmentation-tests)
 1. [Informe](#Informe)
     1. [Compiling the PDF](#Compiling-the-PDF)
