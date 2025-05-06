@@ -866,7 +866,17 @@ Por otro lado, TCP es más ventajoso para las aplicaciones que necesitan un tran
 
 * Dificultades Encontradas
 
+** Mininet
 
+Inicialmente se tuvo que entender de manera profunda cómo funciona Mininet,
+
+** Protocolo SAW
+
+** Protocolo GBN
+
+** Plugin de Wireshark
+
+Se encontraron dificultades para armar el plugin dinámico que reconozca el protocolo que se esta utilizando y a partir de allí realizar el formateo del contenido del paquete, con lo cual, se adquirieron los conocimientos básicos del uso del lenguaje de programación Lua y también de la integración de dicho lenguaje con la herramienta Wireshark.
 
 * Conclusión
 
