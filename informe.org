@@ -49,7 +49,7 @@
     \vfill
     \begin{tabular}{ | l | l | l | }
       \hline
-      Alumno & Padron & Email \\ \hline
+      Alumno & Padrón & Email \\ \hline
       AVALOS, Victoria & 108434 & vavalos@fi.uba.ar \\ \hline
       CASTRO MARTINEZ, Jose Ignacio & 106957 & jcastrom@fi.uba.ar \\ \hline
       CIPRIANO, Victor & 106593 & vcipriano@fi.uba.ar \\ \hline
@@ -58,6 +58,7 @@
     \end{tabular}
     \vfill
 \end{titlepage}
+\renewcommand{\contentsname}{Índice}
 \tableofcontents
 \newpage
 \definecolor{bg}{rgb}{0.95,0.95,0.95}
@@ -86,7 +87,7 @@ condiciones de red y evaluar el comportamiento de las implementaciones, incluyen
 - Si no se provee puerto por defecto se usa el 7777.
 - Si no se provee un host por defecto será 127.0.0.1.
 - El cliente hace un early bind con cualquier puerto UDP abierto disponible para uso justo antes de enviar el primer mensaje.
-- Tanto el server como el cliente finalizan la conexión después de 30 segundos sin respuesta. También la conexión puede ser finalizada por exceder 300 retransmisiones del mismo paquete de manera continua.
+- Tanto el server como el cliente finalizan la conexión después de 30 segundos sin respuesta. También la conexión puede ser finalizada por exceder 300 retransmisiones del mismo paquete de manera continua, esta es una consideración de fácil cambio (dado que está definido en un archivo de constantes).
 - Se eliminan los archivos corruptos no enviados/recibidos de manera completa.
 
 * Implementación
@@ -615,13 +616,15 @@ En resumen, los protocolos de capa de aplicación aseguran que las aplicaciones 
 
 ** Detalle el protocolo de aplicación desarrollado en este trabajo.
 
+Este apartado fue detallado y explicado en la sección [[*Implementación][*Implementación*]].
+
 ** La capa de transporte del stack TCP/IP ofrece dos protocolos: TCP y UDP.
 
 *** ¿Qué servicios proveen dichos protocolos?
 
 Ambos protocolos proveen los siguientes servicios:
 
-- *Multiplexación/Demultiplexación*: son los mecanismos que permiten extender el servicio de entrega de IP entre dos end systems a un servicio de entrega entre dos procesos que se ejecutan en esos sistemas. Dichos mecanismos permiten identificar a qué proceso pertenece cada ssegmento recibido.
+- *Multiplexación/Demultiplexación*: son los mecanismos que permiten extender el servicio de entrega de IP entre dos end systems a un servicio de entrega entre dos procesos que se ejecutan en esos sistemas. Dichos mecanismos permiten identificar a qué proceso pertenece cada segmento recibido.
 - *Chequeo de integridad*: se verifica que no haya errores en los datos mediante un campo de checksum en los headers de ambos protocolos.
 
 UDP no realiza ninguna otra función extra. Por lo tanto, su servicio es:
@@ -631,7 +634,7 @@ UDP no realiza ninguna otra función extra. Por lo tanto, su servicio es:
 Por su parte, TCP ofrece las siguientes funcionalidades adicionales:
 - *Orientado a la conexión*: antes de que un proceso de aplicación pueda comenzar a enviar datos a otro, ambos procesos deben comunicarse entre sí; es decir, deben enviarse algunos segmentos preliminares para establecer los parámetros de la transferencia de datos subsiguiente. Se trata de una conexión lógica con un estado en común que reside en TCP de los hosts.
 - *Transferencia de datos confiable*: garantiza la entrega, el orden y la no corrupción de los datos. Esto lo logra mediante timers, numeros de secuencia y ACKs (flags que indican que un paquete fue entregado correctamente).
-- *Control de congestión*: festiona que no se saturen los enlaces. Es más bien un servicio para la red.
+- *Control de congestión*: gestiona que no se saturen los enlaces. Es más bien un servicio para la red.
 - *Control de flujo*: para eliminar la posibilidad de que el remitente desborde el búfer del receptor. Hace coincidir la velocidad a la que el remitente envía con la velocidad a la que la aplicación receptora lee.
 
 *** ¿Cuáles son sus características?
