@@ -476,30 +476,30 @@ caption \nGo-Back-N protocol with window of\n 2 packets. Client downloads file \
 #+RESULTS:
 [[file:docs/imgs/gbn_download.png]]
 
-*** Análisis del ciclo de vida de una transferencia con Go-Back-N
+*** Análisis del Ciclo de Vida de Download de una transferencia con Go-Back-N
 
 Se observa el comportamiento de una transferencia de archivos con una ventana de tamaño 2. En
 este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el servidor.
 
 **** Establecimiento de la conexión (Handshake):
-- El cliente inicia la conexión enviando un paquete con las banderas `SYN`, con `seq=0` y `ack=0`.
-- El servidor responde con un paquete combinado `SYN, ACK` manteniendo los mismos valores de secuencia y acuse.
-- El cliente confirma la recepción enviando un paquete `ACK` con `seq=1` y `ack=1`, incluyendo una operación de configuración (data=1 op_code).
-- El servidor responde con un `ACK` para confirmar la recepción del mensaje de configuración.
+- El cliente inicia la conexión enviando un paquete con el flag ~SYN~, con ~seq=0~ y ~ack=0~.
+- El servidor responde con un paquete con flags ~SYN~ y ~ACK~ manteniendo los mismos valores de ~seq~ y ~ack~.
+- El cliente confirma la recepción enviando un paquete ~ACK~ con ~seq=1~ y ~ack=1~, incluyendo en datos la configuración del codigo de operacion (en este caso de descarga) ~data=1 (op_code)~.
+- El servidor responde con un ~ACK~ para confirmar la recepción del mensaje de configuración.
 
 **** Configuración:
-- El cliente envía un paquete con `seq=2`, `ack=2` y `data=report.pdf`, indicando el nombre del archivo solicitado.
-- El servidor responde con un paquete de datos con `seq=2`, `ack=2`, una longitud de carga útil de 1416 bytes y los primeros bits del archivo.
-- El cliente confirma la recepción con un `ACK` correspondiente.
+- El cliente envía un paquete con ~seq=2~, ~ack=2~ y ~data=report.pdf~, indicando el nombre del archivo a descargar.
+- El servidor responde con un paquete de datos con ~seq=2~, ~ack=2~, una ~size~ de 1416 bytes y los primeros bits del archivo.
+- El cliente confirma la recepción con un ~ACK~ correspondiente.
 
 **** Transferencia del archivo:
-- El servidor envía el segundo fragmento de datos (`seq=3`, `ack=2`), también de 1416 bytes.
-- Posteriormente, se envía un paquete con la bandera `FIN` (`seq=4`, `ack=2`, `payload_length=168`), marcando el fin de la transferencia.
-- El cliente responde con dos `ACK`, uno para cada paquete recibido correctamente: `seq=3, ack=3` y `seq=4, ack=4`.
+- El servidor envía el segundo ~chunk~ de datos (~seq=3~, ~ack=2~), también de 1416 bytes.
+- Posteriormente, se envía un paquete con el flag ~FIN~ (~seq=4~, ~ack=2~, ~payload_length=168~), marcando el fin de la transferencia.
+- El cliente responde con dos ~ACK~, uno para cada paquete recibido correctamente: ~seq=3, ack=3~ y ~seq=4, ack=4~.
 
 **** Cierre de la conexión (Closing handshake):
-- El cliente envía un `FIN` para finalizar su lado de la comunicación (`seq=4, ack=4`).
-- El servidor responde con un `ACK` final (`seq=5, ack=5`), completando el cierre de la conexión de manera ordenada.
+- El cliente envía un ~FIN~ para finalizar su lado de la comunicación (~seq=4, ack=4~).
+- El servidor responde con un ~ACK~ final (~seq=5, ack=5~), completando el cierre de la conexión de manera ordenada.
 
 * Pruebas
 
@@ -569,7 +569,6 @@ Para mostrar el funcionamiento de Stop & Wait, mostraremos las capturas de las o
 
 \noindent \includegraphics[width=\textwidth]{docs/imgs2/gbn_10l_up_ws.png}
 \captionof{figure}{Captura de wireshark de Download con Stop and Wait con pérdida del 10 por ciento.}
-
 
 * Preguntas a Responder
 ** Describa la arquitectura Cliente-Servidor.
@@ -652,7 +651,6 @@ Por su parte, TCP posee las siguientes características:
 Ninguno de estos protocolos es mejor que el otro. Para decidir cuál de ellos utilizar, se deben tener en cuenta las necesidades de la aplicación.
 Debido a las características mencionadas anteriormente, UDP resulta más apropiado para aplicaciones que requieran mayor velocidad sin que sea tan sensible a algunas pérdidas de paquetes, por ejemplo plataformas de streaming, y si se tiene un servidor dedicado a una aplicación específica que necesita poder admitir muchos más clientes activos.
 Por otro lado, TCP es más ventajoso para las aplicaciones que necesitan un transporte confiable de los datos. Algunos ejemplos son el email y la web.
-
 * Dificultades Encontradas
 * Conclusión
 * Anexo: Fragmentacion IPv4
