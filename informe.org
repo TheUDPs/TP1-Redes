@@ -107,7 +107,7 @@ La topología diseñada es una red lineal con 1 host servidor (izquierda) conect
 
 
 #+NAME: saw_format
-#+BEGIN_SRC
+#+BEGIN_SRC nil :eval never
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -156,43 +156,6 @@ Server ->(10) Client : [SYN], [ACK]\nseq=0, ack=0
 Client ->(10) Server : [ACK]\nseq=1, ack=1\n data=1 (op_code)
 Server ->(10) Client : [ACK]\nseq=1, ack=1
 
-@enduml
-
-@startuml
-skinparam sequenceMessageAlign center
-skinparam ParticipantPadding 100
-scale 2.0
-participant Client
-participant Server
-
-group ‎  [Handshake]
-
-Client ->(10) Server : [SYN]\nseq=0, ack=0
-Server ->(10) Client : [SYN], [ACK]\nseq=0, ack=0
-
-Client ->(10) Server : [ACK]\nseq=1, ack=1\n data=1 (op_code)
-Server ->(10) Client : [ACK]\nseq=1, ack=1
-
-else Configuration
-
-Client ->(10) Server : seq=2, ack=2\n data=report.pdf
-Server ->(10) Client : [ACK]\nseq=2, ack=2\npayload_length=1416\n data=101110...
-Client ->(10) Server : [ACK]\nseq=2, ack=2
-
-else File transfer
-
-Server ->(10) Client : seq=3, ack=2\npayload_length=1416\n data=101110...
-Server ->(10) Client : [FIN]\nseq=4, ack=2\npayload_length=168\n data=101110...
-
-Client ->(10) Server : [ACK]\nseq=3, ack=3
-Client ->(10) Server : [ACK]\nseq=4, ack=4
-
-else Closing handshake
-
-Client ->(10) Server : [FIN]\nseq=4, ack=4
-Server ->(10) Client : [ACK]\nseq=5, ack=5
-
-end
 @enduml
 #+END_SRC
 
@@ -339,7 +302,7 @@ Client ->(10) Server : Data
 *Formato de mensaje GBN*: \\
 
 #+NAME: gbn_format
-#+BEGIN_SRC
+#+BEGIN_SRC nil :eval never
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -455,9 +418,9 @@ Se observa el comportamiento de una transferencia de archivos con una ventana de
 
 **** Transferencia del archivo:
 
-    El cliente envía el primer chunk de datos con ~seq=4~, ~ack=4~, ~payload_length=1416~ y ~data=101110~….
+    El cliente envía el primer chunk de datos con ~seq=4~, ~ack=4~, ~payload_length=1416~ y ~data=101110~.
 
-    A continuación, envía el segundo chunk con ~seq=5~, ~ack=4~, ~payload_length=1416~ y ~data=101110~….
+    A continuación, envía el segundo chunk con ~seq=5~, ~ack=4~, ~payload_length=1416~ y ~data=101110~.
 
     El servidor confirma la recepción del primer chunk enviando un ~ACK~ (~seq=4~, ~ack=4~).
 
@@ -465,7 +428,7 @@ Se observa el comportamiento de una transferencia de archivos con una ventana de
 
 **** Cierre de la conexión (Closing handshake):
 
-    El cliente inicia el cierre enviando un paquete ~FIN~ con ~seq=6~, ~ack=5~, ~payload_length=168~ y ~data=101110~….
+    El cliente inicia el cierre enviando un paquete ~FIN~ con ~seq=6~, ~ack=5~, ~payload_length=168~ y ~data=101110~.
 
     El servidor responde con un ~ACK~ final (~seq=6~, ~ack=6~).
 
