@@ -292,9 +292,102 @@ Client ->(10) Server : Data
 2. S \rightarrow C: ACK + FIN
 3. C \rightarrow S: ACK
 
-*** Ejemplo del Ciclo de Vida
 
 
+
+*** Ciclo de Vida de Upload
+
+#+BEGIN_SRC plantuml :file docs/imgs/saw_upload.png :exports results
+@startuml
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 100
+scale 2.0
+participant Client
+participant Server
+
+group ‎  [Handshake]
+
+Client ->(10) Server : [SYN]\nseq=0
+Server ->(10) Client : [SYN], [ACK]\nseq=0
+
+Client ->(10) Server : [ACK]\nseq=1 \n data=1 (op_code)
+Server ->(10) Client : [ACK]\nseq=1
+
+else Configuration
+
+Client ->(10) Server : seq=0 \n data=report.pdf
+Server ->(10) Client : [ACK]\nseq=0
+
+Client ->(10) Server : [ACK]\nseq=1 data=file_size
+Server ->(10) Client : [ACK]\nseq=1
+
+else File transfer
+
+Client ->(10) Server : \nseq=0 \npayload_length=1426\n data=101110...
+
+Server ->(10) Client : [ACK]\nseq=0
+
+Client ->(10) Server : [FIN]\nseq=1 \npayload_length=100 \n data=101110...
+
+else Closing handshake
+
+Server ->(10) Client : [ACK]\nseq=1
+Server ->(10) Client : [FIN]\nseq=1
+Client ->(10) Server : [ACK]\nseq=1
+
+end
+@enduml
+#+END_SRC
+
+#+ATTR_LATEX: :width 0.75\textwidth
+#+RESULTS:
+[[file:docs/imgs/saw_upload.png]]
+
+*** Ciclo de Vida de Download
+
+#+BEGIN_SRC plantuml :file docs/imgs/saw_download.png :exports results
+@startuml
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 100
+scale 2.0
+participant Client
+participant Server
+
+group ‎  [Handshake]
+
+Client ->(10) Server : [SYN]\nseq=0
+Server ->(10) Client : [SYN], [ACK]\nseq=0
+
+Client ->(10) Server : [ACK]\nseq=1 \n data=1 (op_code)
+Server ->(10) Client : [ACK]\nseq=1
+
+else Configuration
+
+Client ->(10) Server : seq=0 \n data=report.pdf
+Server ->(10) Client : [ACK]\nseq=0 \npayload_length=1426\n data=101110...
+Client ->(10) Server : [ACK]\nseq=0
+
+else File transfer
+
+Server ->(10) Client : \nseq=1 \npayload_length=1426\n data=101110...
+
+Client ->(10) Server : [ACK]\nseq=1
+
+Server ->(10) Client : [FIN]\nseq=0 \npayload_length=100\n data=101110...
+
+else Closing handshake
+
+Client ->(10) Server : [FIN]\nseq=0
+Server ->(10) Client : [ACK]\nseq=1
+Client ->(10) Server : [ACK]\nseq=1
+
+end
+@enduml
+#+END_SRC
+
+#+ATTR_LATEX: :width 0.75\textwidth
+#+RESULTS:
+[[file:docs/imgs/saw_download.png]]
 
 ** Especificación del protocolo Go-Back-N
 
