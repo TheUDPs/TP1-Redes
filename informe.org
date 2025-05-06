@@ -807,8 +807,8 @@ Otro de los conflictos presentados es la comunicación bidireccional. Reducir el
 
 ** Análisis
 *** Topología
-#+ATTR_LATEX: :width 0.5\textwidth
-[[file:docs/frag_imgs/linear_ends_fragmentation_item.png]]
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/linear_ends_fragmentation_item.png}
+\captionof{figure}{Red con un servidor, dos switches, un router y un cliente}
 
 Se define una pérdida de 20% de paquetes sobre el enlace próximo al servidor, un MTU de 800 en la interfaz saliente del router (s2-eth0) y un tamaño de paquetes de 1000B (arbitrariamente, basta con que sea ligeramente superior al MTU reducido) para estudiar este fenómeno.
 
@@ -816,75 +816,31 @@ Se define una pérdida de 20% de paquetes sobre el enlace próximo al servidor, 
 
 Habiendo definido la red como se mencionó anteriormente, basta generar tráfico de cliente a servidor usando iperf y capturar los paquetes recibidos y enviados por el router (s2) con Wireshark para estudiar este fenómeno. Por ejemplo:
 
-Paquetes capturados en interfaz de entrada del router (s2-eth1):
-No.	Time	Source	Destination	Protocol	Length	Info
-...
-23	1.971521	10.0.1.1	10.0.0.1	TCP	74	54360 → 5001 [SYN] Seq=0 Win=43000 Len=0 MSS=1000 SACK_PERM TSval=2993150612 TSecr=0 WS=512
-24	1.991994	10.0.0.1	10.0.1.1	TCP	74	5001 → 54360 [SYN, ACK] Seq=0 Ack=1 Win=43440 Len=0 MSS=1460 SACK_PERM TSval=2142019792 TSecr=2993150612 WS=512
-25	1.995183	10.0.1.1	10.0.0.1	TCP	66	54360 → 5001 [ACK] Seq=1 Ack=1 Win=43008 Len=0 TSval=2993150645 TSecr=2142019792
-26	1.995677	10.0.1.1	10.0.0.1	TCP	126	54360 → 5001 [PSH, ACK] Seq=1 Ack=1 Win=43008 Len=60 TSval=2993150646 TSecr=2142019792
-27	1.995841	10.0.0.1	10.0.1.1	TCP	66	5001 → 54360 [ACK] Seq=1 Ack=61 Win=43520 Len=0 TSval=2142019813 TSecr=2993150646
-28	1.996044	10.0.0.1	10.0.1.1	TCP	94	5001 → 54360 [PSH, ACK] Seq=1 Ack=61 Win=43520 Len=28 TSval=2142019813 TSecr=2993150646
-29	1.996235	10.0.1.1	10.0.0.1	TCP	2042	54360 → 5001 [PSH, ACK] Seq=61 Ack=1 Win=43008 Len=1976 TSval=2993150646 TSecr=2142019792
-30	1.996274	10.0.1.1	10.0.0.1	TCP	2042	54360 → 5001 [PSH, ACK] Seq=2037 Ack=1 Win=43008 Len=1976 TSval=2993150646 TSecr=2142019792
-...
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/s2-eth1_tcp.png}
+\captionof{figure}{Paquetes capturados en interfaz de entrada del router (s2-eth1)}
 
-Paquetes capturados en interfaz de salida del router (s2-eth0):
-No.	Time	Source	Destination	Protocol	Length	Info
-...
-16	1.893458	10.0.1.1	10.0.0.1	TCP	74	54360 → 5001 [SYN] Seq=0 Win=43000 Len=0 MSS=1000 SACK_PERM TSval=2993150612 TSecr=0 WS=512
-17	1.911142	10.0.0.1	10.0.1.1	TCP	74	5001 → 54360 [SYN, ACK] Seq=0 Ack=1 Win=43440 Len=0 MSS=1460 SACK_PERM TSval=2142019792 TSecr=2993150612 WS=512
-18	1.914359	10.0.1.1	10.0.0.1	TCP	66	54360 → 5001 [ACK] Seq=1 Ack=1 Win=43008 Len=0 TSval=2993150645 TSecr=2142019792
-19	1.914855	10.0.1.1	10.0.0.1	TCP	126	54360 → 5001 [PSH, ACK] Seq=1 Ack=1 Win=43008 Len=60 TSval=2993150646 TSecr=2142019792
-20	1.915001	10.0.0.1	10.0.1.1	TCP	66	5001 → 54360 [ACK] Seq=1 Ack=61 Win=43520 Len=0 TSval=2142019813 TSecr=2993150646
-21	1.915201	10.0.0.1	10.0.1.1	TCP	94	5001 → 54360 [PSH, ACK] Seq=1 Ack=61 Win=43520 Len=28 TSval=2142019813 TSecr=2993150646
-22	1.915411	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=TCP 6, off=0, ID=6401) [Reassembled in #23]
-23	1.915413	10.0.1.1	10.0.0.1	TCP	278	54360 → 5001 [ACK] Seq=61 Ack=1 Win=43008 Len=988 TSval=2993150646 TSecr=2142019792
-24	1.915415	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=TCP 6, off=0, ID=6402) [Reassembled in #25]
-25	1.915416	10.0.1.1	10.0.0.1	TCP	278	54360 → 5001 [PSH, ACK] Seq=1049 Ack=1 Win=43008 Len=988 TSval=2993150646 TSecr=2142019792
-26	1.915444	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=TCP 6, off=0, ID=6403) [Reassembled in #27]
-27	1.915445	10.0.1.1	10.0.0.1	TCP	278	54360 → 5001 [ACK] Seq=2037 Ack=1 Win=43008 Len=988 TSval=2993150646 TSecr=2142019792
-28	1.915447	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=TCP 6, off=0, ID=6404) [Reassembled in #29]
-29	1.915448	10.0.1.1	10.0.0.1	TCP	278	54360 → 5001 [PSH, ACK] Seq=3025 Ack=1 Win=43008 Len=988 TSval=2993150646 TSecr=2142019792
-30	1.915467	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=TCP 6, off=0, ID=6405) [Reassembled in #31]
-...
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/s2-eth0_tcp.png}
+\captionof{figure}{Paquetes capturados en interfaz de salida del router (s2-eth0)}
 
 Se observa que tras establecer la comunicación inicial, se envían paquetes de un tamaño que lleva a forzar que el router fragmente los paquetes TCP recibidos en varios paquetes TCP/IPv4, esto según que tan grande sea la relación tamaño de paquete/MTU del enlace. Se logra identificar que paquete se fragmentó según los números de secuencia que muestra Wireshark en su columna de información, y para paquetes que no tienen número de secuencia coincidente indica que se requirió fragmentar más de una vez.
 
 Si se hace una suma del tamaño de los fragmentos hasta que coincidan paquetes de ambas tablas, se observa como el router termina enviando más bytes de los que recibió. Esto debido a que el reensamblado de paquetes se produce incluyendo encabezados de todas las capas de red.
 
 *** Funcionamiento de TCP ante la pérdida de un fragmento
-TCP es un protocolo de transporte que maneja la retransmisión de datos tras pérdida y detección a partir de ACKs duplicados. Este fenómeno es muy simple de visualizar en Wireshark, donde se señala en la columna de información cuando un paquete corresponde a información retransmitida (Retransmission/Fast Retransmission)
+TCP es un protocolo de transporte que maneja la retransmisión de datos tras pérdida y detección a partir de ACKs duplicados. Este fenómeno es muy simple de visualizar en Wireshark, donde se señala en la columna de información cuando un paquete corresponde a información retransmitida.
 
-No.	Time	Source	Destination	Protocol	Length	Info
-...
-42	2.002269	10.0.1.1	10.0.0.1	TCP	2042	54360 → 5001 [PSH, ACK] Seq=16857 Ack=1 Win=43008 Len=1976 TSval=2993150652 TSecr=2142019792
-41	2.002234	10.0.1.1	10.0.0.1	TCP	2042	54360 → 5001 [PSH, ACK] Seq=14881 Ack=1 Win=43008 Len=1976 TSval=2993150652 TSecr=2142019792
-43	2.002311	10.0.1.1	10.0.0.1	TCP	1054	[TCP Fast Retransmission] 54360 → 5001 [ACK] Seq=2037 Ack=1 Win=43008 Len=988 TSval=2993150652 TSecr=2142019792
-44	2.002843	10.0.0.1	10.0.1.1	TCP	86	[TCP Dup ACK 34#4] 5001 → 54360 [ACK] Seq=29 Ack=2037 Win=41984 Len=0 TSval=2142019818 TSecr=2993150646 SLE=5001 SRE=8953 SLE=3025 SRE=4013
-45	2.002884	10.0.1.1	10.0.0.1	TCP	1054	[TCP Retransmission] 54360 → 5001 [ACK] Seq=4013 Ack=1 Win=43008 Len=988 TSval=2993150653 TSecr=2142019792
-46	2.003232	10.0.1.1	10.0.0.1	TCP	66	54360 → 5001 [ACK] Seq=18833 Ack=29 Win=43008 Len=0 TSval=2993150653 TSecr=2142019792
-47	2.005101	10.0.0.1	10.0.1.1	TCP	86	[TCP Dup ACK 34#5] 5001 → 54360 [ACK] Seq=29 Ack=2037 Win=41984 Len=0 TSval=2142019821 TSecr=2993150646 SLE=5001 SRE=9941 SLE=3025 SRE=4013
-48	2.005135	10.0.1.1	10.0.0.1	TCP	1054	54360 → 5001 [ACK] Seq=18833 Ack=29 Win=43008 Len=988 TSval=2993150655 TSecr=2142019821
-49	2.005341	10.0.0.1	10.0.1.1	TCP	94	[TCP Dup ACK 34#6] 5001 → 54360 [ACK] Seq=29 Ack=2037 Win=41984 Len=0 TSval=2142019822 TSecr=2993150646 SLE=5001 SRE=11917 SLE=18833 SRE=19821 SLE=3025 SRE=4013
-50	2.005364	10.0.1.1	10.0.0.1	TCP	1054	[TCP Fast Retransmission] 54360 → 5001 [ACK] Seq=2037 Ack=29 Win=43008 Len=988 TSval=2993150655 TSecr=2142019822
-51	2.005371	10.0.1.1	10.0.0.1	TCP	1054	[TCP Retransmission] 54360 → 5001 [ACK] Seq=4013 Ack=29 Win=43008 Len=988 TSval=2993150655 TSecr=2142019822
-52	2.005376	10.0.1.1	10.0.0.1	TCP	1054	[TCP Retransmission] 54360 → 5001 [ACK] Seq=11917 Ack=29 Win=43008 Len=988 TSval=2993150655 TSecr=2142019822
-53	2.005382	10.0.1.1	10.0.0.1	TCP	1054	[TCP Retransmission] 54360 → 5001 [ACK] Seq=12905 Ack=29 Win=43008 Len=988 TSval=2993150655 TSecr=2142019822
-54	2.005429	10.0.0.1	10.0.1.1	TCP	94	5001 → 54360 [ACK] Seq=29 Ack=4013 Win=40448 Len=0 TSval=2142019822 TSecr=2993150655 SLE=12905 SRE=13893 SLE=5001 SRE=11917 SLE=18833 SRE=19821
-...
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/tcp_retransmission.png}
+\captionof{figure}{TCP Retransmission}
 
 Este mecanismo garantiza que no se pierden datos durante la comunicación en el caso de pérdida de paquetes. Para esta experiencia, como se fuerza la fragmentación de paquetes IPv4 antes del enlace con pérdida de paquetes, en su mayoría lo que se retransmite son fragmentos IPv4 perdidos, esto salvo que se pierdan datos referentes a la conexión como los ACKs de handshake/cierre de conexión u otros paquetes como la actualización de ventanas de transmisión. Dicho esto, el fenómeno de retransmisión de paquetes es el mismo para todo tipo de paquete del protocolo.
 
 Capturando el output del comando iperf (ejecutado durante 3 segundos) se puede observar el resultado final de la comunicación en cliente y servidor:
 
-Cliente:
-#+ATTR_LATEX: :width 0.5\textwidth
-[[file:docs/frag_imgs/iperf_client_tcp.png]]
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/iperf_client_tcp.png}
+\captionof{figure}{Captura de iperf TCP desde cliente}
 
-Servidor:
-#+ATTR_LATEX: :width 0.5\textwidth
-[[file:docs/frag_imgs/iperf_server_tcp.png]]
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/iperf_server_tcp.png}
+\captionof{figure}{Captura de iperf TCP desde servidor}
 
 *** Funcionamiento de UDP ante la pérdida de un fragmento
 
@@ -892,40 +848,19 @@ TCP no es un protocolo orientado a la transferencia confiable de datos, por lo q
 
 En estas capturas de Wireshark se evidencia como ocurre el fenómeno de fragmentación, donde al solo fragmentar en 2 un paquete UDP en Wireshark se capturará cerca del doble de paquetes en cada interfaz (o más según la relación tamaño/MTU):
 
-Paquetes capturados en interfaz de entrada del router (s2-eth1):
-No.	Time	Source	Destination	Protocol	Length	Info
-...
-9	1.125290	10.0.1.1	10.0.0.1	UDP	1042	55090 → 5001 Len=1000
-10	1.126623	10.0.1.1	10.0.0.1	UDP	1042	55090 → 5001 Len=1000
-12	1.126743	10.0.1.1	10.0.0.1	UDP	1042	55090 → 5001 Len=1000
-11	1.126713	10.0.1.1	10.0.0.1	UDP	1042	55090 → 5001 Len=1000
-13	1.126777	10.0.1.1	10.0.0.1	UDP	1042	55090 → 5001 Len=1000
-...
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/s2-eth1_udp.png}
+\captionof{figure}{Paquetes capturados en interfaz de entrada del router (s2-eth1)}
 
-Paquetes capturados en interfaz de salida del router (s2-eth0):
-...
-No.	Time	Source	Destination	Protocol	Length	Info
-14	1.125302	10.0.1.1	10.0.0.1	UDP	266	55090 → 5001 Len=1000
-15	1.126628	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=UDP 17, off=0, ID=bd6e) [Reassembled in #16]
-16	1.126633	10.0.1.1	10.0.0.1	UDP	266	55090 → 5001 Len=1000
-17	1.126698	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=UDP 17, off=0, ID=bd6f) [Reassembled in #18]
-13	1.125298	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=UDP 17, off=0, ID=bd6d) [Reassembled in #14]
-18	1.126699	10.0.1.1	10.0.0.1	UDP	266	55090 → 5001 Len=1000
-19	1.126727	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=UDP 17, off=0, ID=bd70) [Reassembled in #20]
-20	1.126729	10.0.1.1	10.0.0.1	UDP	266	55090 → 5001 Len=1000
-21	1.126763	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=UDP 17, off=0, ID=bd71) [Reassembled in #22]
-22	1.126765	10.0.1.1	10.0.0.1	UDP	266	55090 → 5001 Len=1000
-...
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/s2-eth0_udp.png}
+\captionof{figure}{Paquetes capturados en interfaz de salida del router (s2-eth0)}
 
 Sin embargo, al haber pérdida de paquetes cercano al servidor, esta no puede observarse capturando sobre el router sino sobre el servidor, donde se observaría que tantos paquetes se pierden a partir de que tantos envió el cliente. Otra forma más sencilla de observar este fenómeno es con el output del comando iperf ejecutado sobre UDP, donde explícitamente señala que cantidad de paquetes se perdieron.
 
-Cliente:
-#+ATTR_LATEX: :width 0.5\textwidth
-[[file:docs/frag_imgs/iperf_client_udp.png]]
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/iperf_client_udp.png}
+\captionof{figure}{Captura de iperf UDP desde cliente}
 
-Servidor:
-#+ATTR_LATEX: :width 0.5\textwidth
-[[file:docs/frag_imgs/iperf_server_udp.png]]
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/iperf_server_udp.png}
+\captionof{figure}{Captura de iperf UDP desde servidor}
 
 Donde se observa una pérdida en torno al 20% definido inicialmente.
 
@@ -933,41 +868,16 @@ Donde se observa una pérdida en torno al 20% definido inicialmente.
 
 Por último, el fenómeno más sencillo de comprobar. Como se mencionó anteriormente, ya que el router fragmenta paquetes de ambos protocolos de transporte en función de su tamaño y el MTU de la interfaz de salida, siempre va a enviar más paquetes de los que recibe, por lo que se observa un aumento notorio del tráfico en la red. Para esta experiencia, se observa un aumento trabajando con UDP:
 
-Paquetes capturados en interfaz de entrada del router (s2-eth1):
-...
-No.	Time	Source	Destination	Protocol	Length	Info
-...
-3762	4.119552	10.0.1.1	10.0.0.1	UDP	1042	55090 → 5001 Len=1000
-3763	4.120970	10.0.1.1	10.0.0.1	UDP	1042	55090 → 5001 Len=1000
-3764	4.121056	10.0.1.1	10.0.0.1	UDP	1042	55090 → 5001 Len=1000
-3765	4.134780	10.0.1.1	10.0.0.1	UDP	1042	55090 → 5001 Len=1000
-3766	4.140611	10.0.0.1	10.0.1.1	UDP	170	5001 → 55090 Len=128
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/s2-eth1_udp_last_packets.png}
+\captionof{figure}{Paquetes capturados en interfaz de entrada del router (s2-eth1)}
 
-Paquetes capturados en interfaz de salida del router (s2-eth0):
-...
-No.	Time	Source	Destination	Protocol	Length	Info
-7519	4.121043	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=UDP 17, off=0, ID=cc13) [Reassembled in #7520]
-7520	4.121046	10.0.1.1	10.0.0.1	UDP	266	55090 → 5001 Len=1000
-7521	4.134785	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=UDP 17, off=0, ID=cc14) [Reassembled in #7522]
-7522	4.134792	10.0.1.1	10.0.0.1	UDP	266	55090 → 5001 Len=1000
-7523	4.140574	10.0.0.1	10.0.1.1	UDP	170	5001 → 55090 Len=128
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/s2-eth0_udp_last_packets.png}
+\captionof{figure}{Paquetes capturados en interfaz de salida del router (s2-eth0)}
 
 Y se observa también un aumento en el tráfico de la red trabajando con TCP:
 
-Paquetes capturados en interfaz de salida del router (s2-eth1):
-No.	Time	Source	Destination	Protocol	Length	Info
-...
-495	9.978010	10.0.0.1	10.0.1.1	TCP	78	[TCP Window Update] 5001 → 54360 [ACK] Seq=29 Ack=227301 Win=531968 Len=0 TSval=2142027795 TSecr=2993158628 SLE=228289 SRE=229277
-496	9.978020	10.0.1.1	10.0.0.1	TCP	1054	[TCP Retransmission] 54360 → 5001 [ACK] Seq=227301 Ack=29 Win=43008 Len=988 TSval=2993158628 TSecr=2142027795
-497	9.985551	10.0.0.1	10.0.1.1	TCP	78	5001 → 54360 [FIN, ACK] Seq=29 Ack=227301 Win=531968 Len=0 TSval=2142027802 TSecr=2993158628 SLE=228289 SRE=229277
-498	9.985578	10.0.1.1	10.0.0.1	TCP	66	54360 → 5001 [ACK] Seq=229277 Ack=30 Win=43008 Len=0 TSval=2993158635 TSecr=2142027802
-499	10.551816	10.0.1.1	10.0.0.1	TCP	1054	[TCP Retransmission] 54360 → 5001 [ACK] Seq=227301 Ack=30 Win=43008 Len=988 TSval=2993159202 TSecr=2142027802
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/s2-eth1_tcp_last_packets.png}
+\captionof{figure}{Paquetes capturados en interfaz de entrada del router (s2-eth1)}
 
-Paquetes capturados en interfaz de salida del router (s2-eth0):
-No.	Time	Source	Destination	Protocol	Length	Info
-...
-820	9.897189	10.0.1.1	10.0.0.1	TCP	278	[TCP Retransmission] 54360 → 5001 [ACK] Seq=227301 Ack=29 Win=43008 Len=988 TSval=2993158628 TSecr=2142027795
-821	9.904702	10.0.0.1	10.0.1.1	TCP	78	5001 → 54360 [FIN, ACK] Seq=29 Ack=227301 Win=531968 Len=0 TSval=2142027802 TSecr=2993158628 SLE=228289 SRE=229277
-822	9.904745	10.0.1.1	10.0.0.1	TCP	66	54360 → 5001 [ACK] Seq=229277 Ack=30 Win=43008 Len=0 TSval=2993158635 TSecr=2142027802
-823	10.471001	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=TCP 6, off=0, ID=6534) [Reassembled in #824]
-824	10.471020	10.0.1.1	10.0.0.1	TCP	278	[TCP Retransmission] 54360 → 5001 [ACK] Seq=227301 Ack=30 Win=43008 Len=988 TSval=2993159202 TSecr=2142027802
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/s2-eth0_tcp_last_packets.png}
+\captionof{figure}{Paquetes capturados en interfaz de salida del router (s2-eth0)}
