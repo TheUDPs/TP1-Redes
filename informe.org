@@ -868,20 +868,38 @@ Por otro lado, TCP es más ventajoso para las aplicaciones que necesitan un tran
 
 ** Mininet
 
-Inicialmente se tuvo que entender de manera profunda cómo funciona Mininet,
+Inicialmente se tuvo que entender de manera profunda cómo funciona Mininet, para poder crear una topología modularizable en 3 apartados: cantidad de clientes, porcentaje de packet loss y reducción de MTU. Se tuvo que leer la documentación y documentación creada por la comunidad para lograr el cometido y crear una topología robusta.
+
+A pesar de las dificultados quedamos satisfechos e incluso esto nos permitió compartir la topología con la feature de reducción de MTU con nuestros compañeros de manera pública a pedido del profesor, se puede encontrar esto en este link: [[https://github.com/gabrieldiem/linear-ends-topology-with-ip-frag][Linear ends topology with IP fragmentation]].
 
 ** Protocolo SAW
 
+Teniendo sólida la teoría de cómo debería funcionar el protocolo nos encontramos con el problema de cómo, técnicamente, realizar la retransmisión, además de qué criterio tomar para espaciarlas y cuántas deberían haber.
+
+Despúes de intentar con un enfoque poco escalable en términos de código (notamos que iba a haber mucha repetición de código) usando ciclos /while/ en cada método que queríamos que retransmitiera, evolucionamos la idea a utilizar el patrón /decorator/, para manejar las veces que una recepción del socket se debería llevar a cabo, y un ciclo while genérico, aplicado a una abstracción del socket que hicimos (clase /SocketSaw/), para realizar las retransmisiones.
+
+Este cambio de enfoque permitió destrabar progresivamente los problemas de debugging que nos fuimos encontrando a lo largo del TP, e.g. sequence number incorrecto, socket trabado en receive, entre otros.
+
 ** Protocolo GBN
+
+En términos de avance del proyecto, primero desarrollamos el procolo SAW, por lo que para el comienzo del desarrollo de el protocolo GBN ya teníamos el conocimiento de ejecución y el código ya armado para el SAW.
+
+De esta manera, analizamos y tomamos la decisión de mantener las etapas de handshake, configuración y closing handshake de SAW, ya que esto no tenía sentido hacerlo de manera GBN, teniendo en cuenta los pocos paquetes que son, en comparación a un envío de archivo de miles de paquetes.
+
+Esto llevó a realizar un manejo especial del primer y último chunk dentro de la base de código para asegurar el RDT, chunks que se podrían considerar como la "transición" entre modos de comunicación.
+
+Al comienzo del proyecto debatimos sobre si usar un mismo formato de header para ambos protocolos o si utilizar dos distintos. La decisión que tomamos fue utilizar un header apropiado para cada protocolo, de tal manera no arrastraríamos decisiones tomadas para GBN (como el ACK number, o el tamaño del sequence number) que no tienen sentido para SAW.
 
 ** Plugin de Wireshark
 
-Se encontraron dificultades para armar el plugin dinámico que reconozca el protocolo que se esta utilizando y a partir de allí realizar el formateo del contenido del paquete, con lo cual, se adquirieron los conocimientos básicos del uso del lenguaje de programación Lua y también de la integración de dicho lenguaje con la herramienta Wireshark.
+Se encontraron dificultades para armar el plugin dinámico que reconozca el protocolo que se esta utilizando y a partir de ello realizar el formateo del contenido del paquete, con lo cual, se adquirieron los conocimientos básicos del uso del lenguaje de programación Lua y también de la integración de dicho lenguaje con la herramienta Wireshark.
 
 * Conclusión
 
 El desarrollo de este trabajo práctico permitió consolidar conceptos fundamentales sobre la comunicación entre procesos en redes de computadoras, especialmente aquellos vinculados a la capa de transporte y a los mecanismos necesarios para lograr una transferencia de datos confiable (RDT) sobre el protocolo UDP. La implementación de los protocolos Stop-and-Wait y Go-Back-N brindó una comprensión más profunda de los desafíos involucrados en el diseño de mecanismos de retransmisión y confirmación.
+
 Desde una perspectiva empírica, se comprobó que Go-Back-N ofrece un rendimiento superior al de Stop-and-Wait, dado que reduce la espera por confirmaciones al permitir el envío continuo de múltiples paquetes. Sin embargo, se evidenció la importancia de seleccionar adecuadamente el tamaño de ventana, ya que un valor grande puede generar que la retransmisión demore mucho.
+
 Por otro lado, el uso de la interfaz de sockets en Python y la simulación de red mediante Mininet proporcionaron un entorno realista para evaluar el comportamiento de las implementaciones bajo condiciones adversas, como la pérdida de paquetes. En conjunto, el trabajo permitió articular teoría y práctica, fortaleciendo las habilidades necesarias para el diseño e implementación de protocolos de red personalizados.
 
 * Anexo: Fragmentacion IPv4
