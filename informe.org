@@ -49,7 +49,7 @@
     \vfill
     \begin{tabular}{ | l | l | l | }
       \hline
-      Alumno & Padron & Email \\ \hline
+      Alumno & Padrón & Email \\ \hline
       AVALOS, Victoria & 108434 & vavalos@fi.uba.ar \\ \hline
       CASTRO MARTINEZ, Jose Ignacio & 106957 & jcastrom@fi.uba.ar \\ \hline
       CIPRIANO, Victor & 106593 & vcipriano@fi.uba.ar \\ \hline
@@ -58,6 +58,7 @@
     \end{tabular}
     \vfill
 \end{titlepage}
+\renewcommand{\contentsname}{Índice}
 \tableofcontents
 \newpage
 \definecolor{bg}{rgb}{0.95,0.95,0.95}
@@ -66,61 +67,78 @@
 * Introducción
 
 En el presente trabajo práctico se desarrolla una aplicación de red para la transferencia de archivos, basada en una arquitectura
-cliente-servidor, con el objetivo principal de implementar mecanismos de transferencia de datos confiable. Para ello, se trabajará
+cliente-servidor, donde un servidor puede atender las operaciones de múltiples clientes de manera concurrente, con el objetivo principal de implementar mecanismos de transferencia de datos confiable. Para ello, se trabajará
 sobre la capa de transporte, utilizando específicamente el protocolo UDP, lo cual requiere diseñar e implementar soluciones
-personalizadas que garanticen la entrega de datos confiable. En este marco, se explorarán los principios del concepto de
-Reliable Data Transfer (RDT), implementando dos de sus variantes: Stop-and-Wait y Go-Back-N (GBN). La comunicación entre procesos
-se llevará a cabo mediante la interfaz de sockets de Python, y se utilizará la herramienta Mininet para simular diferentes
+personalizadas que garanticen la entrega de datos confiable (RDT - Reliable Data Transfer).
+
+En este marco, se explorarán los principios del concepto de RDT, implementando dos de sus variantes: Stop-and-Wait (SAW) y Go-Back-N (GBN). La comunicación entre procesos se llevará a cabo mediante la interfaz de sockets de Python, y se utilizará la herramienta Mininet para simular diferentes
 condiciones de red y evaluar el comportamiento de las implementaciones, incluyendo escenarios con pérdida de paquetes.
 
 
 * Hipótesis y suposiciones realizadas
 
 - La carga/descarga no va a conservar la metadata del archivo. Es decir, si yo descargo un archivo, ese archivo va a tener metadata como si yo hubiera creado el archivo desde cero usando `touch archivo`.
-- Si el cliente utiliza otro protocolo para comunicarse con el server, el server debe rechazar este pedido. (PROTOCOL MISSMATCH). El header tendrá un campo dedicado a esto.
+- Si el cliente utiliza otro protocolo para comunicarse con el server, el server debe rechazar este pedido, esta condición se la denominará *protocol mismatch*. El header tendrá un campo dedicado a la versión del protocolo.
 - El argumento de FILENAME sera opcional, en caso de no estar, se utiliza el nombre original del archivo.
 - Por simplicidad, vamos a guardar todos los archivos en DIRPATH sin ningún nivel de subdirectorios.
 - Si no se provee un DIRPATH para el storage del servidor, se utiliza el directorio actual.
 - Se verifica que hayan 100 megas disponibles en el disco para realizar un upload al server.
-- Si se cancela la descarga sin haberse finalizado correctamente, el archivo se borra.
+- Si se cancela la carga o la descarga sin haberse finalizado correctamente, el archivo se borra.
+- Si no se provee puerto por defecto se usa el 7777.
+- Si no se provee un host por defecto será 127.0.0.1.
+- El cliente hace un early bind con cualquier puerto UDP abierto disponible para uso justo antes de enviar el primer mensaje.
+- Tanto el server como el cliente finalizan la conexión después de 30 segundos sin respuesta. También la conexión puede ser finalizada por exceder 300 retransmisiones del mismo paquete de manera continua, esta es una consideración de fácil cambio (dado que está definido en un archivo de constantes).
+- Se eliminan los archivos corruptos no enviados/recibidos de manera completa.
 
 * Implementación
-** Topología
+** Topología propia LinearEnds
 
 #+ATTR_LATEX: :width 0.5\textwidth
 [[file:docs/imgs/linear_ends_multiple_clients_with_loss.png]]
 
-La topología es una red lineal con 1 host servidor conectado a 3 switches en serie cuyo ultimo switch esta conectado a n hosts clientes. El primer enlace (el conectado entre el servidor y el primero switch) tiene configurado un packet loss del 10% configurado de forma simetrica 5% de cada lado del enlace.
+La topología diseñada es una red lineal con 1 host servidor (izquierda) conectado a 3 switches en serie cuyo ultimo switch esta conectado a *n* hosts clientes (derecha). El primer enlace (el conectado entre el servidor y el primer switch) tiene configurado un packet loss del 10% configurado de forma simetrica 5% en cada extremo del enlace.
+
 
 ** Especificación del protocolo Stop-and-Wait
 
 *** General
 
-**** Formato de mensaje SaW:
 
+*Formato de mensaje SaW*: \\
+
+
+#+NAME: saw_format
+#+BEGIN_SRC nil :eval never
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   | Pr|S|A|Y|F| Unused          |           Port                  |
+   | Pr|S|A|Y|F|     Unused      |               Port              |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                         Payload Length                        |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                             Data                              |
+   |        Payload Length       |               Data              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+---------------------------------+
+   |                           Data                                |
    +---------------------------------------------------------------+
+#+END_SRC
 
-**** Tamaño máximo de payload
+Donde:
 
-El tamaño máximo de payload es el tamaño máximo de un datagrama UDP menos el tamaño de los headers de IP, UDP y SAW.
+- ~Pr~: son los bits que determinan el protocolo (0 para SAW y 1 para GBN)
+- ~S~: es el bit field que representa el sequence number, puede ser 0 o 1.
+- ~A~: es el flag booleano que representa si el mensaje es un ACK o no.
+- ~Y~: es el flag booleano que representa si el mensaje es SYN o no.
+- ~F~: es el flag booleano que representa si el mensaje es FIN o no.
+- ~Unused~: es una porción de bits que no se usa y queda como padding para completar el tamaño de un short unsigned int (2 bytes).
+- ~Port~: el puerto con el que el receptor del mensaje debe comunicarse, se usa para el cambio de puerto.
+- ~Payload length~: short unsigned int que representa el largo de la data que contiene el paquete.
+- ~Data~: información binaria (bytes) que son los datos a transportar.
 
-Como el MTU que usamos en mininet es 1500, el tamaño máximo de payload es:
-
-HISTORICAL_MTU = 1500
-MAX_IP_HEADER_SIZE = 60
-UDP_HEADER_SIZE = 8
-SAW_PROTOCOL_HEADER_SIZE = 6
+El header tiene un tamaño de 6 bytes. \\
 
 
-FILE_CHUNK_SIZE = HISTORICAL_MTU − MAX_IP_HEADER_SIZE − UDP_HEADER_SIZE − SAW_PROTOCOL_HEADER_SIZE
+*Tamaño máximo de payload* \\
+
+
+El tamaño máximo de payload permitido por el protolo está basado en el MTU establecido en el estándar Ethernet, es decir, 1500 bytes. Teniendo en cuenta que esto debería ser lo máximo que transporte un paquete de IP, se toman estos 1500 bytes como base, se le resta el tamaño de un header máximo de IP (60 bytes), lo mismo con el header de UDP (8 bytes) y se le resta el tamaño de header del protocolo (6 bytes). Quedando así un payload máximo de 1426 bytes.
 
 
 *** Handshake
@@ -133,10 +151,12 @@ scale 2.0
 participant Client
 participant Server
 
-Client ->(10) Server : SYN, seq 0
-Server ->(10) Client : SYN, ACK, seq 1
-Client ->(10) Server : ACK, OP_CODE (piggybacked)
-Server ->(10) Client : ACK
+Client ->(10) Server : [SYN]\nseq=0, ack=0
+Server ->(10) Client : [SYN], [ACK]\nseq=0, ack=0
+
+Client ->(10) Server : [ACK]\nseq=1, ack=1\n data=1 (op_code)
+Server ->(10) Client : [ACK]\nseq=1, ack=1
+
 @enduml
 #+END_SRC
 
@@ -144,7 +164,7 @@ Server ->(10) Client : ACK
 #+RESULTS:
 [[file:docs/imgs/connection-handshake.png]]
 
-La idea es usar este handshake para inicialización de recursos del servidor y check de protocolo. \\
+La idea es usar este handshake para inicialización de recursos del servidor y check de protocolo (que no haya protocol mismatch). \\
 
 Se usa la nomenclatura S para mencionar al servidor y C para el cliente.
 
@@ -159,7 +179,7 @@ _Mensajes para caso Download y caso Upload_:
 
 *Flujo de error (distinto protocolo)*:
 
-2. [@2] S \rightarrow C: con flag FIN para denegar la conexión por usar un protocolo distinto.
+2. [@2] S \rightarrow C: con flag FIN para denegar la conexión por usar un protocolo distinto (protocol mismatch).
 
 Se hace una transferencia de puerto para que el welcoming socket se encargue solamente de establecer conexiones y el nuevo puerto maneje la transferencia de datos del archivo. El último ACK de parte del cliente asegura que se recibió el puerto donde se tiene que comunicar y es seguro hacer el cambio de socket.
 
@@ -167,12 +187,12 @@ Se hace una transferencia de puerto para que el welcoming socket se encargue sol
 
 El cliente ya sabe que tiene que comunicarse con el nuevo puerto.
 
-Se envía primero la configuración para saber si la operación es valida y tener en cuenta casos de error, y luego se hace la transferencia. \\
+Se envía primero la configuración para saber si la operación es válida y tener en cuenta casos de error, y luego se hace la transferencia. \\
 
 _Mensajes para caso Download y caso Upload_:
 
-1. C \rightarrow S: se declara la operación (OP), que puede ser download (0) o upload (1)
-2. S \rightarrow C: ACK de la operación (no falla)
+1. C \rightarrow S: se declara la operación (OP), que puede ser download (1) o upload (2)
+2. S \rightarrow C: ACK de la operación
 
 _Continuación de mensajes para caso Download_:
 
@@ -272,26 +292,12 @@ Client ->(10) Server : Data
 2. S \rightarrow C: ACK + FIN
 3. C \rightarrow S: ACK
 
-** Especificación del protocolo Go-Back-N
-*** Formato de mensaje GBN:
 
-    0                   1                   2                   3
-    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   | Pr|S|A|F|   Unused          |           Port                  |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                       Payload length                          |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                       Sequence number                         |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                     Acknowledge number                        |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                             Data                              |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-*** Ciclo de Vida
 
-#+BEGIN_SRC plantuml :file docs/imgs/gbn.png :exports results
+*** Ciclo de Vida de Upload
+
+#+BEGIN_SRC plantuml :file docs/imgs/saw_upload.png :exports results
 @startuml
 skinparam sequenceMessageAlign center
 skinparam ParticipantPadding 100
@@ -300,6 +306,304 @@ participant Client
 participant Server
 
 group ‎  [Handshake]
+
+Client ->(10) Server : [SYN]\nseq=0
+Server ->(10) Client : [SYN], [ACK]\nseq=0
+
+Client ->(10) Server : [ACK]\nseq=1 \n data=1 (op_code)
+Server ->(10) Client : [ACK]\nseq=1
+
+else Configuration
+
+Client ->(10) Server : seq=0 \n data=report.pdf
+Server ->(10) Client : [ACK]\nseq=0
+
+Client ->(10) Server : [ACK]\nseq=1 data=file_size
+Server ->(10) Client : [ACK]\nseq=1
+
+else File transfer
+
+Client ->(10) Server : \nseq=0 \npayload_length=1426\n data=101110...
+
+Server ->(10) Client : [ACK]\nseq=0
+
+Client ->(10) Server : [FIN]\nseq=1 \npayload_length=100 \n data=101110...
+
+else Closing handshake
+
+Server ->(10) Client : [ACK]\nseq=1
+Server ->(10) Client : [FIN]\nseq=1
+Client ->(10) Server : [ACK]\nseq=1
+
+end
+@enduml
+#+END_SRC
+
+#+ATTR_LATEX: :width 0.75\textwidth
+#+RESULTS:
+[[file:docs/imgs/saw_upload.png]]
+
+
+*** Análisis del Ciclo de Vida de Upload de una transferencia con Stop-and-Wait
+
+En esta transferencia se utiliza el protocolo **Stop-and-Wait**, que asegura la entrega de datos mediante la espera de una confirmación (ACK) por cada paquete enviado antes de continuar. El archivo transferido es `report.pdf` y tiene un tamaño total de 3000 bytes.
+
+**** Establecimiento de la conexión (Handshake):
+
+- El **cliente** inicia la conexión enviando un paquete con el flag ~SYN~ y ~seq=0~.
+- El **servidor** responde con un paquete con flags ~SYN~, ~ACK~ y ~seq=0~.
+- El **cliente** confirma la recepción con un paquete ~ACK~ con ~seq=1~ y datos que indican el código de operación ~data=1~ (upload).
+- El **servidor** responde con un ~ACK~ (~seq=1~) para confirmar la configuración de operación.
+
+**** Configuración:
+
+- El **cliente** envía un paquete con ~seq=0~ y ~data=report.pdf~, indicando el nombre del archivo.
+- El **servidor** responde con un paquete ~ACK~ (~seq=0~) para confirmar la recepción del nombre.
+- El **cliente** envía otro paquete con ~seq=1~ y ~data=file_size~, indicando el tamaño del archivo.
+- El **servidor** responde con un ~ACK~ (~seq=1~).
+
+**** Transferencia del archivo:
+
+- El **cliente** envía un chunk de datos con ~seq=0~, ~payload_length=1426~, y datos binarios (~data=101110...~).
+
+- El **servidor** responde con un ~ACK~ (~seq=0~), permitiendo al cliente continuar.
+
+- El **cliente** envía un segundo y último paquete con ~FIN~, ~seq=1~, ~payload_length=100~, y más datos (~data=101110...~), indicando además el fin de la transferencia.
+
+**** Cierre de la conexión (Closing handshake):
+
+- El **servidor** confirma la recepción del último paquete con un ~ACK~ (~seq=1~).
+- Luego, el **servidor** también inicia su cierre con un paquete ~FIN~ (~seq=1~).
+- Finalmente, el **cliente** responde con un último ~ACK~ (~seq=1~), completando el cierre de la conexión.
+
+*** Ciclo de Vida de Download
+
+#+BEGIN_SRC plantuml :file docs/imgs/saw_download.png :exports results
+@startuml
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 100
+scale 2.0
+participant Client
+participant Server
+
+group ‎  [Handshake]
+
+Client ->(10) Server : [SYN]\nseq=0
+Server ->(10) Client : [SYN], [ACK]\nseq=0
+
+Client ->(10) Server : [ACK]\nseq=1 \n data=1 (op_code)
+Server ->(10) Client : [ACK]\nseq=1
+
+else Configuration
+
+Client ->(10) Server : seq=0 \n data=report.pdf
+Server ->(10) Client : [ACK]\nseq=0 \npayload_length=1426\n data=101110...
+Client ->(10) Server : [ACK]\nseq=0
+
+else File transfer
+
+Server ->(10) Client : \nseq=1 \npayload_length=1426\n data=101110...
+
+Client ->(10) Server : [ACK]\nseq=1
+
+Server ->(10) Client : [FIN]\nseq=0 \npayload_length=100\n data=101110...
+
+else Closing handshake
+
+Client ->(10) Server : [FIN]\nseq=0
+Server ->(10) Client : [ACK]\nseq=1
+Client ->(10) Server : [ACK]\nseq=1
+
+end
+@enduml
+#+END_SRC
+
+#+ATTR_LATEX: :width 0.75\textwidth
+#+RESULTS:
+[[file:docs/imgs/saw_download.png]]
+
+*** Análisis del Ciclo de Vida de Download de una transferencia con Stop-and-Wait
+
+Esta transferencia ilustra el funcionamiento del protocolo Stop-and-Wait en una operación de descarga de archivos. El archivo solicitado por el cliente es report.pdf, con un tamaño total de 3000 bytes, dividido en fragmentos de 1426 bytes. Cada paquete de datos enviado requiere una confirmación antes de que el servidor continúe con el siguiente.
+
+**** Establecimiento de la conexión (Handshake):
+
+- El cliente inicia la conexión con un paquete SYN con ~seq=0~.
+- El servidor responde con un paquete que incluye los flags SYN y ACK (~seq=0~).
+- El cliente confirma el establecimiento de la conexión con un ACK (~seq=1~) e indica en el cuerpo del mensaje el código de operación (~data=1~), correspondiente a una descarga.
+- El servidor responde con otro ACK (~seq=1~), confirmando la recepción del código de operación.
+
+**** Configuración:
+
+- El cliente solicita el archivo enviando un paquete con ~seq=0~ y ~data=report~.pdf.
+- El servidor, en lugar de enviar solo un ACK, responde directamente con el primer chunk de datos:
+-     ~seq=0~, ~payload_length=1426~, y ~data=101110~....
+- El cliente confirma la recepción de este primer fragmento con un ACK (~seq=0~).
+
+**** Transferencia del archivo:
+
+- El servidor envía el segundo fragmento: ~seq=1~, ~payload_length=1426~, y ~data=101110~....
+- El cliente responde con un ACK (~seq=1~), permitiendo continuar o finalizar.
+
+**** Cierre de la conexión (Closing handshake):
+
+- El servidor, al haber enviado todos los datos, indica el fin de la transmisión con un paquete FIN: ~seq=0~, ~payload_length=100~, y ~data=101110~....
+- El cliente responde iniciando su propio cierre con un paquete FIN (~seq=0~).
+- El servidor confirma la recepción del FIN con un ACK (~seq=1~).
+- Finalmente, el cliente envía un último ACK (~seq=1~), completando el cierre de la conexión.
+
+** Especificación del protocolo Go-Back-N
+
+*** General
+
+*Formato de mensaje GBN*: \\
+
+#+NAME: gbn_format
+#+BEGIN_SRC nil :eval never
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Pr|A|Y|F|       Unused      |               Port              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                       Payload length                          |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                       Sequence number                         |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                     Acknowledge number                        |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                             Data                              |
+   +---------------------------------------------------------------+
+#+END_SRC
+
+Donde:
+
+- ~Pr~: son los bits que determinan el protocolo (0 para SAW y 1 para GBN)
+- ~A~: es el flag booleano que representa si el mensaje es un ACK o no.
+- ~Y~: es el flag booleano que representa si el mensaje es SYN o no.
+- ~F~: es el flag booleano que representa si el mensaje es FIN o no.
+- ~Unused~: es una porción de bits que no se usa y queda como padding para completar el tamaño de un short unsigned int (2 bytes).
+- ~Port~: el puerto con el que el receptor del mensaje debe comunicarse, se usa para el cambio de puerto.
+- ~Payload length~: unsigned int (4 bytes) que representa el largo de la data que contiene el paquete.
+- ~Sequence number~: unsigned int (4 bytes) que representa el número de secuencia del paquete.
+- ~Acknowledge number~: unsigned int (4 bytes) que representa el número de acknowledge, usado principalmente para saber cuál fue el último paquete que se recibió.
+- ~Data~: información binaria (bytes) que son los datos a transportar.
+
+El header tiene un tamaño de 16 bytes. \\
+
+*Tamaño máximo de payload* \\
+
+El tamaño se determina análogamente a SAW, sólo que esta vez se le resta el tamaño de header del protocolo (16 bytes). Quedando así un payload máximo de 1416 bytes.
+
+
+*** Ciclo de Vida de Upload
+
+#+BEGIN_SRC plantuml :file docs/imgs/gbn_upload.png :exports results
+@startuml
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 100
+scale 2.0
+participant Client
+participant Server
+
+group ‎  [Handshake]
+
+Client ->(10) Server : [SYN]\nseq=0, ack=0
+Server ->(10) Client : [SYN], [ACK]\nseq=0, ack=0
+
+Client ->(10) Server : [ACK]\nseq=1, ack=1\n data=2 (op_code)
+Server ->(10) Client : [ACK]\nseq=1, ack=1
+
+else Configuration
+
+Client ->(10) Server : seq=2, ack=2\n data=report.pdf
+Server ->(10) Client : [ACK]\nseq=2, ack=2
+
+Client ->(10) Server : seq=3, ack=3\n data=3000
+Server ->(10) Client : [ACK]\nseq=3, ack=3
+
+else File transfer
+
+Client ->(10) Server : seq=4, ack=4\npayload_length=1416\n data=101110...
+Client ->(10) Server : seq=5, ack=4\npayload_length=1416\n data=101110...
+
+Server ->(10) Client : [ACK]\nseq=4, ack=4
+Server ->(10) Client : [ACK]\nseq=5, ack=5
+
+else Closing handshake
+
+Client ->(10) Server : [FIN]\nseq=6, ack=5\npayload_length=168\n data=101110...
+
+Server ->(10) Client : [ACK]\nseq=6, ack=6
+Server ->(10) Client : [FIN]\nseq=6, ack=6
+
+Client ->(10) Server : [ACK]\nseq=7, ack=6
+
+end
+
+caption \nGo-Back-N protocol with window of\n 2 packets. Client uploads file \n(report.pdf of size 3000 bytes) to server
+
+@enduml
+#+END_SRC
+
+#+ATTR_LATEX: :width 0.65\textwidth
+#+RESULTS:
+[[file:docs/imgs/gbn_upload.png]]
+
+*** Analisis del Ciclo de Vida de Upload de una transferencia con Go-Back-N
+
+Se observa el comportamiento de una transferencia de archivos con una ventana de tamaño 2. En este caso, el cliente sube un archivo (report.pdf) de 3000 bytes al servidor.
+
+**** Establecimiento de la conexión (Handshake):
+
+    El cliente inicia la conexión enviando un paquete con el flag ~SYN~, con ~seq=0~ y ~ack=0~.
+
+    El servidor responde con un paquete con flags ~SYN~ y ~ACK~, manteniendo los mismos valores de seq y ack.
+
+    El cliente confirma la recepción enviando un paquete ~ACK~ con ~seq=1~ y ~ack=1~, incluyendo en datos la configuración del código de operación (en este caso de subida) ~data=2~ (op_code).
+
+    El servidor responde con un ~ACK~ para confirmar la recepción del mensaje de configuración (~seq=1~, ~ack=1~).
+
+**** Configuración:
+
+    El cliente envía un paquete con ~seq=2~, ~ack=2~ y ~data=report.pdf~, indicando el nombre del archivo a subir.
+
+    El servidor responde con un paquete ~ACK~ (~seq=2~, ~ack=2~) para confirmar la petición.
+
+    El cliente envía un paquete con ~seq=3~, ~ack=3~ y ~data=3000~, informando el tamaño total del archivo en bytes.
+
+    El servidor confirma la recepción de esta información con otro ~ACK~ (~seq=3~, ~ack=3~).
+
+**** Transferencia del archivo:
+
+    El cliente envía el primer chunk de datos con ~seq=4~, ~ack=4~, ~payload_length=1416~ y ~data=101110~.
+
+    A continuación, envía el segundo chunk con ~seq=5~, ~ack=4~, ~payload_length=1416~ y ~data=101110~.
+
+    El servidor confirma la recepción del primer chunk enviando un ~ACK~ (~seq=4~, ~ack=4~).
+
+    Luego, confirma el segundo chunk con otro ~ACK~ (~seq=5~, ~ack=5~).
+
+**** Cierre de la conexión (Closing handshake):
+
+    El cliente inicia el cierre enviando un paquete ~FIN~ con ~seq=6~, ~ack=5~, ~payload_length=168~ y ~data=101110~.
+
+    El servidor responde con un ~ACK~ final (~seq=6~, ~ack=6~).
+
+    El servidor envía a su vez un paquete ~FIN~ (~seq=6~, ~ack=6~) para cerrar su lado de la comunicación.
+
+    Finalmente, el cliente completa el cierre con un último ~ACK~ (~seq=7~, ~ack=6~).
+
+*** Ciclo de Vida de Download
+
+#+BEGIN_SRC plantuml :file docs/imgs/gbn_download.png :exports results
+@startuml
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 100
+scale 2.0
+participant Client
+participant Server
+
+group [Handshake]
 
 Client ->(10) Server : [SYN]\nseq=0, ack=0
 Server ->(10) Client : [SYN], [ACK]\nseq=0, ack=0
@@ -329,44 +633,41 @@ Server ->(10) Client : [ACK]\nseq=5, ack=5
 end
 
 caption \nGo-Back-N protocol with window of\n 2 packets. Client downloads file \n(report.pdf of size 3000 bytes) from server
+@enduml
 #+END_SRC
 
 #+ATTR_LATEX: :width 0.7\textwidth
 #+RESULTS:
-[[file:docs/imgs/gbn.png]]
+[[file:docs/imgs/gbn_download.png]]
 
+*** Análisis del Ciclo de Vida de Download de una transferencia con Go-Back-N
 
-*** Análisis del ciclo de vida de una transferencia con Go-Back-N
-
-El siguiente análisis describe el comportamiento de una transferencia de
-archivos mediante el protocolo Go-Back-N (GBN) con una ventana de tamaño 2. En
-este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el
-servidor. El ciclo de vida de la request se puede dividir en cuatro fases
-principales:
+Se observa el comportamiento de una transferencia de archivos con una ventana de tamaño 2. En
+este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el servidor.
 
 **** Establecimiento de la conexión (Handshake):
-- El cliente inicia la conexión enviando un paquete con las banderas `SYN`, con `seq=0` y `ack=0`.
-- El servidor responde con un paquete combinado `SYN, ACK` manteniendo los mismos valores de secuencia y acuse.
-- El cliente confirma la recepción enviando un paquete `ACK` con `seq=1` y `ack=1`, incluyendo una operación de configuración (data=1 op_code).
-- El servidor responde con un `ACK` para confirmar la recepción del mensaje de configuración.
+- El cliente inicia la conexión enviando un paquete con el flag ~SYN~, con ~seq=0~ y ~ack=0~.
+- El servidor responde con un paquete con flags ~SYN~ y ~ACK~ manteniendo los mismos valores de ~seq~ y ~ack~.
+- El cliente confirma la recepción enviando un paquete ~ACK~ con ~seq=1~ y ~ack=1~, incluyendo en datos la configuración del codigo de operacion (en este caso de descarga) ~data=1 (op_code)~.
+- El servidor responde con un ~ACK~ para confirmar la recepción del mensaje de configuración.
 
 **** Configuración:
-- El cliente envía un paquete con `seq=2`, `ack=2` y `data=report.pdf`, indicando el nombre del archivo solicitado.
-- El servidor responde con un paquete de datos con `seq=2`, `ack=2`, una longitud de carga útil de 1416 bytes y los primeros bits del archivo.
-- El cliente confirma la recepción con un `ACK` correspondiente.
+- El cliente envía un paquete con ~seq=2~, ~ack=2~ y ~data=report.pdf~, indicando el nombre del archivo a descargar.
+- El servidor responde con un paquete de datos con ~seq=2~, ~ack=2~, una ~size~ de 1416 bytes y los primeros bits del archivo.
+- El cliente confirma la recepción con un ~ACK~ correspondiente.
 
 **** Transferencia del archivo:
-- El servidor envía el segundo fragmento de datos (`seq=3`, `ack=2`), también de 1416 bytes.
-- Posteriormente, se envía un paquete con la bandera `FIN` (`seq=4`, `ack=2`, `payload_length=168`), marcando el fin de la transferencia.
-- El cliente responde con dos `ACK`, uno para cada paquete recibido correctamente: `seq=3, ack=3` y `seq=4, ack=4`.
+- El servidor envía el segundo ~chunk~ de datos (~seq=3~, ~ack=2~), también de 1416 bytes.
+- Posteriormente, se envía un paquete con el flag ~FIN~ (~seq=4~, ~ack=2~, ~payload_length=168~), marcando el fin de la transferencia.
+- El cliente responde con dos ~ACK~, uno para cada paquete recibido correctamente: ~seq=3, ack=3~ y ~seq=4, ack=4~.
 
 **** Cierre de la conexión (Closing handshake):
-- El cliente envía un `FIN` para finalizar su lado de la comunicación (`seq=4, ack=4`).
-- El servidor responde con un `ACK` final (`seq=5, ack=5`), completando el cierre de la conexión de manera ordenada.
+- El cliente envía un ~FIN~ para finalizar su lado de la comunicación (~seq=4, ack=4~).
+- El servidor responde con un ~ACK~ final (~seq=5, ack=5~), completando el cierre de la conexión de manera ordenada.
 
 * Pruebas
 
-En esta sección mostraremos capturas de diferentes casos de uso de la aplicación.
+Se presentan capturas de diferentes casos de uso de la aplicación.
 
 ** Casos de error
 
@@ -427,12 +728,57 @@ Para mostrar el funcionamiento de Stop & Wait, mostraremos las capturas de las o
 
 - Download
 
-\noindent \includegraphics[width=\textwidth]{docs/imgs2/gbn_10l_up.png}
+\noindent \includegraphics[width=\textwidth]{docs/imgs2/saw_10l_down.png}
 \captionof{figure}{Captura de los logs de Download con Stop and Wait con pérdida del 10 por ciento.}
 
-\noindent \includegraphics[width=\textwidth]{docs/imgs2/gbn_10l_up_ws.png}
+\noindent \includegraphics[width=\textwidth]{docs/imgs2/saw_10l_down_ws.png}
 \captionof{figure}{Captura de wireshark de Download con Stop and Wait con pérdida del 10 por ciento.}
 
+** Go Back N
+
+Para mostrar el funcionamiento de Go Back N, mostraremos las capturas de las operaciones upload y download del mismo archivo de 5kB. Para este caso, mostraremos únicamente el caso con pérdida de paquetes, ya que el escenario con pérdida resulta muy similar al de Stop & Wait debido a que la ventana que utilizamos es mayor a la cantidad de paquetes que posee este archivo.
+
+- Upload
+
+\noindent \includegraphics[width=\textwidth]{docs/imgs2/gbn_10l_up.png}
+\captionof{figure}{Captura de los logs de Upload con Go Back N.}
+
+
+\noindent \includegraphics[width=\textwidth]{docs/imgs2/gbn_10l_up_ws.png}
+\captionof{figure}{Captura de wireshark de Upload con Go Back N.}
+
+- Download
+
+\noindent \includegraphics[width=\textwidth]{docs/imgs2/gbn_10l_down.png}
+\captionof{figure}{Captura de los logs de Download con Go Back N.}
+
+\noindent \includegraphics[width=\textwidth]{docs/imgs2/gbn_10l_down_ws.png}
+\captionof{figure}{Captura de wireshark de Download con Go Back N.}
+
+** Pruebas automatizadas
+
+Si bien se detallaron ejemplos manuales donde se probaron las características del protocolo de aplicación desarrollado, también de desarrollaron pruebas automatizadas con /pytest/, siendo ventajoso el hecho de que Mininet está desarrollo en Python y ofrece una API.
+
+Se desarrollaron pruebas de integración que testean:
+
+- Upload y download correcto.
+- Caso download cuando la ubicación de guardado del archivo a descargar ya existe.
+- Caso download cuando el archivo a descargar no existe en el servidor.
+- Caso upload cuando la ubicación del archivo a subir no existe.
+- Caso download cuando el archivo a subir ya existe con el nombre proveido en el servidor.
+- Caso de comunicación fallida por protocol mismatch entre servidor y clientes.
+- Caso de descargas y subida múltiples y simultáneas.
+
+Todas estas pruebas se ejecutan, cada una, bajo las siguientes condiciones:
+
+- Protocolo SAW con 0% de packet loss.
+- Protocolo SAW con 10% de packet loss.
+- Protocolo SAW con 40% de packet loss.
+- Protocolo GBN con 0% de packet loss.
+- Protocolo GBN con 10% de packet loss.
+- Protocolo GBN con 40% de packet loss.
+
+Estas pruebas generan un alto consumo de CPU y poseen una cota de tiempo (establecida para que en el CI/CD no consuma recursos de más) por lo que requieren de hardware adecuado.
 
 * Preguntas a Responder
 ** Describa la arquitectura Cliente-Servidor.
@@ -478,13 +824,15 @@ En resumen, los protocolos de capa de aplicación aseguran que las aplicaciones 
 
 ** Detalle el protocolo de aplicación desarrollado en este trabajo.
 
+Este apartado fue detallado y explicado en la sección [[*Implementación][*Implementación*]].
+
 ** La capa de transporte del stack TCP/IP ofrece dos protocolos: TCP y UDP.
 
 *** ¿Qué servicios proveen dichos protocolos?
 
 Ambos protocolos proveen los siguientes servicios:
 
-- *Multiplexación/Demultiplexación*: son los mecanismos que permiten extender el servicio de entrega de IP entre dos end systems a un servicio de entrega entre dos procesos que se ejecutan en esos sistemas. Dichos mecanismos permiten identificar a qué proceso pertenece cada ssegmento recibido.
+- *Multiplexación/Demultiplexación*: son los mecanismos que permiten extender el servicio de entrega de IP entre dos end systems a un servicio de entrega entre dos procesos que se ejecutan en esos sistemas. Dichos mecanismos permiten identificar a qué proceso pertenece cada segmento recibido.
 - *Chequeo de integridad*: se verifica que no haya errores en los datos mediante un campo de checksum en los headers de ambos protocolos.
 
 UDP no realiza ninguna otra función extra. Por lo tanto, su servicio es:
@@ -494,7 +842,7 @@ UDP no realiza ninguna otra función extra. Por lo tanto, su servicio es:
 Por su parte, TCP ofrece las siguientes funcionalidades adicionales:
 - *Orientado a la conexión*: antes de que un proceso de aplicación pueda comenzar a enviar datos a otro, ambos procesos deben comunicarse entre sí; es decir, deben enviarse algunos segmentos preliminares para establecer los parámetros de la transferencia de datos subsiguiente. Se trata de una conexión lógica con un estado en común que reside en TCP de los hosts.
 - *Transferencia de datos confiable*: garantiza la entrega, el orden y la no corrupción de los datos. Esto lo logra mediante timers, numeros de secuencia y ACKs (flags que indican que un paquete fue entregado correctamente).
-- *Control de congestión*: festiona que no se saturen los enlaces. Es más bien un servicio para la red.
+- *Control de congestión*: gestiona que no se saturen los enlaces. Es más bien un servicio para la red.
 - *Control de flujo*: para eliminar la posibilidad de que el remitente desborde el búfer del receptor. Hace coincidir la velocidad a la que el remitente envía con la velocidad a la que la aplicación receptora lee.
 
 *** ¿Cuáles son sus características?
@@ -517,7 +865,25 @@ Debido a las características mencionadas anteriormente, UDP resulta más apropi
 Por otro lado, TCP es más ventajoso para las aplicaciones que necesitan un transporte confiable de los datos. Algunos ejemplos son el email y la web.
 
 * Dificultades Encontradas
+
+** Mininet
+
+Inicialmente se tuvo que entender de manera profunda cómo funciona Mininet,
+
+** Protocolo SAW
+
+** Protocolo GBN
+
+** Plugin de Wireshark
+
+Se encontraron dificultades para armar el plugin dinámico que reconozca el protocolo que se esta utilizando y a partir de allí realizar el formateo del contenido del paquete, con lo cual, se adquirieron los conocimientos básicos del uso del lenguaje de programación Lua y también de la integración de dicho lenguaje con la herramienta Wireshark.
+
 * Conclusión
+
+El desarrollo de este trabajo práctico permitió consolidar conceptos fundamentales sobre la comunicación entre procesos en redes de computadoras, especialmente aquellos vinculados a la capa de transporte y a los mecanismos necesarios para lograr una transferencia de datos confiable (RDT) sobre el protocolo UDP. La implementación de los protocolos Stop-and-Wait y Go-Back-N brindó una comprensión más profunda de los desafíos involucrados en el diseño de mecanismos de retransmisión y confirmación.
+Desde una perspectiva empírica, se comprobó que Go-Back-N ofrece un rendimiento superior al de Stop-and-Wait, dado que reduce la espera por confirmaciones al permitir el envío continuo de múltiples paquetes. Sin embargo, se evidenció la importancia de seleccionar adecuadamente el tamaño de ventana, ya que un valor grande puede generar que la retransmisión demore mucho.
+Por otro lado, el uso de la interfaz de sockets en Python y la simulación de red mediante Mininet proporcionaron un entorno realista para evaluar el comportamiento de las implementaciones bajo condiciones adversas, como la pérdida de paquetes. En conjunto, el trabajo permitió articular teoría y práctica, fortaleciendo las habilidades necesarias para el diseño e implementación de protocolos de red personalizados.
+
 * Anexo: Fragmentacion IPv4
 ** Enunciado :noexport:
 El siguiente ejercicio se plantea como objetivo la comprensión y la puesta en
@@ -548,8 +914,8 @@ Otro de los conflictos presentados es la comunicación bidireccional. Reducir el
 
 ** Análisis
 *** Topología
-#+ATTR_LATEX: :width 0.5\textwidth
-[[file:docs/frag_imgs/linear_ends_fragmentation_item.png]]
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/linear_ends_fragmentation_item.png}
+\captionof{figure}{Red con un servidor, dos switches, un router y un cliente}
 
 Se define una pérdida de 20% de paquetes sobre el enlace próximo al servidor, un MTU de 800 en la interfaz saliente del router (s2-eth0) y un tamaño de paquetes de 1000B (arbitrariamente, basta con que sea ligeramente superior al MTU reducido) para estudiar este fenómeno.
 
@@ -557,75 +923,31 @@ Se define una pérdida de 20% de paquetes sobre el enlace próximo al servidor, 
 
 Habiendo definido la red como se mencionó anteriormente, basta generar tráfico de cliente a servidor usando iperf y capturar los paquetes recibidos y enviados por el router (s2) con Wireshark para estudiar este fenómeno. Por ejemplo:
 
-Paquetes capturados en interfaz de entrada del router (s2-eth1):
-No.	Time	Source	Destination	Protocol	Length	Info
-...
-23	1.971521	10.0.1.1	10.0.0.1	TCP	74	54360 → 5001 [SYN] Seq=0 Win=43000 Len=0 MSS=1000 SACK_PERM TSval=2993150612 TSecr=0 WS=512
-24	1.991994	10.0.0.1	10.0.1.1	TCP	74	5001 → 54360 [SYN, ACK] Seq=0 Ack=1 Win=43440 Len=0 MSS=1460 SACK_PERM TSval=2142019792 TSecr=2993150612 WS=512
-25	1.995183	10.0.1.1	10.0.0.1	TCP	66	54360 → 5001 [ACK] Seq=1 Ack=1 Win=43008 Len=0 TSval=2993150645 TSecr=2142019792
-26	1.995677	10.0.1.1	10.0.0.1	TCP	126	54360 → 5001 [PSH, ACK] Seq=1 Ack=1 Win=43008 Len=60 TSval=2993150646 TSecr=2142019792
-27	1.995841	10.0.0.1	10.0.1.1	TCP	66	5001 → 54360 [ACK] Seq=1 Ack=61 Win=43520 Len=0 TSval=2142019813 TSecr=2993150646
-28	1.996044	10.0.0.1	10.0.1.1	TCP	94	5001 → 54360 [PSH, ACK] Seq=1 Ack=61 Win=43520 Len=28 TSval=2142019813 TSecr=2993150646
-29	1.996235	10.0.1.1	10.0.0.1	TCP	2042	54360 → 5001 [PSH, ACK] Seq=61 Ack=1 Win=43008 Len=1976 TSval=2993150646 TSecr=2142019792
-30	1.996274	10.0.1.1	10.0.0.1	TCP	2042	54360 → 5001 [PSH, ACK] Seq=2037 Ack=1 Win=43008 Len=1976 TSval=2993150646 TSecr=2142019792
-...
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/s2-eth1_tcp.png}
+\captionof{figure}{Paquetes capturados en interfaz de entrada del router (s2-eth1)}
 
-Paquetes capturados en interfaz de salida del router (s2-eth0):
-No.	Time	Source	Destination	Protocol	Length	Info
-...
-16	1.893458	10.0.1.1	10.0.0.1	TCP	74	54360 → 5001 [SYN] Seq=0 Win=43000 Len=0 MSS=1000 SACK_PERM TSval=2993150612 TSecr=0 WS=512
-17	1.911142	10.0.0.1	10.0.1.1	TCP	74	5001 → 54360 [SYN, ACK] Seq=0 Ack=1 Win=43440 Len=0 MSS=1460 SACK_PERM TSval=2142019792 TSecr=2993150612 WS=512
-18	1.914359	10.0.1.1	10.0.0.1	TCP	66	54360 → 5001 [ACK] Seq=1 Ack=1 Win=43008 Len=0 TSval=2993150645 TSecr=2142019792
-19	1.914855	10.0.1.1	10.0.0.1	TCP	126	54360 → 5001 [PSH, ACK] Seq=1 Ack=1 Win=43008 Len=60 TSval=2993150646 TSecr=2142019792
-20	1.915001	10.0.0.1	10.0.1.1	TCP	66	5001 → 54360 [ACK] Seq=1 Ack=61 Win=43520 Len=0 TSval=2142019813 TSecr=2993150646
-21	1.915201	10.0.0.1	10.0.1.1	TCP	94	5001 → 54360 [PSH, ACK] Seq=1 Ack=61 Win=43520 Len=28 TSval=2142019813 TSecr=2993150646
-22	1.915411	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=TCP 6, off=0, ID=6401) [Reassembled in #23]
-23	1.915413	10.0.1.1	10.0.0.1	TCP	278	54360 → 5001 [ACK] Seq=61 Ack=1 Win=43008 Len=988 TSval=2993150646 TSecr=2142019792
-24	1.915415	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=TCP 6, off=0, ID=6402) [Reassembled in #25]
-25	1.915416	10.0.1.1	10.0.0.1	TCP	278	54360 → 5001 [PSH, ACK] Seq=1049 Ack=1 Win=43008 Len=988 TSval=2993150646 TSecr=2142019792
-26	1.915444	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=TCP 6, off=0, ID=6403) [Reassembled in #27]
-27	1.915445	10.0.1.1	10.0.0.1	TCP	278	54360 → 5001 [ACK] Seq=2037 Ack=1 Win=43008 Len=988 TSval=2993150646 TSecr=2142019792
-28	1.915447	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=TCP 6, off=0, ID=6404) [Reassembled in #29]
-29	1.915448	10.0.1.1	10.0.0.1	TCP	278	54360 → 5001 [PSH, ACK] Seq=3025 Ack=1 Win=43008 Len=988 TSval=2993150646 TSecr=2142019792
-30	1.915467	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=TCP 6, off=0, ID=6405) [Reassembled in #31]
-...
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/s2-eth0_tcp.png}
+\captionof{figure}{Paquetes capturados en interfaz de salida del router (s2-eth0)}
 
 Se observa que tras establecer la comunicación inicial, se envían paquetes de un tamaño que lleva a forzar que el router fragmente los paquetes TCP recibidos en varios paquetes TCP/IPv4, esto según que tan grande sea la relación tamaño de paquete/MTU del enlace. Se logra identificar que paquete se fragmentó según los números de secuencia que muestra Wireshark en su columna de información, y para paquetes que no tienen número de secuencia coincidente indica que se requirió fragmentar más de una vez.
 
 Si se hace una suma del tamaño de los fragmentos hasta que coincidan paquetes de ambas tablas, se observa como el router termina enviando más bytes de los que recibió. Esto debido a que el reensamblado de paquetes se produce incluyendo encabezados de todas las capas de red.
 
 *** Funcionamiento de TCP ante la pérdida de un fragmento
-TCP es un protocolo de transporte que maneja la retransmisión de datos tras pérdida y detección a partir de ACKs duplicados. Este fenómeno es muy simple de visualizar en Wireshark, donde se señala en la columna de información cuando un paquete corresponde a información retransmitida (Retransmission/Fast Retransmission)
+TCP es un protocolo de transporte que maneja la retransmisión de datos tras pérdida y detección a partir de ACKs duplicados. Este fenómeno es muy simple de visualizar en Wireshark, donde se señala en la columna de información cuando un paquete corresponde a información retransmitida.
 
-No.	Time	Source	Destination	Protocol	Length	Info
-...
-42	2.002269	10.0.1.1	10.0.0.1	TCP	2042	54360 → 5001 [PSH, ACK] Seq=16857 Ack=1 Win=43008 Len=1976 TSval=2993150652 TSecr=2142019792
-41	2.002234	10.0.1.1	10.0.0.1	TCP	2042	54360 → 5001 [PSH, ACK] Seq=14881 Ack=1 Win=43008 Len=1976 TSval=2993150652 TSecr=2142019792
-43	2.002311	10.0.1.1	10.0.0.1	TCP	1054	[TCP Fast Retransmission] 54360 → 5001 [ACK] Seq=2037 Ack=1 Win=43008 Len=988 TSval=2993150652 TSecr=2142019792
-44	2.002843	10.0.0.1	10.0.1.1	TCP	86	[TCP Dup ACK 34#4] 5001 → 54360 [ACK] Seq=29 Ack=2037 Win=41984 Len=0 TSval=2142019818 TSecr=2993150646 SLE=5001 SRE=8953 SLE=3025 SRE=4013
-45	2.002884	10.0.1.1	10.0.0.1	TCP	1054	[TCP Retransmission] 54360 → 5001 [ACK] Seq=4013 Ack=1 Win=43008 Len=988 TSval=2993150653 TSecr=2142019792
-46	2.003232	10.0.1.1	10.0.0.1	TCP	66	54360 → 5001 [ACK] Seq=18833 Ack=29 Win=43008 Len=0 TSval=2993150653 TSecr=2142019792
-47	2.005101	10.0.0.1	10.0.1.1	TCP	86	[TCP Dup ACK 34#5] 5001 → 54360 [ACK] Seq=29 Ack=2037 Win=41984 Len=0 TSval=2142019821 TSecr=2993150646 SLE=5001 SRE=9941 SLE=3025 SRE=4013
-48	2.005135	10.0.1.1	10.0.0.1	TCP	1054	54360 → 5001 [ACK] Seq=18833 Ack=29 Win=43008 Len=988 TSval=2993150655 TSecr=2142019821
-49	2.005341	10.0.0.1	10.0.1.1	TCP	94	[TCP Dup ACK 34#6] 5001 → 54360 [ACK] Seq=29 Ack=2037 Win=41984 Len=0 TSval=2142019822 TSecr=2993150646 SLE=5001 SRE=11917 SLE=18833 SRE=19821 SLE=3025 SRE=4013
-50	2.005364	10.0.1.1	10.0.0.1	TCP	1054	[TCP Fast Retransmission] 54360 → 5001 [ACK] Seq=2037 Ack=29 Win=43008 Len=988 TSval=2993150655 TSecr=2142019822
-51	2.005371	10.0.1.1	10.0.0.1	TCP	1054	[TCP Retransmission] 54360 → 5001 [ACK] Seq=4013 Ack=29 Win=43008 Len=988 TSval=2993150655 TSecr=2142019822
-52	2.005376	10.0.1.1	10.0.0.1	TCP	1054	[TCP Retransmission] 54360 → 5001 [ACK] Seq=11917 Ack=29 Win=43008 Len=988 TSval=2993150655 TSecr=2142019822
-53	2.005382	10.0.1.1	10.0.0.1	TCP	1054	[TCP Retransmission] 54360 → 5001 [ACK] Seq=12905 Ack=29 Win=43008 Len=988 TSval=2993150655 TSecr=2142019822
-54	2.005429	10.0.0.1	10.0.1.1	TCP	94	5001 → 54360 [ACK] Seq=29 Ack=4013 Win=40448 Len=0 TSval=2142019822 TSecr=2993150655 SLE=12905 SRE=13893 SLE=5001 SRE=11917 SLE=18833 SRE=19821
-...
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/tcp_retransmission.png}
+\captionof{figure}{TCP Retransmission}
 
 Este mecanismo garantiza que no se pierden datos durante la comunicación en el caso de pérdida de paquetes. Para esta experiencia, como se fuerza la fragmentación de paquetes IPv4 antes del enlace con pérdida de paquetes, en su mayoría lo que se retransmite son fragmentos IPv4 perdidos, esto salvo que se pierdan datos referentes a la conexión como los ACKs de handshake/cierre de conexión u otros paquetes como la actualización de ventanas de transmisión. Dicho esto, el fenómeno de retransmisión de paquetes es el mismo para todo tipo de paquete del protocolo.
 
 Capturando el output del comando iperf (ejecutado durante 3 segundos) se puede observar el resultado final de la comunicación en cliente y servidor:
 
-Cliente:
-#+ATTR_LATEX: :width 0.5\textwidth
-[[file:docs/frag_imgs/iperf_client_tcp.png]]
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/iperf_client_tcp.png}
+\captionof{figure}{Captura de iperf TCP desde cliente}
 
-Servidor:
-#+ATTR_LATEX: :width 0.5\textwidth
-[[file:docs/frag_imgs/iperf_server_tcp.png]]
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/iperf_server_tcp.png}
+\captionof{figure}{Captura de iperf TCP desde servidor}
 
 *** Funcionamiento de UDP ante la pérdida de un fragmento
 
@@ -633,40 +955,19 @@ TCP no es un protocolo orientado a la transferencia confiable de datos, por lo q
 
 En estas capturas de Wireshark se evidencia como ocurre el fenómeno de fragmentación, donde al solo fragmentar en 2 un paquete UDP en Wireshark se capturará cerca del doble de paquetes en cada interfaz (o más según la relación tamaño/MTU):
 
-Paquetes capturados en interfaz de entrada del router (s2-eth1):
-No.	Time	Source	Destination	Protocol	Length	Info
-...
-9	1.125290	10.0.1.1	10.0.0.1	UDP	1042	55090 → 5001 Len=1000
-10	1.126623	10.0.1.1	10.0.0.1	UDP	1042	55090 → 5001 Len=1000
-12	1.126743	10.0.1.1	10.0.0.1	UDP	1042	55090 → 5001 Len=1000
-11	1.126713	10.0.1.1	10.0.0.1	UDP	1042	55090 → 5001 Len=1000
-13	1.126777	10.0.1.1	10.0.0.1	UDP	1042	55090 → 5001 Len=1000
-...
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/s2-eth1_udp.png}
+\captionof{figure}{Paquetes capturados en interfaz de entrada del router (s2-eth1)}
 
-Paquetes capturados en interfaz de salida del router (s2-eth0):
-...
-No.	Time	Source	Destination	Protocol	Length	Info
-14	1.125302	10.0.1.1	10.0.0.1	UDP	266	55090 → 5001 Len=1000
-15	1.126628	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=UDP 17, off=0, ID=bd6e) [Reassembled in #16]
-16	1.126633	10.0.1.1	10.0.0.1	UDP	266	55090 → 5001 Len=1000
-17	1.126698	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=UDP 17, off=0, ID=bd6f) [Reassembled in #18]
-13	1.125298	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=UDP 17, off=0, ID=bd6d) [Reassembled in #14]
-18	1.126699	10.0.1.1	10.0.0.1	UDP	266	55090 → 5001 Len=1000
-19	1.126727	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=UDP 17, off=0, ID=bd70) [Reassembled in #20]
-20	1.126729	10.0.1.1	10.0.0.1	UDP	266	55090 → 5001 Len=1000
-21	1.126763	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=UDP 17, off=0, ID=bd71) [Reassembled in #22]
-22	1.126765	10.0.1.1	10.0.0.1	UDP	266	55090 → 5001 Len=1000
-...
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/s2-eth0_udp.png}
+\captionof{figure}{Paquetes capturados en interfaz de salida del router (s2-eth0)}
 
 Sin embargo, al haber pérdida de paquetes cercano al servidor, esta no puede observarse capturando sobre el router sino sobre el servidor, donde se observaría que tantos paquetes se pierden a partir de que tantos envió el cliente. Otra forma más sencilla de observar este fenómeno es con el output del comando iperf ejecutado sobre UDP, donde explícitamente señala que cantidad de paquetes se perdieron.
 
-Cliente:
-#+ATTR_LATEX: :width 0.5\textwidth
-[[file:docs/frag_imgs/iperf_client_udp.png]]
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/iperf_client_udp.png}
+\captionof{figure}{Captura de iperf UDP desde cliente}
 
-Servidor:
-#+ATTR_LATEX: :width 0.5\textwidth
-[[file:docs/frag_imgs/iperf_server_udp.png]]
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/iperf_server_udp.png}
+\captionof{figure}{Captura de iperf UDP desde servidor}
 
 Donde se observa una pérdida en torno al 20% definido inicialmente.
 
@@ -674,41 +975,16 @@ Donde se observa una pérdida en torno al 20% definido inicialmente.
 
 Por último, el fenómeno más sencillo de comprobar. Como se mencionó anteriormente, ya que el router fragmenta paquetes de ambos protocolos de transporte en función de su tamaño y el MTU de la interfaz de salida, siempre va a enviar más paquetes de los que recibe, por lo que se observa un aumento notorio del tráfico en la red. Para esta experiencia, se observa un aumento trabajando con UDP:
 
-Paquetes capturados en interfaz de entrada del router (s2-eth1):
-...
-No.	Time	Source	Destination	Protocol	Length	Info
-...
-3762	4.119552	10.0.1.1	10.0.0.1	UDP	1042	55090 → 5001 Len=1000
-3763	4.120970	10.0.1.1	10.0.0.1	UDP	1042	55090 → 5001 Len=1000
-3764	4.121056	10.0.1.1	10.0.0.1	UDP	1042	55090 → 5001 Len=1000
-3765	4.134780	10.0.1.1	10.0.0.1	UDP	1042	55090 → 5001 Len=1000
-3766	4.140611	10.0.0.1	10.0.1.1	UDP	170	5001 → 55090 Len=128
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/s2-eth1_udp_last_packets.png}
+\captionof{figure}{Paquetes capturados en interfaz de entrada del router (s2-eth1)}
 
-Paquetes capturados en interfaz de salida del router (s2-eth0):
-...
-No.	Time	Source	Destination	Protocol	Length	Info
-7519	4.121043	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=UDP 17, off=0, ID=cc13) [Reassembled in #7520]
-7520	4.121046	10.0.1.1	10.0.0.1	UDP	266	55090 → 5001 Len=1000
-7521	4.134785	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=UDP 17, off=0, ID=cc14) [Reassembled in #7522]
-7522	4.134792	10.0.1.1	10.0.0.1	UDP	266	55090 → 5001 Len=1000
-7523	4.140574	10.0.0.1	10.0.1.1	UDP	170	5001 → 55090 Len=128
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/s2-eth0_udp_last_packets.png}
+\captionof{figure}{Paquetes capturados en interfaz de salida del router (s2-eth0)}
 
 Y se observa también un aumento en el tráfico de la red trabajando con TCP:
 
-Paquetes capturados en interfaz de salida del router (s2-eth1):
-No.	Time	Source	Destination	Protocol	Length	Info
-...
-495	9.978010	10.0.0.1	10.0.1.1	TCP	78	[TCP Window Update] 5001 → 54360 [ACK] Seq=29 Ack=227301 Win=531968 Len=0 TSval=2142027795 TSecr=2993158628 SLE=228289 SRE=229277
-496	9.978020	10.0.1.1	10.0.0.1	TCP	1054	[TCP Retransmission] 54360 → 5001 [ACK] Seq=227301 Ack=29 Win=43008 Len=988 TSval=2993158628 TSecr=2142027795
-497	9.985551	10.0.0.1	10.0.1.1	TCP	78	5001 → 54360 [FIN, ACK] Seq=29 Ack=227301 Win=531968 Len=0 TSval=2142027802 TSecr=2993158628 SLE=228289 SRE=229277
-498	9.985578	10.0.1.1	10.0.0.1	TCP	66	54360 → 5001 [ACK] Seq=229277 Ack=30 Win=43008 Len=0 TSval=2993158635 TSecr=2142027802
-499	10.551816	10.0.1.1	10.0.0.1	TCP	1054	[TCP Retransmission] 54360 → 5001 [ACK] Seq=227301 Ack=30 Win=43008 Len=988 TSval=2993159202 TSecr=2142027802
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/s2-eth1_tcp_last_packets.png}
+\captionof{figure}{Paquetes capturados en interfaz de entrada del router (s2-eth1)}
 
-Paquetes capturados en interfaz de salida del router (s2-eth0):
-No.	Time	Source	Destination	Protocol	Length	Info
-...
-820	9.897189	10.0.1.1	10.0.0.1	TCP	278	[TCP Retransmission] 54360 → 5001 [ACK] Seq=227301 Ack=29 Win=43008 Len=988 TSval=2993158628 TSecr=2142027795
-821	9.904702	10.0.0.1	10.0.1.1	TCP	78	5001 → 54360 [FIN, ACK] Seq=29 Ack=227301 Win=531968 Len=0 TSval=2142027802 TSecr=2993158628 SLE=228289 SRE=229277
-822	9.904745	10.0.1.1	10.0.0.1	TCP	66	54360 → 5001 [ACK] Seq=229277 Ack=30 Win=43008 Len=0 TSval=2993158635 TSecr=2142027802
-823	10.471001	10.0.1.1	10.0.0.1	IPv4	810	Fragmented IP protocol (proto=TCP 6, off=0, ID=6534) [Reassembled in #824]
-824	10.471020	10.0.1.1	10.0.0.1	TCP	278	[TCP Retransmission] 54360 → 5001 [ACK] Seq=227301 Ack=30 Win=43008 Len=988 TSval=2993159202 TSecr=2142027802
+\noindent \includegraphics[width=\textwidth]{docs/frag_imgs/s2-eth0_tcp_last_packets.png}
+\captionof{figure}{Paquetes capturados en interfaz de salida del router (s2-eth0)}

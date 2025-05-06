@@ -25,10 +25,11 @@
   (setq error-buffer (get-buffer "*Org PDF LaTeX Output*"))
 
   (when error-buffer
-    ;; Write buffer contents to log file
-    (with-current-buffer error-buffer
-      (write-region (point-min) (point-max) log-file))
-    (message "LaTeX output saved to: %s" log-file))
+  ;; Write buffer contents to log file
+  (with-current-buffer error-buffer
+    (setq coding-system-for-write 'utf-8) ;; Avoid prompt
+    (write-region (point-min) (point-max) log-file))
+  (message "LaTeX output saved to: %s" log-file))
 
   ;; Exit with appropriate status
   (if export-success
