@@ -102,21 +102,42 @@ La topología diseñada es una red lineal con 1 host servidor (izquierda) conect
 
 *** General
 
-**** Formato de mensaje SaW:
 
+*Formato de mensaje SaW*: \\
+
+
+#+NAME: saw_format
+#+BEGIN_SRC
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   | Pr|S|A|Y|F| Unused          |           Port                  |
+   | Pr|S|A|Y|F|     Unused      |               Port              |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                         Payload Length                        |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                             Data                              |
+   |        Payload Length       |               Data              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+---------------------------------+
+   |                           Data                                |
    +---------------------------------------------------------------+
+#+END_SRC
 
-**** Tamaño máximo de payload
+Donde:
 
-El tamaño máximo de payload permitido por el protolo está basado en el MTU establecido en el estándar Ethernet, es decir, 1500 bytes. Teniendo en cuenta que esto debería ser lo máximo que transporte un paquete de IP, se toman estos 1500 bytes como base, se le resta el tamaño de un header máximo de IP (60 bytes), lo mismo con el header de UDP (8 bytes) y se le resta el tamaño de header del protocolo (8 bytes). Quedando así un payload máximo de 1426 bytes.
+- ~Pr~: son los bits que determinan el protocolo (0 para SAW y 1 para GBN)
+- ~S~: es el bit field que representa el sequence number, puede ser 0 o 1.
+- ~A~: es el flag booleano que representa si el mensaje es un ACK o no.
+- ~Y~: es el flag booleano que representa si el mensaje es SYN o no.
+- ~F~: es el flag booleano que representa si el mensaje es FIN o no.
+- ~Unused~: es una porción de bits que no se usa y queda como padding para completar el tamaño de un short unsigned int (2 bytes).
+- ~Port~: el puerto con el que el receptor del mensaje debe comunicarse, se usa para el cambio de puerto.
+- ~Payload length~: short unsigned int que representa el largo de la data que contiene el paquete.
+- ~Data~: información binaria (bytes) que son los datos a transportar.
+
+El header tiene un tamaño de 6 bytes. \\
+
+
+*Tamaño máximo de payload* \\
+
+
+El tamaño máximo de payload permitido por el protolo está basado en el MTU establecido en el estándar Ethernet, es decir, 1500 bytes. Teniendo en cuenta que esto debería ser lo máximo que transporte un paquete de IP, se toman estos 1500 bytes como base, se le resta el tamaño de un header máximo de IP (60 bytes), lo mismo con el header de UDP (8 bytes) y se le resta el tamaño de header del protocolo (6 bytes). Quedando así un payload máximo de 1426 bytes.
 
 
 *** Handshake
@@ -275,12 +296,17 @@ Client ->(10) Server : Data
 
 
 ** Especificación del protocolo Go-Back-N
-*** Formato de mensaje GBN:
 
+*** General
+
+*Formato de mensaje GBN*: \\
+
+#+NAME: gbn_format
+#+BEGIN_SRC
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   | Pr|S|A|F|   Unused          |           Port                  |
+   | Pr|A|Y|F|       Unused      |               Port              |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |                       Payload length                          |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -289,7 +315,28 @@ Client ->(10) Server : Data
    |                     Acknowledge number                        |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |                             Data                              |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   +---------------------------------------------------------------+
+#+END_SRC
+
+Donde:
+
+- ~Pr~: son los bits que determinan el protocolo (0 para SAW y 1 para GBN)
+- ~A~: es el flag booleano que representa si el mensaje es un ACK o no.
+- ~Y~: es el flag booleano que representa si el mensaje es SYN o no.
+- ~F~: es el flag booleano que representa si el mensaje es FIN o no.
+- ~Unused~: es una porción de bits que no se usa y queda como padding para completar el tamaño de un short unsigned int (2 bytes).
+- ~Port~: el puerto con el que el receptor del mensaje debe comunicarse, se usa para el cambio de puerto.
+- ~Payload length~: unsigned int (4 bytes) que representa el largo de la data que contiene el paquete.
+- ~Sequence number~: unsigned int (4 bytes) que representa el número de secuencia del paquete.
+- ~Acknowledge number~: unsigned int (4 bytes) que representa el número de acknowledge, usado principalmente para saber cuál fue el último paquete que se recibió.
+- ~Data~: información binaria (bytes) que son los datos a transportar.
+
+El header tiene un tamaño de 16 bytes. \\
+
+*Tamaño máximo de payload* \\
+
+El tamaño se determina análogamente a SAW, sólo que esta vez se le resta el tamaño de header del protocolo (16 bytes). Quedando así un payload máximo de 1416 bytes.
+
 
 *** Ciclo de Vida
 
