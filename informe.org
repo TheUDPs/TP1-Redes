@@ -377,18 +377,25 @@ En esta sección mostraremos capturas de diferentes casos de uso de la aplicaci�
 
 En caso de que un cliente intente conectarse con un servidor utilizando un protocolo diferente al suyo, el servidor lo rechazará. En la imagen se puede observar un ejemplo en el que un servidor que utiliza Stop & Wait rechaza a un cliente que hace una petición con Go Back N.
 
-- Archivo ya existente.
+- Archivo ya existente
 
 \noindent \includegraphics[width=\textwidth]{docs/imgs/file_already_exists.png}
 \captionof{figure}{Ejemplo de upload de un archivo que ya existe en el servidor.}
 
-\smallskip
-
 Para ambos protocolos, si el cliente intenta subir un archivo que el servidor ya tiene, se rechaza.
+
+- Descarga de un archivo que no existe
+
+\noindent \includegraphics[width=\textwidth]{docs/imgs2/error_file_doesnt_exist.png}
+\captionof{figure}{Ejemplo de intento de descarga de un archivo que no existe.}
+
+Para ambos protocolos, si el cliente intenta descargar un archivo que el servidor no posee, se rechaza.
 
 ** Stop & Wait
 
-Para mostrar el funcionamiento de Stop & Wait, mostraremos las capturas de las operaciones upload y download de un archivo pequeño de 5kB a modo de ejemplo primero sin pérdida de paquetes, y luego con una pérdida del 10% utilizando mininet.
+Para mostrar el funcionamiento de Stop & Wait, mostraremos las capturas de las operaciones upload y download de un archivo pequeño de 5kB a modo de ejemplo. Primero sin pérdida de paquetes, y luego con una pérdida del 10% utilizando mininet.
+
+*** Stop & Wait sin pérdida de paquetes
 
 - Upload
 
@@ -407,61 +414,25 @@ Para mostrar el funcionamiento de Stop & Wait, mostraremos las capturas de las o
 \noindent \includegraphics[width=\textwidth]{docs/imgs/saw_download_wireshark.png}
 \captionof{figure}{Captura de wireshark de Download con Stop and Wait.}
 
-*** Tabla de Datos de Wireshark
+*** Stop & Wait con pérdida de paquetes del 10%
 
-\begin{adjustwidth}{-3cm}{-3cm}
-\begin{center}
-\begin{tabular}{rrrrlrlrlllrrl}
-No & Time & Src & Dst & Proto & Len & Type & SEQ & ACK & SYN & FIN & SrcPort & DstPort\\[0pt]
-\hline
-1 & 0.000000000 & 10.0.1.1 & 10.0.0.1 & SAW & 48 & Stop-and-Wait & 0 & False & True & False & 52515 & 0\\[0pt]
-2 & 0.000191297 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 0 & True & True & False & 41367 & 0\\[0pt]
-3 & 0.002208402 & 10.0.1.1 & 10.0.0.1 & SAW & 50 & Stop-and-Wait & 1 & True & False & False & 52515 & 2\\[0pt]
-4 & 0.002801150 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 1 & True & False & False & 41367 & 0\\[0pt]
-5 & 0.004355272 & 10.0.1.1 & 10.0.0.1 & SAW & 53 & Stop-and-Wait & 0 & False & False & False & 52515 & 5\\[0pt]
-6 & 0.004722710 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 0 & True & False & False & 41367 & 0\\[0pt]
-7 & 0.005754904 & 10.0.1.1 & 10.0.0.1 & SAW & 52 & Stop-and-Wait & 1 & False & False & False & 52515 & 4\\[0pt]
-8 & 0.005879502 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 1 & True & False & False & 41367 & 0\\[0pt]
-9 & 0.006562696 & 10.0.1.1 & 10.0.0.1 & SAW & 1474 & Stop-and-Wait & 0 & False & False & False & 52515 & 1426\\[0pt]
-10 & 0.006634214 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 0 & True & False & False & 41367 & 0\\[0pt]
-11 & 0.006819155 & 10.0.1.1 & 10.0.0.1 & SAW & 1474 & Stop-and-Wait & 1 & False & False & False & 52515 & 1426\\[0pt]
-12 & 0.006887880 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 1 & True & False & False & 41367 & 0\\[0pt]
-\ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{} & \ldots{}\ldots{}\\[0pt]
-384 & 0.036747322 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 1 & True & False & False & 41367 & 0\\[0pt]
-385 & 0.036806828 & 10.0.1.1 & 10.0.0.1 & SAW & 1474 & Stop-and-Wait & 0 & False & False & False & 52515 & 1426\\[0pt]
-386 & 0.036860606 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 0 & True & False & False & 41367 & 0\\[0pt]
-387 & 0.037000220 & 10.0.1.1 & 10.0.0.1 & SAW & 1474 & Stop-and-Wait & 1 & False & False & False & 52515 & 1426\\[0pt]
-388 & 0.037084310 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 1 & True & False & False & 41367 & 0\\[0pt]
-389 & 0.037217987 & 10.0.1.1 & 10.0.0.1 & SAW & 363 & Stop-and-Wait & 0 & False & False & True & 52515 & 315\\[0pt]
-390 & 0.037459011 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 0 & True & False & False & 41367 & 0\\[0pt]
-391 & 0.037511183 & 10.0.0.1 & 10.0.1.1 & SAW & 48 & Stop-and-Wait & 0 & False & False & True & 41367 & 0\\[0pt]
-392 & 0.037580397 & 10.0.1.1 & 10.0.0.1 & SAW & 48 & Stop-and-Wait & 1 & True & False & False & 52515 & 0\\[0pt]
-\end{tabular}
-\end{center}
-\end{adjustwidth}
+- Upload
 
-** Análisis de la comunicación Stop-and-Wait
+\noindent \includegraphics[width=\textwidth]{docs/imgs2/saw_10l_up.png}
+\captionof{figure}{Captura de los logs de Upload con Stop and Wait con pérdida del 10 por ciento.}
 
-La tabla presentada muestra una traza de paquetes intercambiados entre dos nodos de mininet (10.0.1.1 y 10.0.0.1) utilizando el protocolo desarrollado con el esquema Stop-and-Wait. Este protocolo garantiza la entrega ordenada y libre de errores mediante el envío secuencial de paquetes, esperando una confirmación (ACK) por cada uno antes de continuar con el siguiente.
 
-El ciclo de vida de la comunicación puede dividirse en tres fases:
+\noindent \includegraphics[width=\textwidth]{docs/imgs2/saw_10l_up_ws.png}
+\captionof{figure}{Captura de wireshark de Upload con Stop and Wait con pérdida del 10 por ciento.}
 
-**1. Establecimiento de la conexión:**
-- El cliente (10.0.1.1) inicia la conexión enviando un paquete con la bandera `SYN` activada.
-- El servidor (10.0.0.1) responde con un paquete que contiene tanto `SYN` como `ACK`, indicando aceptación.
-- Finalmente, el cliente responde con un `ACK`, completando el procedimiento de handshake.
+- Download
 
-**2. Transferencia de datos:**
-- Una vez establecida la conexión, el cliente comienza a enviar datos, alternando los números de secuencia (SEQ) entre 0 y 1. Este comportamiento es característico del protocolo Stop-and-Wait.
-- Por cada paquete de datos enviado, el servidor responde con un paquete de confirmación (`ACK`) para indicar que ha recibido correctamente el contenido.
-- El campo `Len` refleja el tamaño de los datos transportados, y los puertos de origen y destino se utilizan para mantener la sesión activa entre los procesos involucrados.
+\noindent \includegraphics[width=\textwidth]{docs/imgs2/gbn_10l_up.png}
+\captionof{figure}{Captura de los logs de Download con Stop and Wait con pérdida del 10 por ciento.}
 
-**3. Finalización de la conexión:**
-- El cliente inicia el cierre de la sesión enviando un paquete con la bandera `FIN` activada.
-- El servidor responde primero con un `ACK`, y luego con su propio paquete `FIN`, indicando que también desea cerrar la conexión.
-- Finalmente, el cliente responde con un `ACK`, completando el cierre de la comunicación de manera ordenada.
+\noindent \includegraphics[width=\textwidth]{docs/imgs2/gbn_10l_up_ws.png}
+\captionof{figure}{Captura de wireshark de Download con Stop and Wait con pérdida del 10 por ciento.}
 
-En resumen, esta captura de paquetes evidencia el funcionamiento correcto de una implementación del protocolo Stop-and-Wait, en donde cada paquete enviado es seguido por una respuesta de confirmación, y el inicio y cierre de la conexión se realizan mediante el protocolo RDT.
 
 * Preguntas a Responder
 ** Describa la arquitectura Cliente-Servidor.
