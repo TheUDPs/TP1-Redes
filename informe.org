@@ -578,7 +578,7 @@ Otro de los conflictos presentados es la comunicación bidireccional. Reducir el
 ** Análisis
 *** Topología
 #+ATTR_LATEX: :width 0.5\textwidth
-[[file:docs/imgs/linear_ends_multiple_clients_with_loss.png]]
+[[file:docs/frag_imgs/linear_ends_fragmentation_item.png]]
 
 Se define una pérdida de 20% de paquetes sobre el enlace próximo al servidor, un MTU de 800 en la interfaz saliente del router (s2-eth0) y un tamaño de paquetes de 1000B (arbitrariamente, basta con que sea ligeramente superior al MTU reducido) para estudiar este fenómeno.
 
@@ -649,26 +649,12 @@ Este mecanismo garantiza que no se pierden datos durante la comunicación en el 
 Capturando el output del comando iperf (ejecutado durante 3 segundos) se puede observar el resultado final de la comunicación en cliente y servidor:
 
 Cliente:
-------------------------------------------------------------
-Client connecting to 10.0.0.1, TCP port 5001
-MSS req size 1000 bytes (per TCP_MAXSEG)
-TCP window size: 85.3 KByte (default)
-------------------------------------------------------------
-[  1] local 10.0.1.1 port 54360 connected with 10.0.0.1 port 5001 (icwnd/mss/irtt=9/988/33411)
-[ ID] Interval       Transfer     Bandwidth
-[  1] 0.0000-1.0000 sec   130 KBytes  1.07 Mbits/sec
-[  1] 1.0000-2.0000 sec  23.2 KBytes   190 Kbits/sec
-[  1] 2.0000-3.0000 sec   104 KBytes   854 Kbits/sec
-[  1] 0.0000-6.0606 sec   258 KBytes   348 Kbits/sec
+#+ATTR_LATEX: :width 0.5\textwidth
+[[file:docs/frag_imgs/iperf_client_tcp.png]]
 
 Servidor:
-------------------------------------------------------------
-Server listening on TCP port 5001
-TCP window size: 85.3 KByte (default)
-------------------------------------------------------------
-[  1] local 10.0.0.1 port 5001 connected with 10.0.1.1 port 54360 (icwnd/mss/irtt=9/988/20275)
-[ ID] Interval       Transfer     Bandwidth
-[  1] 0.0000-7.9822 sec   222 KBytes   228 Kbits/sec
+#+ATTR_LATEX: :width 0.5\textwidth
+[[file:docs/frag_imgs/iperf_server_tcp.png]]
 
 *** Funcionamiento de UDP ante la pérdida de un fragmento
 
@@ -704,32 +690,12 @@ No.	Time	Source	Destination	Protocol	Length	Info
 Sin embargo, al haber pérdida de paquetes cercano al servidor, esta no puede observarse capturando sobre el router sino sobre el servidor, donde se observaría que tantos paquetes se pierden a partir de que tantos envió el cliente. Otra forma más sencilla de observar este fenómeno es con el output del comando iperf ejecutado sobre UDP, donde explícitamente señala que cantidad de paquetes se perdieron.
 
 Cliente:
-------------------------------------------------------------
-Client connecting to 10.0.0.1, UDP port 5001
-Sending 1000 byte datagrams, IPG target: 800.00 us (kalman adjust)
-UDP buffer size:  208 KByte (default)
-------------------------------------------------------------
-[  1] local 10.0.1.1 port 55090 connected with 10.0.0.1 port 5001
-[ ID] Interval       Transfer     Bandwidth
-[  1] 0.0000-1.0000 sec  1.19 MBytes  10.0 Mbits/sec
-[  1] 1.0000-2.0000 sec  1.19 MBytes  9.97 Mbits/sec
-[  1] 2.0000-3.0000 sec  1.20 MBytes  10.0 Mbits/sec
-[  1] 0.0000-3.0003 sec  3.58 MBytes  10.0 Mbits/sec
-[  1] Sent 3753 datagrams
-[  1] Server Report:
-[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams
-[  1] 0.0000-3.0052 sec  2.91 MBytes  8.13 Mbits/sec   0.047 ms 698/3753 (19%)
-[  1] 0.0000-3.0052 sec  3 datagrams received out-of-order
+#+ATTR_LATEX: :width 0.5\textwidth
+[[file:docs/frag_imgs/iperf_client_udp.png]]
 
 Servidor:
-------------------------------------------------------------
-Server listening on UDP port 5001
-UDP buffer size:  208 KByte (default)
-------------------------------------------------------------
-[  1] local 10.0.0.1 port 5001 connected with 10.0.1.1 port 55090
-[ ID] Interval       Transfer     Bandwidth        Jitter   Lost/Total Datagrams
-[  1] 0.0000-3.0052 sec  2.91 MBytes  8.13 Mbits/sec   0.047 ms 698/3753 (19%)
-[  1] 0.0000-3.0052 sec  3 datagrams received out-of-order
+#+ATTR_LATEX: :width 0.5\textwidth
+[[file:docs/frag_imgs/iperf_server_udp.png]]
 
 Donde se observa una pérdida en torno al 20% definido inicialmente.
 
