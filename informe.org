@@ -152,11 +152,11 @@ scale 2.0
 participant Client
 participant Server
 
-Client ->(10) Server : [SYN]\nseq=0, ack=0
-Server ->(10) Client : [SYN], [ACK]\nseq=0, ack=0
+Client ->(10) Server : [SYN]\nseq=0
+Server ->(10) Client : [SYN], [ACK]\nseq=0
 
-Client ->(10) Server : [ACK]\nseq=1, ack=1\n data=1 (op_code)
-Server ->(10) Client : [ACK]\nseq=1, ack=1
+Client ->(10) Server : [ACK]\nseq=1\n data=1 (op_code)
+Server ->(10) Client : [ACK]\nseq=1
 
 @enduml
 #+END_SRC
@@ -165,7 +165,7 @@ Server ->(10) Client : [ACK]\nseq=1, ack=1
 #+RESULTS:
 [[file:docs/imgs/connection-handshake.png]]
 
-La idea es usar este handshake para inicialización de recursos del servidor y check de protocolo (que no haya protocol mismatch). \\
+Este handshake se usa para inicialización de recursos del servidor y check de protocolo (que no haya protocol mismatch). \\
 
 Se usa la nomenclatura S para mencionar al servidor y C para el cliente.
 
@@ -188,7 +188,7 @@ Se hace una transferencia de puerto para que el welcoming socket se encargue sol
 
 El cliente ya sabe que tiene que comunicarse con el nuevo puerto.
 
-Se envía primero la configuración para saber si la operación es válida y tener en cuenta casos de error, y luego se hace la transferencia. \\
+Se envía primero la configuración para saber si la operación es válida, teniendo en cuenta casos de error, y luego se hace la transferencia. \\
 
 _Mensajes para caso Download y caso Upload_:
 
@@ -235,9 +235,11 @@ _Continuación de mensajes para caso Upload_:
 
 *** Cierre
 
-El flag FIN va piggybacked con la última data para que sea más eficiente. El receptor confirma con un ACK + FIN para que el emisor sepa que le llegó la información, y por si este se pierde está el último ACK para confirmar el cierre de parte del emisor. \\
+El flag FIN va piggybacked con la última data para que sea más eficiente. El receptor confirma con un ACK seguido de un FIN para que el emisor sepa que le llegó la información, y por si este se pierde está el último ACK para confirmar el cierre de parte del emisor. \\
 
-**** Mensajes para caso Download
+Esto garantiza que se realice el esfuerzo máximo por parte del cliente y el servidor para, en primer lugar, asegurar le recepción del último chunk y, en segundo lugar, que ambos actores sepan que la conexión se va a cerrar y poder conseguir un graceful shutdown. En el peor de los casos se puede perder el último ACK, pero cuando eso pase, se hace el esfuerzo máximo para finalizar la conexión (hasta timeout o exceso de retransmissions). \\
+
+_Mensajes para caso Download_
 
 #+BEGIN_SRC plantuml :file docs/imgs/download.png :exports results
 @startuml
@@ -247,15 +249,11 @@ scale 2.0
 participant Client
 participant Server
 
-Client ->(10) Server : Filename
-Server ->(10) Client : ACK, Data Chunk 1 (piggybacked)
-Client ->(10) Server : ACK of Data Chunk 1
-Server ->(10) Client : Data Chunk 2
-Client ->(10) Server : ACK of Data Chunk 2
-Server ->(10) Client : ...
-Client ->(10) Server : ...
-Server ->(10) Client : FIN, Data Chunk n
-Client ->(10) Server : FIN, ACK of Data Chunk n
+Server ->(10) Client : [FIN]\ndata Chunk n
+Client ->(10) Server : [ACK]\nof data Chunk n
+Client ->(10) Server : [FIN]
+Server ->(10) Client : [ACK]
+
 @enduml
 #+END_SRC
 
@@ -263,11 +261,14 @@ Client ->(10) Server : FIN, ACK of Data Chunk n
 #+RESULTS:
 [[file:docs/imgs/download.png]]
 
-1. S \rightarrow C: ultima data, va piggybacked el flag FIN
-2. C \rightarrow S: ACK + FIN
-3. S \rightarrow C: ACK
+1. [@1] S \rightarrow C: última data, va piggybacked el flag FIN
+2. C \rightarrow S: ACK
+3. C \rightarrow S: FIN
+4. S \rightarrow C: ACK
 
-**** Mensajes para caso Upload:
+\\
+
+_Mensajes para caso Upload:_
 
 #+BEGIN_SRC plantuml :file docs/imgs/upload.png :exports results
 @startuml
@@ -277,11 +278,11 @@ scale 2.0
 participant Client
 participant Server
 
-Client ->(10) Server : Filename
-Server ->(10) Client : ACK
-Client ->(10) Server : Filesize
-Server ->(10) Client : ACK
-Client ->(10) Server : Data
+Client ->(10) Server : [FIN]\ndata Chunk n
+Server ->(10) Client : [ACK]\nof data Chunk n
+Server ->(10) Client : [FIN]
+Client ->(10) Server : [ACK]
+
 @enduml
 #+END_SRC
 
@@ -289,11 +290,10 @@ Client ->(10) Server : Data
 #+RESULTS:
 [[file:docs/imgs/upload.png]]
 
-1. C \rightarrow S: ultima data, va piggybacked el flag FIN
-2. S \rightarrow C: ACK + FIN
+1. [@1] C \rightarrow S: última data, va piggybacked el flag FIN
+2. S \rightarrow C: ACK
+2. S \rightarrow C: FIN
 3. C \rightarrow S: ACK
-
-
 
 
 *** Ciclo de Vida de Upload
@@ -306,12 +306,13 @@ scale 2.0
 participant Client
 participant Server
 
-group [Handshake]
+' Special invisible space to avoid bugged grouping
+group ‎  [Handshake]
 
 Client ->(10) Server : [SYN]\nseq=0
 Server ->(10) Client : [SYN], [ACK]\nseq=0
 
-Client ->(10) Server : [ACK]\nseq=1 \n data=1 (op_code)
+Client ->(10) Server : [ACK]\nseq=1 \n data=2 (op_code)
 Server ->(10) Client : [ACK]\nseq=1
 
 else Configuration
@@ -334,7 +335,7 @@ else Closing handshake
 
 Server ->(10) Client : [ACK]\nseq=1
 Server ->(10) Client : [FIN]\nseq=1
-Client ->(10) Server : [ACK]\nseq=1
+Client ->(10) Server : [ACK]\nseq=0
 
 end
 @enduml
@@ -347,20 +348,20 @@ end
 
 *** Análisis del Ciclo de Vida de Upload de una transferencia con Stop-and-Wait
 
-En esta transferencia se utiliza el protocolo **Stop-and-Wait**, que asegura la entrega de datos mediante la espera de una confirmación (ACK) por cada paquete enviado antes de continuar. El archivo transferido es `report.pdf` y tiene un tamaño total de 3000 bytes.
+En esta transferencia se utiliza el protocolo **Stop-and-Wait**, que asegura la entrega de datos mediante la espera de una confirmación (ACK) por cada paquete enviado antes de continuar. El archivo transferido es `report.pdf` y tiene un tamaño total de 1526 bytes.
 
 **** Establecimiento de la conexión (Handshake):
 
 - El **cliente** inicia la conexión enviando un paquete con el flag ~SYN~ y ~seq=0~.
 - El **servidor** responde con un paquete con flags ~SYN~, ~ACK~ y ~seq=0~.
-- El **cliente** confirma la recepción con un paquete ~ACK~ con ~seq=1~ y datos que indican el código de operación ~data=1~ (upload).
-- El **servidor** responde con un ~ACK~ (~seq=1~) para confirmar la configuración de operación.
+- El **cliente** confirma la recepción con un paquete ~ACK~ con ~seq=1~ y datos que indican el código de operación ~data=2~ (upload) al welcoming socket.
+- El **servidor** responde con un ~ACK~ (~seq=1~) para confirmar la configuración de operación desde el socket al que la conexión fue transferida.
 
 **** Configuración:
 
-- El **cliente** envía un paquete con ~seq=0~ y ~data=report.pdf~, indicando el nombre del archivo.
+- El **cliente** envía un paquete con ~seq=0~ y ~data=report.pdf~, indicando el nombre del archivo como payload.
 - El **servidor** responde con un paquete ~ACK~ (~seq=0~) para confirmar la recepción del nombre.
-- El **cliente** envía otro paquete con ~seq=1~ y ~data=file_size~, indicando el tamaño del archivo.
+- El **cliente** envía otro paquete con ~seq=1~ y ~data=file_size~, indicando el tamaño del archivo como payload.
 - El **servidor** responde con un ~ACK~ (~seq=1~).
 
 **** Transferencia del archivo:
@@ -375,7 +376,7 @@ En esta transferencia se utiliza el protocolo **Stop-and-Wait**, que asegura la 
 
 - El **servidor** confirma la recepción del último paquete con un ~ACK~ (~seq=1~).
 - Luego, el **servidor** también inicia su cierre con un paquete ~FIN~ (~seq=1~).
-- Finalmente, el **cliente** responde con un último ~ACK~ (~seq=1~), completando el cierre de la conexión.
+- Finalmente, el **cliente** responde con un último ~ACK~ (~seq=0~), completando el cierre de la conexión.
 
 *** Ciclo de Vida de Download
 
@@ -387,7 +388,8 @@ scale 2.0
 participant Client
 participant Server
 
-group [Handshake]
+' Special invisible space to avoid bugged grouping
+group ‎  [Handshake]
 
 Client ->(10) Server : [SYN]\nseq=0
 Server ->(10) Client : [SYN], [ACK]\nseq=0
@@ -411,9 +413,9 @@ Server ->(10) Client : [FIN]\nseq=0 \npayload_length=100\n data=101110...
 
 else Closing handshake
 
+Client ->(10) Server : [ACK]\nseq=0
 Client ->(10) Server : [FIN]\nseq=0
 Server ->(10) Client : [ACK]\nseq=1
-Client ->(10) Server : [ACK]\nseq=1
 
 end
 @enduml
@@ -425,7 +427,7 @@ end
 
 *** Análisis del Ciclo de Vida de Download de una transferencia con Stop-and-Wait
 
-Esta transferencia ilustra el funcionamiento del protocolo Stop-and-Wait en una operación de descarga de archivos. El archivo solicitado por el cliente es report.pdf, con un tamaño total de 3000 bytes, dividido en fragmentos de 1426 bytes. Cada paquete de datos enviado requiere una confirmación antes de que el servidor continúe con el siguiente.
+Esta transferencia ilustra el funcionamiento del protocolo Stop-and-Wait en una operación de descarga de archivos. El archivo solicitado por el cliente es report.pdf, con un tamaño total de 3000 bytes, dividido en fragmentos de máximo 1426 bytes. Cada paquete de datos enviado requiere una confirmación antes de que el servidor continúe con el siguiente.
 
 **** Establecimiento de la conexión (Handshake):
 
@@ -436,22 +438,23 @@ Esta transferencia ilustra el funcionamiento del protocolo Stop-and-Wait en una 
 
 **** Configuración:
 
-- El cliente solicita el archivo enviando un paquete con ~seq=0~ y ~data=report~.pdf.
-- El servidor, en lugar de enviar solo un ACK, responde directamente con el primer chunk de datos:
--     ~seq=0~, ~payload_length=1426~, y ~data=101110~....
+- El cliente solicita el archivo enviando un paquete con ~seq=0~ y ~data=report.pdf~ como payload.
+- El servidor, en lugar de enviar sólo un ACK, responde directamente con un ACK con el primer chunk de datos: ~seq=0~, ~payload_length=1426~, y ~data=101110....~
 - El cliente confirma la recepción de este primer fragmento con un ACK (~seq=0~).
 
 **** Transferencia del archivo:
 
-- El servidor envía el segundo fragmento: ~seq=1~, ~payload_length=1426~, y ~data=101110~....
-- El cliente responde con un ACK (~seq=1~), permitiendo continuar o finalizar.
+- El servidor envía el segundo fragmento: ~seq=1~, ~payload_length=1426~, y ~data=101110...~.
+- El cliente responde con un ACK (~seq=1~).
 
 **** Cierre de la conexión (Closing handshake):
 
-- El servidor, al haber enviado todos los datos, indica el fin de la transmisión con un paquete FIN: ~seq=0~, ~payload_length=100~, y ~data=101110~....
+- El servidor, en el último chunk de datos indica el fin de la transmisión con un paquete FIN: ~seq=0~, ~payload_length=100~, y ~data=101110...~.
+- El servidor confirma la recepción del último chunk con un ACK (~seq=0~).
 - El cliente responde iniciando su propio cierre con un paquete FIN (~seq=0~).
-- El servidor confirma la recepción del FIN con un ACK (~seq=1~).
 - Finalmente, el cliente envía un último ACK (~seq=1~), completando el cierre de la conexión.
+
+\newpage
 
 ** Especificación del protocolo Go-Back-N
 
@@ -1009,9 +1012,12 @@ Desde una perspectiva empírica, se comprobó que Go-Back-N ofrece un rendimient
 
 Por otro lado, el uso de la interfaz de sockets en Python y la simulación de red mediante Mininet proporcionaron un entorno realista para evaluar el comportamiento de las implementaciones bajo condiciones adversas, como la pérdida de paquetes. En conjunto, el trabajo permitió articular teoría y práctica, fortaleciendo las habilidades necesarias para el diseño e implementación de protocolos de red personalizados.
 
-\newline
+\newpage
 
 * Bibliografía
 
-\bibitem{rfc-dns-format}
-\textit{4.1.1. Header section format RFC1035 - IETF}. Disponible en: \url{https://www.ietf.org/rfc/rfc1035.txt}. Recuperado en Marzo del 2025. Accedido el 21 de Marzo del 2025.
+\bibitem{rfc-udp}
+\textit{User Datagram Protocol RFC768 - IETF}. Disponible en: \url{https://www.ietf.org/rfc/rfc768.txt}. Recuperado en Abril del 2025.
+
+\bibitem{rfc-tcp}
+\textit{Transmission Control Protocol RFC793 - IETF}. Disponible en: \url{https://www.ietf.org/rfc/rfc793.txt}. Recuperado en Abril del 2025.
