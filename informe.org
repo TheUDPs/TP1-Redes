@@ -675,6 +675,25 @@ este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el 
 *** Manejo de retransmisiones
 
 
+* Análisis
+
+En esta sección compararemos el performance de los protocolos Go Back N y Stop & Wait bajo distintas configuraciones de pérdida de paquetes y utilizando archivos de distintos tamaños.
+
+** Upload
+
+| **File Size** | **SAW (0%)** | **SAW (10%)** | **SAW (40%)** | **GBN (0%)** | **GBN (10%)** | **GBN (40%)** |
+|---------------|--------------|---------------|---------------|--------------|---------------|---------------|
+| **6 MB**      | 0.3748s      | 6.2843s       | 29.1048s      | 0.2684s      | 2.8044s       | 11.9307s      |
+| **25 MB**     | 1.3594s      | 27.1792s      | 123.2692s     | 0.8491s      | 11.9623s      | 51.3981s      |
+
+** Download
+
+| **File Size** | **SAW (0%)** | **SAW (10%)** | **SAW (40%)** | **GBN (0%)** | **GBN (10%)** | **GBN (40%)** |
+|---------------|--------------|---------------|---------------|--------------|---------------|---------------|
+| **6 MB**      | 0.3745s      | 6.1496s       | 28.1998s      | 0.2326s      | 2.5937s       | 11.6761s      |
+| **25 MB**     | 1.6736s      | 27.7168s      | 120.4340s     | 1.0254s      | 11.7572s      | 51.7844s      |
+
+
 
 * Pruebas
 
