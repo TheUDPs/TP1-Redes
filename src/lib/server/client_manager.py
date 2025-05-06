@@ -11,7 +11,11 @@ from lib.common.file_handler import FileHandler
 
 
 class ClientManager:
-    def __init__(self, logger: CoolLogger, protocol: str, client_pool: ClientPool):
+    def __init__(
+            self,
+            logger: CoolLogger,
+            protocol: str,
+            client_pool: ClientPool):
         self.clients: ClientPool = client_pool
         self.logger: CoolLogger = logger
         self.protocol: str = protocol
@@ -33,7 +37,8 @@ class ClientManager:
             file_handler,
             packet,
         )
-        self.clients.add(key=connection_address.to_combined(), value=client_connection)
+        self.clients.add(key=connection_address.to_combined(),
+                         value=client_connection)
         client_connection.start()
 
     def rip_finished_clients(self):
@@ -46,8 +51,8 @@ class ClientManager:
 
         for killed_client in killed_clients:
             self.logger.debug(
-                f"Collected finished connection: {killed_client.to_combined()}"
-            )
+                f"Collected finished connection: {
+                    killed_client.to_combined()}")
             self.clients.remove(killed_client)
 
     def kill_all(self):

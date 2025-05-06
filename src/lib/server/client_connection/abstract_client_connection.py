@@ -32,8 +32,10 @@ from lib.server.protocol import ServerProtocol
 
 class ConnectionClosingNeeded(Exception):
     def __init__(
-        self, message="Client is already connect", sequence_number=None, ack_number=None
-    ):
+            self,
+            message="Client is already connect",
+            sequence_number=None,
+            ack_number=None):
         self.message = message
         self.sequence_number = sequence_number
         self.ack_number = ack_number
@@ -80,8 +82,7 @@ class ClientConnection:
         self.logger.debug("Processing operation intention")
         try:
             op_code, _seq, _ack = self.protocol.process_operation_intention(
-                self.initial_packet
-            )
+                self.initial_packet)
             sequence_number.value = _seq
 
             if self.protocol.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
@@ -95,7 +96,8 @@ class ClientConnection:
                 self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
                 self.logger.debug("Bad state. Unexpected operation")
 
-            self.logger.debug(f"Operation is: {OPERATION_STRING_FROM_CODE[op_code]}")
+            self.logger.debug(
+                f"Operation is: {OPERATION_STRING_FROM_CODE[op_code]}")
             self.logger.debug("Confirming operation")
             self.protocol.send_ack(
                 sequence_number.value,
@@ -131,7 +133,8 @@ class ClientConnection:
         if self.protocol.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
             ack_number.value.step()
 
-        _seq, filename = self.protocol.receive_filename(sequence_number.value)
+        _seq, filename = self.protocol.receive_filename(
+            sequence_number.value)
         sequence_number.value = _seq
 
         if self.is_filename_valid_for_upload(filename):
@@ -145,8 +148,8 @@ class ClientConnection:
         else:
             self.logger.warn("Filename received invalid")
             self.logger.error(
-                f"Client {self.client_address.to_combined()} shutting down due to file '{filename}' already existing in the server"
-            )
+                f"Client {
+                    self.client_address.to_combined()} shutting down due to file '{filename}' already existing in the server")
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             raise ConnectionClosingNeeded(
                 sequence_number=sequence_number, ack_number=ack_number
@@ -154,7 +157,8 @@ class ClientConnection:
 
         self.logger.debug("Validating filesize")
         sequence_number.value.step()
-        _seq, filesize = self.protocol.receive_filesize(sequence_number.value)
+        _seq, filesize = self.protocol.receive_filesize(
+            sequence_number.value)
         sequence_number.value = _seq
 
         if self.protocol.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
@@ -171,8 +175,8 @@ class ClientConnection:
         else:
             self.logger.warn("Filesize received invalid")
             self.logger.error(
-                f"Client {self.client_address.to_combined()} shutdowned due to file being too big"
-            )
+                f"Client {
+                    self.client_address.to_combined()} shutdowned due to file being too big")
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             raise ConnectionClosingNeeded(
                 sequence_number=sequence_number, ack_number=ack_number
@@ -194,7 +198,8 @@ class ClientConnection:
     ) -> tuple[str, int]:
         self.logger.debug("Validating filename")
         sequence_number.value.step()
-        _seq, filename = self.protocol.receive_filename(sequence_number.value)
+        _seq, filename = self.protocol.receive_filename(
+            sequence_number.value)
         sequence_number.value = _seq
 
         if self.protocol.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
@@ -211,27 +216,28 @@ class ClientConnection:
             )
             self.logger.warn("Filename received invalid")
             self.logger.error(
-                f"Client {self.client_address.to_combined()} shutdowned due to file '{filename}' not existing in server for download"
-            )
+                f"Client {
+                    self.client_address.to_combined()} shutdowned due to file '{filename}' not existing in server for download")
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             raise ConnectionClosingNeeded(
                 sequence_number=sequence_number, ack_number=ack_number
             )
 
-        filesize = self.file_handler.get_filesize(filename, is_path_complete=False)
+        filesize = self.file_handler.get_filesize(
+            filename, is_path_complete=False)
 
         return filename, filesize
 
-    def file_cleanup_after_error(
-        self, filename_for_upload: MutableVariable, filesize_for_upload: MutableVariable
-    ):
-        if self.file is not None and self.file_handler.is_closed(self.file):
+    def file_cleanup_after_error(self,
+                                 filename_for_upload: MutableVariable,
+                                 filesize_for_upload: MutableVariable):
+        if self.file is not None and self.file_handler.is_closed(
+                self.file):
             self.file_handler.close(self.file)
 
         if filename_for_upload.value is not None:
             self.file_handler.remove_file_if_corrupted_or_incomplete(
-                filename_for_upload, filesize_for_upload, is_path_complete=False
-            )
+                filename_for_upload, filesize_for_upload, is_path_complete=False)
 
     def initiate_close_connection(
         self, sequence_number: MutableVariable, ack_number: MutableVariable
@@ -256,7 +262,8 @@ class ClientConnection:
             #     ack_number.value.step()
 
             self.protocol.wait_for_fin_or_ack(sequence_number.value)
-            self.logger.debug("Received connection finalization from client")
+            self.logger.debug(
+                "Received connection finalization from client")
 
             sequence_number.value.step()
 
@@ -299,19 +306,20 @@ class ClientConnection:
         filename_for_download = MutableVariable(None)
         sequence_number = MutableVariable(
             SequenceNumber(
-                self.initial_sequence_number.value, self.protocol.protocol_version
-            )
-        )
+                self.initial_sequence_number.value,
+                self.protocol.protocol_version))
 
         ack_number = MutableVariable(None)
         if self.protocol.protocol_version == GO_BACK_N_PROTOCOL_TYPE:
             packet: PacketGbn = self.initial_packet
             ack_number = MutableVariable(
-                SequenceNumber(packet.ack_number, self.protocol.protocol_version)
+                SequenceNumber(packet.ack_number,
+                               self.protocol.protocol_version)
             )
 
         try:
-            op_code = self.process_operation_intention(sequence_number, ack_number)
+            op_code = self.process_operation_intention(
+                sequence_number, ack_number)
 
             if op_code == UPLOAD_OPERATION:
                 self.perform_upload(
@@ -321,21 +329,22 @@ class ClientConnection:
                     filesize_for_upload,
                 )
                 self.logger.force_info(
-                    f"Upload completed from client {self.client_address.to_combined()}"
-                )
+                    f"Upload completed from client {
+                        self.client_address.to_combined()}")
             elif op_code == DOWNLOAD_OPERATION:
                 self.perform_download(
                     sequence_number, ack_number, filename_for_download
                 )
                 self.logger.force_info(
-                    f"Download completed to client {self.client_address.to_combined()}"
-                )
+                    f"Download completed to client {
+                        self.client_address.to_combined()}")
 
         except (SocketShutdown, ConnectionLost):
             self.logger.debug("State is unrecoverable")
             self.state = ConnectionState.UNRECOVERABLE_BAD_STATE
             self.logger.debug("Connection shutdown")
-            self.file_cleanup_after_error(filename_for_upload, filesize_for_upload)
+            self.file_cleanup_after_error(
+                filename_for_upload, filesize_for_upload)
             self.kill()
         except ConnectionClosingNeeded as e:
             self.initiate_close_connection(e.sequence_number, e.ack_number)
@@ -356,7 +365,8 @@ class ClientConnection:
             err = e.message if hasattr(e, "message") else e
             err_class = e.__class__.__name__
             self.logger.error(f"Fatal error: [{err_class}] {err}")
-            self.file_cleanup_after_error(filename_for_upload, filesize_for_upload)
+            self.file_cleanup_after_error(
+                filename_for_upload, filesize_for_upload)
             self.kill()
 
     def start(self):

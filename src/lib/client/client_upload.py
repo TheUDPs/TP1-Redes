@@ -101,7 +101,8 @@ class UploadClient(Client):
             self.protocol.wait_for_ack(
                 self.sequence_number,
                 self.ack_number,
-                exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
+                exceptions_to_let_through=[
+                    UnexpectedFinMessage, MessageIsNotAck],
             )
         except (UnexpectedFinMessage, MessageIsNotAck):
             self.logger.debug("Filename confirmation failed")
@@ -124,7 +125,8 @@ class UploadClient(Client):
             self.protocol.wait_for_ack(
                 self.sequence_number,
                 self.ack_number,
-                exceptions_to_let_through=[UnexpectedFinMessage, MessageIsNotAck],
+                exceptions_to_let_through=[
+                    UnexpectedFinMessage, MessageIsNotAck],
             )
         except (UnexpectedFinMessage, MessageIsNotAck):
             self.logger.debug("Filesize confirmation failed")
@@ -162,8 +164,7 @@ class UploadClient(Client):
             self.ack_number,
         )
         _seq, _ack, last_raw_packet, already_received_fin_back = gbn_sender.send_file(
-            self.file, self.filesize, self.filename_in_server
-        )
+            self.file, self.filesize, self.filename_in_server)
         self.sequence_number = _seq
         self.ack_number = _ack
 
@@ -180,14 +181,17 @@ class UploadClient(Client):
         is_last_chunk: bool = False
 
         self.logger.info(
-            f"Sending file {self.filename_in_server} of {self.file_handler.bytes_to_megabytes(self.filesize)} MB"
-        )
+            f"Sending file {
+                self.filename_in_server} of {
+                self.file_handler.bytes_to_megabytes(
+                    self.filesize)} MB")
 
-        while chunk := self.file_handler.read(self.file, FILE_CHUNK_SIZE_SAW):
+        while chunk := self.file_handler.read(
+                self.file, FILE_CHUNK_SIZE_SAW):
             chunk_len = len(chunk)
             self.logger.debug(
-                f"Sending chunk {chunk_number}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB"
-            )
+                f"Sending chunk {chunk_number}/{total_chunks} of size {
+                    self.file_handler.bytes_to_kilobytes(chunk_len)} KB")
 
             if chunk_number == total_chunks:
                 is_last_chunk = True
@@ -198,8 +202,7 @@ class UploadClient(Client):
             )
 
             self.logger.debug(
-                f"Waiting confirmation for chunk {chunk_number}/{total_chunks}"
-            )
+                f"Waiting confirmation for chunk {chunk_number}/{total_chunks}")
 
             if not is_last_chunk:
                 self.protocol.wait_for_ack(

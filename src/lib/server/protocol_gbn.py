@@ -34,11 +34,16 @@ class ServerProtocolGbn:
         self.clients: ClientPool = clients
 
     def socket_receive_from(self, buffer_size: int):
-        raw_packet, client_address_tuple = self.socket.recvfrom(buffer_size)
+        raw_packet, client_address_tuple = self.socket.recvfrom(
+            buffer_size)
         return raw_packet, client_address_tuple
 
-    def socket_send_to(self, packet_to_send: PacketGbn, client_address: Address):
-        packet_bin: bytes = PacketParser.compose_packet_gbn_for_net(packet_to_send)
+    def socket_send_to(
+            self,
+            packet_to_send: PacketGbn,
+            client_address: Address):
+        packet_bin: bytes = PacketParser.compose_packet_gbn_for_net(
+            packet_to_send)
         self.socket.sendto(packet_bin, client_address)
 
     def validate_inbound_packet(
@@ -93,8 +98,11 @@ class ServerProtocolGbn:
         if sequence_number.value != packet.sequence_number:
             raise InvalidSequenceNumber(packet=packet)
 
-    def receive_file_chunk(self, sequence_number: SequenceNumber) -> PacketGbn:
-        raw_packet, client_address_tuple = self.socket_receive_from(FULL_BUFFER_SIZE)
+    def receive_file_chunk(
+            self,
+            sequence_number: SequenceNumber) -> PacketGbn:
+        raw_packet, client_address_tuple = self.socket_receive_from(
+            FULL_BUFFER_SIZE)
 
         packet, client_address = self.validate_inbound_packet(
             raw_packet, client_address_tuple
@@ -143,13 +151,15 @@ class ServerProtocolGbn:
         )
 
         self.socket_send_to(packet_to_send, self.client_address)
-        packet_bin: bytes = PacketParser.compose_packet_gbn_for_net(packet_to_send)
+        packet_bin: bytes = PacketParser.compose_packet_gbn_for_net(
+            packet_to_send)
         return packet_bin
 
     def wait_for_ack(
         self, _sequence_number: SequenceNumber, ack_number: SequenceNumber
     ) -> PacketGbn:
-        raw_packet, server_address_tuple = self.socket_receive_from(COMMS_BUFFER_SIZE)
+        raw_packet, server_address_tuple = self.socket_receive_from(
+            COMMS_BUFFER_SIZE)
 
         try:
             packet, server_address = self.validate_inbound_ack(

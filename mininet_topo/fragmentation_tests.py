@@ -18,7 +18,8 @@ WAIT_TIME = 1
 
 def run_tcpdump(node, interface, output_file):
     """Start tcpdump on a node and return process ID"""
-    return node.cmd(f"tcpdump -i {interface} -nn -w {output_file} & echo $!")
+    return node.cmd(
+        f"tcpdump -i {interface} -nn -w {output_file} & echo $!")
 
 
 def kill_process(node, pid):
@@ -48,12 +49,14 @@ def run_automated_test(protocol, h1, h2, s2):
 
     info(f"Starting iperf {protocol} server on h1...\n")
     server_args = "-s -u" if protocol == "UDP" else "-s"
-    h1.cmd(f"iperf {server_args} > {CAPTURE_DIR}/iperf_{protocol_lower}_server.log &")
+    h1.cmd(
+        f"iperf {server_args} > {CAPTURE_DIR}/iperf_{protocol_lower}_server.log &")
     time.sleep(WAIT_TIME)
 
     info(f"Running iperf {protocol} client on h2...\n")
     if protocol == "TCP":
-        client_output = h2.cmd(f"iperf -c 10.0.0.1 -t {TEST_DURATION} -M {FRAG_MSS}")
+        client_output = h2.cmd(
+            f"iperf -c 10.0.0.1 -t {TEST_DURATION} -M {FRAG_MSS}")
     else:
         client_output = h2.cmd(
             f"iperf -c 10.0.0.1 -u -b 10m -t {TEST_DURATION} -l {FRAG_MSS}"
@@ -75,8 +78,9 @@ def fragmentation_test():
     """IPv4 fragmentation test using a central router"""
 
     topo = LinearEndsTopo(
-        client_number=1, packet_loss_percentage=PACKET_LOSS_PERCENTAGE, mtu=REDUCED_MTU
-    )
+        client_number=1,
+        packet_loss_percentage=PACKET_LOSS_PERCENTAGE,
+        mtu=REDUCED_MTU)
     net = Mininet(topo=topo, link=TCLink)
 
     net.start()

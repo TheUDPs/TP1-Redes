@@ -55,16 +55,18 @@ class GoBackNReceiver:
             packet_storage.value = packet
         else:
             self.logger.warn(
-                f"Found invalid sequence number, expected seq {self.sqn_number.value}"
-            )
+                f"Found invalid sequence number, expected seq {
+                    self.sqn_number.value}")
             self.logger.debug("Resending filesize status")
             self.protocol.socket.sendto(
                 last_transmitted_packet, self.protocol.client_address
             )
 
     def receive_first_chunk(
-        self, last_transmitted_packet, chunk_number, should_continue_reception
-    ):
+            self,
+            last_transmitted_packet,
+            chunk_number,
+            should_continue_reception):
         first_chunk_received = MutableVariable(False)
         packet = MutableVariable(None)
 
@@ -125,8 +127,8 @@ class GoBackNReceiver:
             except InvalidSequenceNumber:
                 chunk_number -= 1
                 self.logger.warn(
-                    f"Found invalid sequence number, expected seq {self.sqn_number.value}"
-                )
+                    f"Found invalid sequence number, expected seq {
+                        self.sqn_number.value}")
                 self.protocol.send_ack(self.sqn_number, self.ack_number)
 
         return self.sqn_number, self.ack_number

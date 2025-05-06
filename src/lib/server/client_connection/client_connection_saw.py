@@ -43,7 +43,8 @@ class ClientConnectionSaw(ClientConnection):
     def receive_single_chunk(
         self, sequence_number: MutableVariable, chunk_number: int
     ) -> Packet:
-        _seq, packet = self.protocol.receive_file_chunk(sequence_number.value)
+        _seq, packet = self.protocol.receive_file_chunk(
+            sequence_number.value)
         sequence_number.value = _seq
 
         if not packet.is_fin:
@@ -81,7 +82,8 @@ class ClientConnectionSaw(ClientConnection):
         while not packet.is_fin:
             chunk_number += 1
             sequence_number.value.step()
-            packet = self.receive_single_chunk(sequence_number, chunk_number)
+            packet = self.receive_single_chunk(
+                sequence_number, chunk_number)
 
         self.logger.debug("Finished receiving file")
         self.file_handler.close(self.file)
@@ -104,14 +106,16 @@ class ClientConnectionSaw(ClientConnection):
         is_first_chunk: bool = True
 
         self.logger.info(
-            f"Sending file {filename.value} of {self.file_handler.bytes_to_megabytes(filesize)} MB"
-        )
+            f"Sending file {
+                filename.value} of {
+                self.file_handler.bytes_to_megabytes(filesize)} MB")
 
-        while chunk := self.file_handler.read(self.file, FILE_CHUNK_SIZE_SAW):
+        while chunk := self.file_handler.read(
+                self.file, FILE_CHUNK_SIZE_SAW):
             chunk_len = len(chunk)
             self.logger.debug(
-                f"Sending chunk {chunk_number}/{total_chunks} of size {self.file_handler.bytes_to_kilobytes(chunk_len)} KB"
-            )
+                f"Sending chunk {chunk_number}/{total_chunks} of size {
+                    self.file_handler.bytes_to_kilobytes(chunk_len)} KB")
 
             if chunk_number == total_chunks:
                 is_last_chunk = True
@@ -130,15 +134,18 @@ class ClientConnectionSaw(ClientConnection):
             )
 
             if not is_last_chunk:
-                self.logger.debug(f"Waiting confirmation for chunk {chunk_number}")
+                self.logger.debug(
+                    f"Waiting confirmation for chunk {chunk_number}")
                 self.protocol.wait_for_ack(sequence_number.value)
 
             chunk_number += 1
             is_first_chunk = False
 
-    def closing_handshake_for_upload(self, sequence_number: MutableVariable):
+    def closing_handshake_for_upload(
+            self, sequence_number: MutableVariable):
         try:
-            self.logger.debug("Connection finalization received. Confirming it")
+            self.logger.debug(
+                "Connection finalization received. Confirming it")
             self.protocol.send_ack(
                 sequence_number.value,
                 NO_ACK_NUMBER.value,
@@ -157,7 +164,8 @@ class ClientConnectionSaw(ClientConnection):
             sequence_number.value.step()
             try:
                 self.protocol.wait_for_ack(
-                    sequence_number.value, exceptions_to_let_through=[ConnectionLost]
+                    sequence_number.value, exceptions_to_let_through=[
+                        ConnectionLost]
                 )
             except ConnectionLost:
                 pass
@@ -168,7 +176,8 @@ class ClientConnectionSaw(ClientConnection):
         finally:
             self.state = ConnectionState.DONE_READY_TO_DIE
 
-    def closing_handshake_for_download(self, sequence_number: MutableVariable):
+    def closing_handshake_for_download(
+            self, sequence_number: MutableVariable):
         self.logger.debug("Waiting for confirmation of last packet")
         self.protocol.wait_for_fin_or_ack(sequence_number.value)
 
@@ -190,7 +199,8 @@ class ClientConnectionSaw(ClientConnection):
         filename_for_upload: MutableVariable,
         filesize_for_upload: MutableVariable,
     ):
-        self.receive_file(sequence_number, filename_for_upload, filesize_for_upload)
+        self.receive_file(
+            sequence_number, filename_for_upload, filesize_for_upload)
         self.closing_handshake_for_upload(sequence_number)
 
     def perform_download(

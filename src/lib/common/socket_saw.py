@@ -36,11 +36,12 @@ class SocketSaw:
             return
 
         self.logger.warn(
-            f"Retransmission from timeout attempt number {attempt_number - 1}"
-        )
+            f"Retransmission from timeout attempt number {
+                attempt_number - 1}")
         self.sendto(self.last_raw_packet, self.last_address)
 
-    def retransmit_last_packet_for_re_listen(self, re_listen_attempmt: int):
+    def retransmit_last_packet_for_re_listen(
+            self, re_listen_attempmt: int):
         if self.last_raw_packet is None:
             return
 
@@ -77,8 +78,7 @@ class SocketSaw:
                     )
                     connection_not_lost_yet = time() <= connection_lost_deadline
                     can_still_retransmit = (
-                        did_not_exceed_max_retransmissions and connection_not_lost_yet
-                    )
+                        did_not_exceed_max_retransmissions and connection_not_lost_yet)
 
                     if can_still_retransmit:
                         self.retransmit_last_packet(transmission_attempt)
@@ -88,11 +88,12 @@ class SocketSaw:
                     break
                 else:
                     try:
-                        self.socket.settimeout(remaining_until_retransmission)
+                        self.socket.settimeout(
+                            remaining_until_retransmission)
                         raw_packet, server_address_tuple = self.socket.recvfrom(
-                            buffer_size
-                        )
-                        self.socket.settimeout(SOCKET_CONNECTION_LOST_TIMEOUT)
+                            buffer_size)
+                        self.socket.settimeout(
+                            SOCKET_CONNECTION_LOST_TIMEOUT)
                         return raw_packet, server_address_tuple
 
                     except SocketTimeout:
@@ -103,8 +104,10 @@ class SocketSaw:
         return raw_packet, server_address_tuple
 
     def recvfrom(
-        self, buffer_size: int, should_retransmit: bool, do_not_timeout: bool = False
-    ):
+            self,
+            buffer_size: int,
+            should_retransmit: bool,
+            do_not_timeout: bool = False):
         if not should_retransmit or self.last_raw_packet is None:
             try:
                 if do_not_timeout:
@@ -112,14 +115,14 @@ class SocketSaw:
                 else:
                     self.socket.settimeout(SOCKET_CONNECTION_LOST_TIMEOUT)
 
-                raw_packet, server_address_tuple = self.socket.recvfrom(buffer_size)
+                raw_packet, server_address_tuple = self.socket.recvfrom(
+                    buffer_size)
                 return raw_packet, server_address_tuple
             except OSError:
                 raise ConnectionLost()
 
         raw_packet, server_address_tuple = self.recvfrom_with_retransmission(
-            buffer_size
-        )
+            buffer_size)
         return raw_packet, server_address_tuple
 
     def shutdown(self, shutdown_type):

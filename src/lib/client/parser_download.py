@@ -10,13 +10,11 @@ from lib.common.constants import (
 class ClientDownloadArgParser:
     def __init__(self):
         self.internal_parser = argparse.ArgumentParser(
-            description="Client side application to download files from the server side"
-        )
+            description="Client side application to download files from the server side")
 
     def parse(self) -> argparse.Namespace:
         verbosity_group = self.internal_parser.add_mutually_exclusive_group(
-            required=False
-        )
+            required=False)
 
         verbosity_group.add_argument(
             "-v",

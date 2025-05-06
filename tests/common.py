@@ -73,7 +73,12 @@ def start_upload_client(host, tmp_path, port, protocol, file_to_upload):
     return pid.strip(), log_file
 
 
-def start_download_client(host, tmp_path, port, protocol, file_to_download):
+def start_download_client(
+        host,
+        tmp_path,
+        port,
+        protocol,
+        file_to_download):
     log_file = f"{tmp_path}/client_output.log"
     downloaded_filepath = f"{tmp_path}/client/{file_to_download}"
     pid = host.cmd(
@@ -82,7 +87,13 @@ def start_download_client(host, tmp_path, port, protocol, file_to_download):
     return pid.strip(), log_file
 
 
-def start_download_client2(host, tmp_path, port, protocol, file_to_download, saved_as):
+def start_download_client2(
+        host,
+        tmp_path,
+        port,
+        protocol,
+        file_to_download,
+        saved_as):
     log_file = f"{tmp_path}/client_output_{host.name}.log"
     downloaded_filepath = f"{tmp_path}/client/{saved_as}"
     pid = host.cmd(
@@ -97,7 +108,8 @@ def teardown_directories(tmp_path):
 
 def create_empty_file_with_name(filepath):
     with open(filepath, "w", encoding="utf-8") as f:
-        f.write("Just some empty text. It's important that is has the same name\n")
+        f.write(
+            "Just some empty text. It's important that is has the same name\n")
 
 
 def generate_random_text_file(filepath, size_mb=5):
@@ -174,8 +186,10 @@ def get_random_port():
 
 
 def poll_results(
-    server_log, client_log, server_message_expected, client_message_expected
-):
+        server_log,
+        client_log,
+        server_message_expected,
+        client_message_expected):
     was_client_successful = MutableVariable(False)
     was_server_successful = MutableVariable(False)
 
@@ -189,7 +203,8 @@ def poll_results(
                     for message in client_message_expected:
                         if message in output:
                             was_client_successful.value = True
-                            print(f"Found client success message: '{message}'")
+                            print(
+                                f"Found client success message: '{message}'")
                             break
 
                     if error_prefix in output and not was_client_successful.value:
@@ -238,7 +253,8 @@ def check_results(
     TEST_POLLING_TIME = 1
     start_time = time()
 
-    # To increase the time allow to pass before timeout taking into account package loss
+    # To increase the time allow to pass before timeout taking into account
+    # package loss
     timeout_coefficient = p_loss / 13
     # 0 -> 0
     # 10 -> 0.5
@@ -246,7 +262,8 @@ def check_results(
     total_timeout = TEST_TIMEOUT + (TEST_TIMEOUT * timeout_coefficient)
 
     end_time = start_time + total_timeout
-    print(f"Waiting up to {total_timeout} seconds for file transfer to complete...")
+    print(
+        f"Waiting up to {total_timeout} seconds for file transfer to complete...")
 
     while time() < end_time:
         sleep(TEST_POLLING_TIME)

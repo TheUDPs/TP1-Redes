@@ -28,9 +28,13 @@ P_LOSS = MutableVariable(0)
 PROTOCOL = MutableVariable("saw")
 
 
-@pytest.fixture(
-    scope="module", params=["saw;0", "saw;10", "saw;40", "gbn;0", "gbn;10", "gbn;40"]
-)
+@pytest.fixture(scope="module",
+                params=["saw;0",
+                        "saw;10",
+                        "saw;40",
+                        "gbn;0",
+                        "gbn;10",
+                        "gbn;40"])
 def mininet_net_setup(request):
     protocol = request.param.split(";")[0]
     packet_loss_percentage = int(request.param.split(";")[1])
@@ -43,8 +47,7 @@ def mininet_net_setup(request):
     )
     net = Mininet(topo=topo, link=TCLink)
     print(
-        f"[Fixture] Starting Mininet network with p_loss={packet_loss_percentage}%..."
-    )
+        f"[Fixture] Starting Mininet network with p_loss={packet_loss_percentage}%...")
 
     net.start()
 
@@ -85,7 +88,8 @@ def check_results_multiple_clients(
     total_timeout = TEST_TIMEOUT + (TEST_TIMEOUT * timeout_coefficient)
 
     end_time = start_time + total_timeout
-    print(f"Waiting up to {total_timeout} seconds for file transfer to complete...")
+    print(
+        f"Waiting up to {total_timeout} seconds for file transfer to complete...")
 
     while time() < end_time:
         sleep(TEST_POLLING_TIME)
@@ -113,7 +117,9 @@ def check_results_multiple_clients(
             was_client_successful.value = _was_client_successful.value
             was_server_successful.value = _was_server_successful.value
 
-            if are_all_successful(was_client_successful_array, was_server_successful):
+            if are_all_successful(
+                    was_client_successful_array,
+                    was_server_successful):
                 print("Success! All clients and the server reported completion.")
                 should_break.value = True
 
@@ -157,7 +163,8 @@ def test_01_server_can_handle_correctly_3_downloads_and_1_upload_simultaneously(
     port = get_random_port()
 
     print(f"Starting server on {h1.name}...")
-    server_pid, server_log = start_server(h1, tmp_dirpath, port, PROTOCOL.value)
+    server_pid, server_log = start_server(
+        h1, tmp_dirpath, port, PROTOCOL.value)
 
     sleep(1)  # wait for server start
 
@@ -195,8 +202,7 @@ def test_01_server_can_handle_correctly_3_downloads_and_1_upload_simultaneously(
     sleep(0.5)  # wait for client start
 
     upload_client_1_pid, upload_client_1_log = start_upload_client(
-        h2, tmp_dirpath, port, PROTOCOL.value, file_to_upload=filepath_for_upload
-    )
+        h2, tmp_dirpath, port, PROTOCOL.value, file_to_upload=filepath_for_upload)
 
     sleep(0.5)  # wait for client start
 
@@ -264,23 +270,24 @@ def test_01_server_can_handle_correctly_3_downloads_and_1_upload_simultaneously(
     )
 
     hash_client_1_upload = compute_sha256(filepath_for_upload)
-    hash_server_upload = compute_sha256(f"{tmp_dirpath}/server/test_file_upload.txt")
+    hash_server_upload = compute_sha256(
+        f"{tmp_dirpath}/server/test_file_upload.txt")
 
-    assert hash_client_1_download == hash_server_for_download, (
-        "SHA256 mismatch: downloaded file (client 1) is not identical to the original"
-    )
+    assert (
+        hash_client_1_download == hash_server_for_download
+    ), "SHA256 mismatch: downloaded file (client 1) is not identical to the original"
 
-    assert hash_client_2_download == hash_server_for_download, (
-        "SHA256 mismatch: downloaded file (client 2) is not identical to the original"
-    )
+    assert (
+        hash_client_2_download == hash_server_for_download
+    ), "SHA256 mismatch: downloaded file (client 2) is not identical to the original"
 
-    assert hash_client_3_download == hash_server_for_download, (
-        "SHA256 mismatch: downloaded file (client 3) is not identical to the original"
-    )
+    assert (
+        hash_client_3_download == hash_server_for_download
+    ), "SHA256 mismatch: downloaded file (client 3) is not identical to the original"
 
-    assert hash_client_1_upload == hash_server_upload, (
-        "SHA256 mismatch: uploaded file (client 1) is not identical to the original"
-    )
+    assert (
+        hash_client_1_upload == hash_server_upload
+    ), "SHA256 mismatch: uploaded file (client 1) is not identical to the original"
 
     assert was_server_successful.value
 

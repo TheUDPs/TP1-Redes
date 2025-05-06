@@ -18,8 +18,12 @@ from lib.server.exceptions.invalid_directory import InvalidDirectory
 
 class Server:
     def __init__(
-        self, logger: CoolLogger, host: str, port: int, storage: str, protocol: str
-    ):
+            self,
+            logger: CoolLogger,
+            host: str,
+            port: int,
+            storage: str,
+            protocol: str):
         self.logger: CoolLogger = logger
         self.host: str = host
         self.port: int = port
@@ -31,9 +35,12 @@ class Server:
             self.storage = getcwd()
 
         try:
-            self.file_handler: FileHandler = FileHandler(self.storage, self.logger)
+            self.file_handler: FileHandler = FileHandler(
+                self.storage, self.logger)
         except InvalidDirectory as e:
-            self.logger.error(f"Error opening storage directory: {e.message}")
+            self.logger.error(
+                f"Error opening storage directory: {
+                    e.message}")
             sys.exit(ERROR_EXIT_CODE)
         except Exception as e:
             self.logger.error(f"Error opening storage directory: {e}")
@@ -41,8 +48,10 @@ class Server:
 
         try:
             self.accepter: Accepter = Accepter(
-                self.address, self.protocol, self.logger.clone(), self.file_handler
-            )
+                self.address,
+                self.protocol,
+                self.logger.clone(),
+                self.file_handler)
         except CannotBindSocket:
             self.logger.error("Shutdown server")
             sys.exit(ERROR_EXIT_CODE)
@@ -82,7 +91,8 @@ class Server:
         try:
             should_stop_event.wait()
         except KeyboardInterrupt:
-            self.logger.info("KeyboardInterrupt received, shutting down...")
+            self.logger.info(
+                "KeyboardInterrupt received, shutting down...")
             should_stop_event.set()
 
         self.stop(wait_for_quit_thread, quited)

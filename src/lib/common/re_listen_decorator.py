@@ -73,7 +73,8 @@ def re_listen_if_failed(exceptions_to_let_through=None):
                 except want_to_catch as e:
                     exception_got = e
                     listening_attempts += 1
-                    self.socket.retransmit_last_packet_for_re_listen(listening_attempts)
+                    self.socket.retransmit_last_packet_for_re_listen(
+                        listening_attempts)
                     self.logger.warn(
                         f"Re-listening attempt attempt number {listening_attempts}. Due to cause: {e.message}"
                     )
@@ -86,7 +87,8 @@ def re_listen_if_failed(exceptions_to_let_through=None):
                 or accumulated_time >= SOCKET_CONNECTION_LOST_TIMEOUT
             ):
                 if listening_attempts >= MAX_RETRANSMISSION_ATTEMPTS:
-                    self.logger.warn("Max package reception retrials reached")
+                    self.logger.warn(
+                        "Max package reception retrials reached")
                 else:
                     self.logger.warn("Timeout reached")
 

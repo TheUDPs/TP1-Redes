@@ -57,11 +57,17 @@ class FileHandler:
 
     def open_file_write_mode(self, filepath: str, is_path_complete: bool):
         final_filepath = self.get_filepath(filepath, is_path_complete)
-        return self.open_file(final_filepath, is_write=True, is_binary=True)
+        return self.open_file(
+            final_filepath,
+            is_write=True,
+            is_binary=True)
 
     def open_file_read_mode(self, filepath: str, is_path_complete: bool):
         final_filepath = self.get_filepath(filepath, is_path_complete)
-        return self.open_file(final_filepath, is_write=False, is_binary=True)
+        return self.open_file(
+            final_filepath,
+            is_write=False,
+            is_binary=True)
 
     def get_filesize(self, filepath: str, is_path_complete: bool):
         final_filepath = self.get_filepath(filepath, is_path_complete)
@@ -105,7 +111,8 @@ class FileHandler:
         is_path_complete: bool,
     ):
         try:
-            final_filepath = self.get_filepath(filename.value, is_path_complete)
+            final_filepath = self.get_filepath(
+                filename.value, is_path_complete)
 
             if not path.isfile(final_filepath):
                 return
@@ -114,17 +121,20 @@ class FileHandler:
 
             if filesize.value is None:
                 self.logger.warn(
-                    f"File {final_filepath} is corrupted or incomplete. Removing file"
-                )
+                    f"File {final_filepath} is corrupted or incomplete. Removing file")
                 remove(final_filepath)
             elif real_size != filesize.value:
-                self.logger.warn(f"File {final_filepath} is corrupted or incomplete.")
                 self.logger.warn(
-                    f"Expected {self.bytes_to_kilobytes(filesize.value)} kB, got {self.bytes_to_kilobytes(real_size)} kB. Removing file"
-                )
+                    f"File {final_filepath} is corrupted or incomplete.")
+                self.logger.warn(
+                    f"Expected {
+                        self.bytes_to_kilobytes(
+                            filesize.value)} kB, got {
+                        self.bytes_to_kilobytes(real_size)} kB. Removing file")
                 remove(final_filepath)
             else:
                 self.logger.debug(f"File {final_filepath} is OK")
 
         except Exception as e:
-            self.logger.warn(f"Error checking or removing file {filename.value}: {e}")
+            self.logger.warn(
+                f"Error checking or removing file {filename.value}: {e}")
