@@ -1,4 +1,4 @@
-% Created 2025-05-06 mar 16:20
+% Created 2025-05-06 mar 16:37
 % Intended LaTeX compiler: pdflatex
 \documentclass[titlepage,a4paper]{article}
 \usepackage[utf8]{inputenc}
@@ -42,6 +42,8 @@
 \usepackage[nottoc]{tocbibind}
 \usepackage{amsmath}
 \usepackage{changepage}
+\usepackage{caption}
+\captionsetup{aboveskip=5pt, belowskip=5pt}
 \author{Vicky}
 \date{\today}
 \title{}
@@ -81,7 +83,7 @@
 \definecolor{bg}{rgb}{0.95,0.95,0.95}
 
 \section{Introducción}
-\label{sec:org969f1a8}
+\label{sec:orgfe4845e}
 
 En el presente trabajo práctico se desarrolla una aplicación de red para la transferencia de archivos, basada en una arquitectura
 cliente-servidor, donde un servidor puede atender las operaciones de múltiples clientes de manera concurrente, con el objetivo principal de implementar mecanismos de transferencia de datos confiable. Para ello, se trabajará
@@ -93,7 +95,7 @@ condiciones de red y evaluar el comportamiento de las implementaciones, incluyen
 
 
 \section{Hipótesis y suposiciones realizadas}
-\label{sec:org7c18454}
+\label{sec:orgc7d1b87}
 
 \begin{itemize}
 \item La carga/descarga no va a conservar la metadata del archivo. Es decir, si yo descargo un archivo, ese archivo va a tener metadata como si yo hubiera creado el archivo desde cero usando `touch archivo`.
@@ -111,9 +113,9 @@ condiciones de red y evaluar el comportamiento de las implementaciones, incluyen
 \end{itemize}
 
 \section{Implementación}
-\label{sec:org2312a5f}
+\label{sec:orgb0ab97d}
 \subsection{Topología propia LinearEnds}
-\label{sec:org5e230f0}
+\label{sec:org5d08a90}
 
 \begin{center}
 \includegraphics[width=0.5\textwidth]{docs/imgs/linear_ends_multiple_clients_with_loss.png}
@@ -123,10 +125,10 @@ La topología diseñada es una red lineal con 1 host servidor (izquierda) conect
 
 
 \subsection{Especificación del protocolo Stop-and-Wait}
-\label{sec:org7c0a0ff}
+\label{sec:orga02fae7}
 
 \subsubsection{General}
-\label{sec:orgf870506}
+\label{sec:org6f61292}
 
 
 \textbf{Formato de mensaje SaW}: \\
@@ -168,7 +170,7 @@ El tamaño máximo de payload permitido por el protocolo está basado en el MTU 
 
 
 \subsubsection{Handshake}
-\label{sec:org81a7e86}
+\label{sec:org0e33123}
 
 \begin{center}
 \includegraphics[width=0.5\textwidth]{docs/imgs/connection-handshake.png}
@@ -202,7 +204,7 @@ Se usa la nomenclatura S para mencionar al servidor y C para el cliente.
 Se hace una transferencia de puerto para que el welcoming socket se encargue solamente de establecer conexiones y el nuevo puerto maneje la transferencia de datos del archivo. El último ACK de parte del cliente asegura que se recibió el puerto donde se tiene que comunicar y es seguro hacer el cambio de socket.
 
 \subsubsection{Etapa de configuración y Transferencia}
-\label{sec:org4134b97}
+\label{sec:org394db36}
 
 El cliente ya sabe que tiene que comunicarse con el nuevo puerto.
 
@@ -278,7 +280,7 @@ Se envía primero la configuración para saber si la operación es válida, teni
 \end{enumerate}
 
 \subsubsection{Cierre}
-\label{sec:org29a41fc}
+\label{sec:org16cad01}
 
 El flag FIN va piggybacked con la última data para que sea más eficiente. El receptor confirma con un ACK seguido de un FIN para que el emisor sepa que le llegó la información, y por si este se pierde está el último ACK para confirmar el cierre de parte del emisor. \\
 
@@ -316,7 +318,7 @@ Esto garantiza que se realice el esfuerzo máximo por parte del cliente y el ser
 
 
 \subsubsection{Ciclo de Vida de Upload}
-\label{sec:orgfd32d33}
+\label{sec:orgf1aef45}
 
 \begin{center}
 \includegraphics[width=0.75\textwidth]{docs/imgs/saw_upload.png}
@@ -325,13 +327,13 @@ Esto garantiza que se realice el esfuerzo máximo por parte del cliente y el ser
 \newpage
 
 \subsubsection{Análisis del Ciclo de Vida de Upload de una transferencia con Stop-and-Wait}
-\label{sec:orgce21620}
+\label{sec:orgca785db}
 
 En esta transferencia se utiliza el protocolo \textbf{\textbf{Stop-and-Wait}}, que asegura la entrega de datos mediante la espera de una confirmación (ACK) por cada paquete enviado antes de continuar. El archivo transferido es `report.pdf` y tiene un tamaño total de 1526 bytes.
 
 \begin{enumerate}
 \item Establecimiento de la conexión (Handshake):
-\label{sec:org1faef60}
+\label{sec:org3b6a4e9}
 
 \begin{itemize}
 \item El \textbf{\textbf{cliente}} inicia la conexión enviando un paquete con el flag \texttt{SYN} y \texttt{seq=0}.
@@ -341,7 +343,7 @@ En esta transferencia se utiliza el protocolo \textbf{\textbf{Stop-and-Wait}}, q
 \end{itemize}
 
 \item Configuración:
-\label{sec:orgedacc1a}
+\label{sec:org2c98d5a}
 
 \begin{itemize}
 \item El \textbf{\textbf{cliente}} envía un paquete con \texttt{seq=0} y \texttt{data=report.pdf}, indicando el nombre del archivo como payload.
@@ -351,7 +353,7 @@ En esta transferencia se utiliza el protocolo \textbf{\textbf{Stop-and-Wait}}, q
 \end{itemize}
 
 \item Transferencia del archivo:
-\label{sec:org9031a97}
+\label{sec:org55ec639}
 
 \begin{itemize}
 \item El \textbf{\textbf{cliente}} envía un chunk de datos con \texttt{seq=0}, \texttt{payload\_length=1426}, y datos binarios (\texttt{data=101110...}).
@@ -362,7 +364,7 @@ En esta transferencia se utiliza el protocolo \textbf{\textbf{Stop-and-Wait}}, q
 \end{itemize}
 
 \item Cierre de la conexión (Closing handshake):
-\label{sec:org3593699}
+\label{sec:org7d7adfa}
 
 \begin{itemize}
 \item El \textbf{\textbf{servidor}} confirma la recepción del último paquete con un \texttt{ACK} (\texttt{seq=1}).
@@ -372,7 +374,7 @@ En esta transferencia se utiliza el protocolo \textbf{\textbf{Stop-and-Wait}}, q
 \end{enumerate}
 
 \subsubsection{Ciclo de Vida de Download}
-\label{sec:org4403825}
+\label{sec:org3480555}
 
 \begin{center}
 \includegraphics[width=0.75\textwidth]{docs/imgs/saw_download.png}
@@ -381,13 +383,13 @@ En esta transferencia se utiliza el protocolo \textbf{\textbf{Stop-and-Wait}}, q
 \newpage
 
 \subsubsection{Análisis del Ciclo de Vida de Download de una transferencia con Stop-and-Wait}
-\label{sec:orga874acc}
+\label{sec:org4be25c3}
 
 Esta transferencia ilustra el funcionamiento del protocolo Stop-and-Wait en una operación de descarga de archivos. El archivo solicitado por el cliente es report.pdf, con un tamaño total de 3000 bytes, dividido en fragmentos de máximo 1426 bytes. Cada paquete de datos enviado requiere una confirmación antes de que el servidor continúe con el siguiente.
 
 \begin{enumerate}
 \item Establecimiento de la conexión (Handshake):
-\label{sec:org7b17d93}
+\label{sec:orgd54aada}
 
 \begin{itemize}
 \item El cliente inicia la conexión con un paquete SYN con \texttt{seq=0}.
@@ -397,7 +399,7 @@ Esta transferencia ilustra el funcionamiento del protocolo Stop-and-Wait en una 
 \end{itemize}
 
 \item Configuración:
-\label{sec:orgbc6e543}
+\label{sec:org091d431}
 
 \begin{itemize}
 \item El cliente solicita el archivo enviando un paquete con \texttt{seq=0} y \texttt{data=report.pdf} como payload.
@@ -406,7 +408,7 @@ Esta transferencia ilustra el funcionamiento del protocolo Stop-and-Wait en una 
 \end{itemize}
 
 \item Transferencia del archivo:
-\label{sec:org63041fe}
+\label{sec:orgf4acb2f}
 
 \begin{itemize}
 \item El servidor envía el segundo fragmento: \texttt{seq=1}, \texttt{payload\_length=1426}, y \texttt{data=101110...}.
@@ -414,7 +416,7 @@ Esta transferencia ilustra el funcionamiento del protocolo Stop-and-Wait en una 
 \end{itemize}
 
 \item Cierre de la conexión (Closing handshake):
-\label{sec:orgf87b6d3}
+\label{sec:orgf50c294}
 
 \begin{itemize}
 \item El servidor, en el último chunk de datos indica el fin de la transmisión con un paquete FIN: \texttt{seq=0}, \texttt{payload\_length=100}, y \texttt{data=101110...}.
@@ -425,7 +427,7 @@ Esta transferencia ilustra el funcionamiento del protocolo Stop-and-Wait en una 
 \end{enumerate}
 
 \subsubsection{Manejo de retransmisiones}
-\label{sec:org39331d6}
+\label{sec:org7a86093}
 
 Ahora que se detalló los mensajes que se intercambian entre el cliente y el servidor, se presenta cómo maneja el protocolo una pérdida de paquetes.
 
@@ -434,10 +436,10 @@ La retransmisión se da siempre por parte de quien está esperando un mensaje, e
 El accepter del servidor es un caso particular, es quien maneja el welcoming socket y hace la transferencia de la conexión a otro socket específico para ese flujo, y si recibe mensajes que no son un connection request para iniciar el handshake, o no son una continuación de un handshake en progreso, los rechaza y no retransmite.
 
 \subsection{Especificación del protocolo Go-Back-N}
-\label{sec:org0727ffd}
+\label{sec:org6d5df9d}
 
 \subsubsection{General}
-\label{sec:org0d47e83}
+\label{sec:orgc156f7c}
 
 \textbf{Formato de mensaje GBN}: \\
 
@@ -480,20 +482,20 @@ El tamaño se determina análogamente a SAW, sólo que esta vez se le resta el t
 
 
 \subsubsection{Ciclo de Vida de Upload}
-\label{sec:orgd4fea5b}
+\label{sec:org1711523}
 
 \begin{center}
 \includegraphics[width=0.65\textwidth]{docs/imgs/gbn_upload.png}
 \end{center}
 
 \subsubsection{Análisis del Ciclo de Vida de Upload de una transferencia con Go-Back-N}
-\label{sec:org9b5b782}
+\label{sec:orgcfb8b75}
 
 Se observa el comportamiento de una transferencia de archivos con una ventana de tamaño 2. En este caso, el cliente sube un archivo (report.pdf) de 3000 bytes al servidor.
 
 \begin{enumerate}
 \item Establecimiento de la conexión (Handshake):
-\label{sec:orgc80600a}
+\label{sec:org3d7c901}
 
 \begin{itemize}
 \item El cliente inicia la conexión enviando un paquete con el flag \texttt{SYN}, con \texttt{seq=0} y \texttt{ack=0}.
@@ -503,7 +505,7 @@ Se observa el comportamiento de una transferencia de archivos con una ventana de
 \end{itemize}
 
 \item Configuración:
-\label{sec:orgd5ed1ce}
+\label{sec:org9544ac8}
 
 \begin{itemize}
 \item El cliente envía un paquete con \texttt{seq=2}, \texttt{ack=2} y \texttt{data=report.pdf}, indicando el nombre del archivo a subir.
@@ -513,7 +515,7 @@ Se observa el comportamiento de una transferencia de archivos con una ventana de
 \end{itemize}
 
 \item Transferencia del archivo:
-\label{sec:org5904300}
+\label{sec:org53e08fd}
 
 \begin{itemize}
 \item El cliente envía el primer chunk de datos con \texttt{seq=4}, \texttt{ack=4}, \texttt{payload\_length=1416} y \texttt{data=101110}.
@@ -523,7 +525,7 @@ Se observa el comportamiento de una transferencia de archivos con una ventana de
 \end{itemize}
 
 \item Cierre de la conexión (Closing handshake):
-\label{sec:orgcfaf9a8}
+\label{sec:orga64662e}
 
 \begin{itemize}
 \item El cliente inicia el cierre enviando un paquete \texttt{FIN} con \texttt{seq=6}, \texttt{ack=5}, \texttt{payload\_length=168} y \texttt{data=101110}.
@@ -534,7 +536,7 @@ Se observa el comportamiento de una transferencia de archivos con una ventana de
 \end{enumerate}
 
 \subsubsection{Ciclo de Vida de Download}
-\label{sec:orga7a4dd6}
+\label{sec:org1973c9b}
 
 \begin{center}
 \includegraphics[width=0.7\textwidth]{docs/imgs/gbn_download.png}
@@ -543,14 +545,14 @@ Se observa el comportamiento de una transferencia de archivos con una ventana de
 \newpage
 
 \subsubsection{Análisis del Ciclo de Vida de Download de una transferencia con Go-Back-N}
-\label{sec:org9082a5c}
+\label{sec:org2d7e1e2}
 
 Se observa el comportamiento de una transferencia de archivos con una ventana de tamaño 2. En
 este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el servidor.
 
 \begin{enumerate}
 \item Establecimiento de la conexión (Handshake):
-\label{sec:org4cf790f}
+\label{sec:org3fbad7b}
 \begin{itemize}
 \item El cliente inicia la conexión enviando un paquete con el flag \texttt{SYN}, con \texttt{seq=0} y \texttt{ack=0}.
 \item El servidor responde con un paquete con flags \texttt{SYN} y \texttt{ACK} manteniendo los mismos valores de \texttt{seq} y \texttt{ack}.
@@ -559,7 +561,7 @@ este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el 
 \end{itemize}
 
 \item Configuración:
-\label{sec:org58e3e91}
+\label{sec:orga2f718b}
 \begin{itemize}
 \item El cliente envía un paquete con \texttt{seq=2}, \texttt{ack=2} y \texttt{data=report.pdf}, indicando el nombre del archivo a descargar.
 \item El servidor responde con un paquete de datos con \texttt{seq=2}, \texttt{ack=2}, una \texttt{size} de 1416 bytes y los primeros bits del archivo.
@@ -567,7 +569,7 @@ este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el 
 \end{itemize}
 
 \item Transferencia del archivo:
-\label{sec:org9fabe65}
+\label{sec:org6be1dac}
 \begin{itemize}
 \item El servidor envía el segundo \texttt{chunk} de datos (\texttt{seq=3}, \texttt{ack=2}), también de 1416 bytes.
 \item Posteriormente, se envía un paquete con el flag \texttt{FIN} (\texttt{seq=4}, \texttt{ack=2}, \texttt{payload\_length=168}), marcando el último chunk.
@@ -575,7 +577,7 @@ este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el 
 \end{itemize}
 
 \item Cierre de la conexión (Closing handshake):
-\label{sec:org94a4f93}
+\label{sec:org9b37a73}
 \begin{itemize}
 \item El cliente envía un \texttt{FIN} para finalizar su lado de la comunicación (\texttt{seq=4, ack=4}).
 \item El servidor responde con un \texttt{ACK} final (\texttt{seq=5, ack=5}), completando el cierre de la conexión de manera ordenada.
@@ -585,47 +587,47 @@ este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el 
 \end{enumerate}
 
 \subsubsection{Manejo de retransmisiones}
-\label{sec:org36d989b}
+\label{sec:org90d3309}
 
 
 \section{Análisis}
-\label{sec:org2f42b73}
+\label{sec:org8b31a22}
 
 En esta sección compararemos el performance de los protocolos Go Back N y Stop \& Wait bajo distintas configuraciones de pérdida de paquetes y utilizando archivos de distintos tamaños.
 
 \subsection{Upload}
-\label{sec:org15c3cf4}
+\label{sec:org1221d0b}
 
 \begin{center}
 \begin{tabular}{lllllll}
 \textbf{\textbf{File Size}} & \textbf{\textbf{SAW (0\%)}} & \textbf{\textbf{SAW (10\%)}} & \textbf{\textbf{SAW (40\%)}} & \textbf{\textbf{GBN (0\%)}} & \textbf{\textbf{GBN (10\%)}} & \textbf{\textbf{GBN (40\%)}}\\
 \hline
-`6 MB` & 0.3748s & 6.2843s & 29.1048s & 0.2684s & 2.8044s & 11.9307s\\
-`25 MB` & 1.3594s & 27.1792s & 123.2692s & 0.8491s & 11.9623s & 51.3981s\\
+\textbf{\textbf{6 MB}} & 0.3748s & 6.2843s & 29.1048s & 0.2684s & 2.8044s & 11.9307s\\
+\textbf{\textbf{25 MB}} & 1.3594s & 27.1792s & 123.2692s & 0.8491s & 11.9623s & 51.3981s\\
 \end{tabular}
 \end{center}
 
 \subsection{Download}
-\label{sec:org11c72c5}
+\label{sec:orgab85716}
 
 \begin{center}
 \begin{tabular}{lllllll}
 \textbf{\textbf{File Size}} & \textbf{\textbf{SAW (0\%)}} & \textbf{\textbf{SAW (10\%)}} & \textbf{\textbf{SAW (40\%)}} & \textbf{\textbf{GBN (0\%)}} & \textbf{\textbf{GBN (10\%)}} & \textbf{\textbf{GBN (40\%)}}\\
 \hline
-`6 MB` & 0.3745s & 6.1496s & 28.1998s & 0.2326s & 2.5937s & 11.6761s\\
-`25 MB` & 1.6736s & 27.7168s & 120.4340s & 1.0254s & 11.7572s & 51.7844s\\
+\textbf{\textbf{6 MB}} & 0.3745s & 6.1496s & 28.1998s & 0.2326s & 2.5937s & 11.6761s\\
+\textbf{\textbf{25 MB}} & 1.6736s & 27.7168s & 120.4340s & 1.0254s & 11.7572s & 51.7844s\\
 \end{tabular}
 \end{center}
 
 
 
 \section{Pruebas}
-\label{sec:org5c85c23}
+\label{sec:org9f8f6c6}
 
 Se presentan capturas de diferentes casos de uso de la aplicación.
 
 \subsection{Casos de error}
-\label{sec:orgf50d677}
+\label{sec:org37ee116}
 
 \begin{itemize}
 \item Protocol Mismatch
@@ -655,12 +657,12 @@ Para ambos protocolos, si el cliente intenta subir un archivo que el servidor ya
 Para ambos protocolos, si el cliente intenta descargar un archivo que el servidor no posee, se rechaza.
 
 \subsection{Stop \& Wait}
-\label{sec:org8cedfad}
+\label{sec:orgd46aa9f}
 
 Para mostrar el funcionamiento de Stop \& Wait, mostraremos las capturas de las operaciones upload y download de un archivo pequeño de 5kB a modo de ejemplo. Primero sin pérdida de paquetes, y luego con una pérdida del 10\% utilizando mininet.
 
 \subsubsection{Stop \& Wait sin pérdida de paquetes}
-\label{sec:orge6587dd}
+\label{sec:orgff46a7c}
 
 \begin{itemize}
 \item Upload
@@ -684,7 +686,7 @@ Para mostrar el funcionamiento de Stop \& Wait, mostraremos las capturas de las 
 \captionof{figure}{Captura de wireshark de Download con Stop and Wait.}
 
 \subsubsection{Stop \& Wait con pérdida de paquetes del 10\%}
-\label{sec:org3f6dbb1}
+\label{sec:orge40a6f0}
 
 \begin{itemize}
 \item Upload
@@ -708,7 +710,7 @@ Para mostrar el funcionamiento de Stop \& Wait, mostraremos las capturas de las 
 \captionof{figure}{Captura de wireshark de Download con Stop and Wait con pérdida del 10 por ciento.}
 
 \subsection{Go Back N}
-\label{sec:org3b47871}
+\label{sec:org4658678}
 
 Para mostrar el funcionamiento de Go Back N, mostraremos las capturas de las operaciones upload y download del mismo archivo de 5kB. Para este caso, mostraremos únicamente el caso con pérdida de paquetes, ya que el escenario con pérdida resulta muy similar al de Stop \& Wait debido a que la ventana que utilizamos es mayor a la cantidad de paquetes que posee este archivo.
 
@@ -734,7 +736,7 @@ Para mostrar el funcionamiento de Go Back N, mostraremos las capturas de las ope
 \captionof{figure}{Captura de wireshark de Download con Go Back N.}
 
 \subsection{Pruebas automatizadas}
-\label{sec:orgcb2f037}
+\label{sec:org5fd935a}
 
 Si bien se detallaron ejemplos manuales donde se probaron las características del protocolo de aplicación desarrollado, también se desarrollaron pruebas automatizadas con \emph{pytest}, siendo ventajoso el hecho de que Mininet está desarrollo en Python y ofrece una API.
 
@@ -764,15 +766,15 @@ Todas estas pruebas se ejecutan, cada una, bajo las siguientes condiciones:
 Estas pruebas generan un alto consumo de CPU y poseen una cota de tiempo (establecida para que en el CI/CD no consuma recursos de más) por lo que requieren de hardware adecuado.
 
 \section{Preguntas a Responder}
-\label{sec:org6333d22}
+\label{sec:orgfc79de1}
 \subsection{Describa la arquitectura Cliente-Servidor.}
-\label{sec:org9b1ccbd}
+\label{sec:org2115640}
 La arquitectura Cliente-Servidor es una de dos arquitecturas más comunes. En esta arquitectura hay un \emph{host} (\emph{end system}) llamado \emph{server} que esta siempre encendido que pasivamente escucha \emph{requests} de otros \emph{hosts} llamados \emph{clients} que son agentes activos que inician la comunicación con el \emph{server}.
 
 Un ejemplo de esta arquitectura es una aplicacion Web donde hay un \emph{Web server} que escucha \emph{requests} de navegadores web. El navegador web es el cliente que inicia la comunicación y el \emph{Web server} es el servidor que responde a los \emph{requests}. Estos mensajes tienen el formato de Capa de Aplicación HTTP.
 
 \subsubsection{Caracteristicas}
-\label{sec:orgc02317d}
+\label{sec:org0e921aa}
 \begin{itemize}
 \item Los clientes son agentes activos que inician la comunicación.
 \item Los clientes no se comunican entre sí.
@@ -783,7 +785,7 @@ Un ejemplo de esta arquitectura es una aplicacion Web donde hay un \emph{Web ser
 \end{itemize}
 
 \subsubsection{Ventajas}
-\label{sec:orgca0d229}
+\label{sec:org4c0c8fd}
 \begin{itemize}
 \item Diseño simple usando protocolos sin estado como HTTP donde el servidor no
 necesita mantener información sobre clientes ya que se puede guardar
@@ -793,7 +795,7 @@ información del cliente en \emph{cookies} del cliente y estos se transmitidos e
 \end{itemize}
 
 \subsubsection{Desventajas}
-\label{sec:org6678ad3}
+\label{sec:org136aebe}
 \begin{itemize}
 \item Un solo punto de falla. Si el servidor se cae, el servicio se cae.
 \item El servidor debe estar encendido todo el tiempo.
@@ -803,7 +805,7 @@ clientes.
 \end{itemize}
 
 \subsection{¿Cuál es la función de un protocolo de capa de aplicación?}
-\label{sec:orgad06e4e}
+\label{sec:orge5cab25}
 
 Un protocolo de capa de aplicación especifica cómo los procesos de una aplicación, que se ejecutan en diferentes sistemas finales, intercambian mensajes entre sí. Este tipo de protocolo define:
 
@@ -820,15 +822,15 @@ Un protocolo de capa de aplicación especifica cómo los procesos de una aplicac
 En resumen, los protocolos de capa de aplicación aseguran que las aplicaciones puedan comunicarse correctamente y coordinarse en la red, haciendo posible servicios como el correo electrónico, la web o la transferencia de archivos.
 
 \subsection{Detalle el protocolo de aplicación desarrollado en este trabajo.}
-\label{sec:orgeb3091c}
+\label{sec:org38af948}
 
-Este apartado fue detallado y explicado en la sección \hyperref[sec:org2312a5f]{\textbf{Implementación}}.
+Este apartado fue detallado y explicado en la sección \hyperref[sec:orgb0ab97d]{\textbf{Implementación}}.
 
 \subsection{La capa de transporte del stack TCP/IP ofrece dos protocolos: TCP y UDP.}
-\label{sec:org1a8f79a}
+\label{sec:orgd00fcd6}
 
 \subsubsection{¿Qué servicios proveen dichos protocolos?}
-\label{sec:org6302257}
+\label{sec:org957f372}
 
 Ambos protocolos proveen los siguientes servicios:
 
@@ -852,7 +854,7 @@ Por su parte, TCP ofrece las siguientes funcionalidades adicionales:
 \end{itemize}
 
 \subsubsection{¿Cuáles son sus características?}
-\label{sec:org8e86e2c}
+\label{sec:org95c94f1}
 
 Algunas de las características de UDP son las siguientes:
 \begin{itemize}
@@ -870,16 +872,16 @@ Por su parte, TCP posee las siguientes características:
 \end{itemize}
 
 \subsubsection{¿Cuándo es apropiado utilizar cada uno?}
-\label{sec:org09a3dfa}
+\label{sec:org7ba18ad}
 
 Ninguno de estos protocolos es mejor que el otro. Para decidir cuál de ellos utilizar, se deben tener en cuenta las necesidades de la aplicación.
 Debido a las características mencionadas anteriormente, UDP resulta más apropiado para aplicaciones que requieran mayor velocidad sin que sea tan sensible a algunas pérdidas de paquetes, por ejemplo plataformas de streaming, y si se tiene un servidor dedicado a una aplicación específica que necesita poder admitir muchos más clientes activos.
 Por otro lado, TCP es más ventajoso para las aplicaciones que necesitan un transporte confiable de los datos. Algunos ejemplos son el email y la web.
 
 \section{Anexo: Fragmentación IPv4}
-\label{sec:org56ae8e2}
+\label{sec:orge7211d3}
 \subsection{Consideraciones iniciales}
-\label{sec:orgc4cc942}
+\label{sec:org4ace23b}
 
 Se propuso inicialmente una red de topología lineal que una a:
 \begin{itemize}
@@ -901,16 +903,16 @@ Otro de los conflictos presentados es la comunicación bidireccional. Reducir el
 Por lo tanto, si se desea una tráfico bidireccional de paquetes excedentes al MTU de alguna de las interfaces de la ruta esta NO debe estar vinculada a un switch, de lo contrario se perderá todo paquete que exceda el MTU reducido. Dicho esto, se decidió arbitrariamente que basta con tener comunicación unidireccional (C \(\rightarrow\) S) para poder provocar el fenómeno de fragmentación de paquetes.
 
 \subsection{Análisis}
-\label{sec:orga5be2bf}
+\label{sec:org9af3439}
 \subsubsection{Topología}
-\label{sec:orge8c5204}
+\label{sec:org00fcd85}
 \noindent \includegraphics[width=\textwidth]{docs/frag_imgs/linear_ends_fragmentation_item.png}
 \captionof{figure}{Red con un servidor, dos switches, un router y un cliente}
 
 Se define una pérdida de 20\% de paquetes sobre el enlace próximo al servidor, un MTU de 800 en la interfaz saliente del router (s2-eth0) y un tamaño de paquetes de 1000B siendo ambos valores elegidos arbitrariamente, basta con generar tráfico de paquetes de tamaño superior al MTU reducido para estudiar este fenómeno.
 
 \subsubsection{Proceso de fragmentación}
-\label{sec:org9c9fb25}
+\label{sec:orgee15e31}
 
 Habiendo definido la red como se mencionó anteriormente, se genera tráfico de cliente a servidor usando iperf y se capturan los paquetes recibidos y enviados por las interfaces del router (s2) con Wireshark para estudiar este fenómeno. Por ejemplo:
 
@@ -933,7 +935,7 @@ Wireshark agrupa los fragmentos bajo un mismo “Reassembled in \#” basándose
 Sumando las longitudes de los fragmentos observamos que el router termina transmitiendo más datos que los recibidos originalmente: esto se debe a que cada fragmento es un paquete en si mismo, y por cada fragmento generado es un nuevo header.
 
 \subsubsection{Funcionamiento de TCP ante la pérdida de un fragmento}
-\label{sec:orgb673b5c}
+\label{sec:org6ac53e0}
 TCP es un protocolo de transporte que maneja la retransmisión de datos tras pérdida y detección a partir de ACKs duplicados. Este fenómeno es muy simple de visualizar en Wireshark, donde se señala en la columna de información cuando un paquete corresponde a información retransmitida.
 
 Cuando un paquete TCP es demasiado grande para pasar por una interfaz con un MTU pequeño y no tiene activado el bit "Don't Fragment", el router lo fragmenta a nivel IP. Esto significa que el paquete IP original se divide en varios fragmentos IP, cada uno con su propio encabezado IP, pero todos parte del mismo datagrama original.
@@ -958,7 +960,7 @@ Capturando el output del comando iperf (ejecutado durante 3 segundos) se puede o
 \captionof{figure}{Captura de iperf TCP desde servidor}
 
 \subsubsection{Funcionamiento de UDP ante la pérdida de un fragmento}
-\label{sec:org192ed9c}
+\label{sec:orgd3196cc}
 
 UDP no es un protocolo orientado a la transferencia confiable de datos, por lo que NO cuenta con ningún mecanismo tras pérdida de paquetes, solamente envía sin garantía de recepción.
 
@@ -981,7 +983,7 @@ Sin embargo, al haber pérdida de paquetes cercano al servidor, esta no puede ob
 Donde se observa una pérdida en torno al 20\% definido inicialmente.
 
 \subsubsection{Aumento de tráfico al reducirse el MTU mínimo de la red.}
-\label{sec:orgb2f998d}
+\label{sec:org8a78b1c}
 
 Por último, el fenómeno más sencillo de comprobar. Como se mencionó anteriormente, ya que el router fragmenta paquetes de ambos protocolos de transporte en función de su tamaño y el MTU de la interfaz de salida, siempre va a enviar más paquetes de los que recibe, por lo que se observa un aumento notorio del tráfico en la red. Para esta experiencia, se observa un aumento trabajando con UDP:
 
@@ -1001,17 +1003,17 @@ Y se observa también un aumento en el tráfico de la red trabajando con TCP:
 
 
 \section{Dificultades Encontradas}
-\label{sec:org371aa65}
+\label{sec:orgf013125}
 
 \subsection{Mininet}
-\label{sec:org953b0b7}
+\label{sec:org89e75fe}
 
 Inicialmente se tuvo que entender de manera profunda cómo funciona Mininet, para poder crear una topología modularizable en 3 apartados: cantidad de clientes, porcentaje de packet loss y reducción de MTU. Se tuvo que leer la documentación y documentación creada por la comunidad para lograr el cometido y crear una topología robusta.
 
 A pesar de las dificultados quedamos satisfechos e incluso esto nos permitió compartir la topología con la feature de reducción de MTU con nuestros compañeros de manera pública a pedido del profesor, se puede encontrar esto en este link: \href{https://github.com/gabrieldiem/linear-ends-topology-with-ip-frag}{Linear ends topology with IP fragmentation}.
 
 \subsection{Protocolo SAW}
-\label{sec:orgb26c505}
+\label{sec:orga4dcf63}
 
 Teniendo sólida la teoría de cómo debería funcionar el protocolo nos encontramos con el problema de cómo, técnicamente, realizar la retransmisión, además de qué criterio tomar para espaciarlas y cuántas deberían haber.
 
@@ -1020,7 +1022,7 @@ Despúes de intentar con un enfoque poco escalable en términos de código (nota
 Este cambio de enfoque permitió destrabar progresivamente los problemas de debugging que nos fuimos encontrando a lo largo del TP, e.g. sequence number incorrecto, socket trabado en receive, entre otros.
 
 \subsection{Protocolo GBN}
-\label{sec:org9674866}
+\label{sec:org77566a5}
 
 En términos de avance del proyecto, primero desarrollamos el procolo SAW, por lo que para el comienzo del desarrollo del protocolo GBN ya teníamos el conocimiento de ejecución y el código ya armado para el SAW.
 
@@ -1031,12 +1033,12 @@ Esto llevó a realizar un manejo especial del primer y último chunk dentro de l
 Al comienzo del proyecto debatimos sobre si usar un mismo formato de header para ambos protocolos o si utilizar dos distintos. La decisión que tomamos fue utilizar un header apropiado para cada protocolo, de tal manera no arrastraríamos decisiones tomadas para GBN (como el ACK number, o el tamaño del sequence number) que no tienen sentido para SAW.
 
 \subsection{Plugin de Wireshark}
-\label{sec:org2fcd396}
+\label{sec:org7012955}
 
 Se encontraron dificultades para armar el plugin dinámico que reconozca el protocolo que se esta utilizando y a partir de ello realizar el formateo del contenido del paquete, con lo cual, se adquirieron los conocimientos básicos del uso del lenguaje de programación Lua y también de la integración de dicho lenguaje con la herramienta Wireshark.
 
 \section{Conclusión}
-\label{sec:orgae7564e}
+\label{sec:orgc2e5f1b}
 
 El desarrollo de este trabajo práctico permitió consolidar conceptos fundamentales sobre la comunicación entre procesos en redes de computadoras, especialmente aquellos vinculados a la capa de transporte y a los mecanismos necesarios para lograr una transferencia de datos confiable (RDT) sobre el protocolo UDP. La implementación de los protocolos Stop-and-Wait y Go-Back-N brindó una comprensión más profunda de los desafíos involucrados en el diseño de mecanismos de retransmisión y confirmación.
 
@@ -1047,7 +1049,7 @@ Por otro lado, el uso de la interfaz de sockets en Python y la simulación de re
 \newpage
 
 \section{Bibliografía}
-\label{sec:orgcbd2e41}
+\label{sec:org67fb442}
 
 \bibitem{rfc-udp}
 \textit{User Datagram Protocol RFC768 - IETF}. Disponible en: \url{https://www.ietf.org/rfc/rfc768.txt}. Recuperado en Abril del 2025.

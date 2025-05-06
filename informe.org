@@ -30,6 +30,8 @@
 #+LATEX_HEADER_EXTRA: \usepackage[nottoc]{tocbibind}
 #+LATEX_HEADER_EXTRA: \usepackage{amsmath}
 #+LATEX_HEADER_EXTRA: \usepackage{changepage}
+#+LATEX_HEADER_EXTRA: \usepackage{caption}
+#+LATEX_HEADER_EXTRA: \captionsetup{aboveskip=5pt, belowskip=8pt}
 
 #+NAME: setup
 #+BEGIN_SRC emacs-lisp :results silent :exports none
@@ -771,7 +773,7 @@ Para mostrar el funcionamiento de Stop & Wait, mostraremos las capturas de las o
 
 ** Go Back N
 
-Para mostrar el funcionamiento de Go Back N, mostraremos las capturas de las operaciones upload y download del mismo archivo de 5kB. Para este caso, mostraremos únicamente el caso con pérdida de paquetes, ya que el escenario con pérdida resulta muy similar al de Stop & Wait debido a que la ventana que utilizamos es mayor a la cantidad de paquetes que posee este archivo.
+Para mostrar el funcionamiento de Go Back N, mostraremos las capturas de las operaciones upload y download del mismo archivo de 5kB. Para este caso, mostraremos únicamente el caso con 10% de pérdida de paquetes, ya que el escenario sin pérdida resulta muy similar al de Stop & Wait debido a que la ventana que utilizamos es mayor a la cantidad de paquetes que posee este archivo.
 
 - Upload
 
