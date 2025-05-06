@@ -79,7 +79,7 @@ condiciones de red y evaluar el comportamiento de las implementaciones, incluyen
 
 - La carga/descarga no va a conservar la metadata del archivo. Es decir, si yo descargo un archivo, ese archivo va a tener metadata como si yo hubiera creado el archivo desde cero usando `touch archivo`.
 - Si el cliente utiliza otro protocolo para comunicarse con el server, el server debe rechazar este pedido, esta condición se la denominará *protocol mismatch*. El header tendrá un campo dedicado a la versión del protocolo.
-- El argumento de FILENAME sera opcional, en caso de no estar, se utiliza el nombre original del archivo.
+- El argumento de FILENAME será opcional, en caso de no estar, se utiliza el nombre original del archivo.
 - Por simplicidad, vamos a guardar todos los archivos en DIRPATH sin ningún nivel de subdirectorios.
 - Si no se provee un DIRPATH para el storage del servidor, se utiliza el directorio actual.
 - Se verifica que hayan 100 megas disponibles en el disco para realizar un upload al server.
@@ -96,7 +96,7 @@ condiciones de red y evaluar el comportamiento de las implementaciones, incluyen
 #+ATTR_LATEX: :width 0.5\textwidth
 [[file:docs/imgs/linear_ends_multiple_clients_with_loss.png]]
 
-La topología diseñada es una red lineal con 1 host servidor (izquierda) conectado a 3 switches en serie cuyo ultimo switch esta conectado a *n* hosts clientes (derecha). El primer enlace (el conectado entre el servidor y el primer switch) tiene configurado un packet loss del 10% configurado de forma simetrica 5% en cada extremo del enlace.
+La topología diseñada es una red lineal con 1 host servidor (izquierda) conectado a 3 switches en serie cuyo último switch esta conectado a *n* hosts clientes (derecha). El primer enlace (el conectado entre el servidor y el primer switch) tiene configurado un packet loss del 10% configurado de forma simétrica 5% en cada extremo del enlace.
 
 
 ** Especificación del protocolo Stop-and-Wait
@@ -138,7 +138,7 @@ El header tiene un tamaño de 6 bytes. \\
 *Tamaño máximo de payload* \\
 
 
-El tamaño máximo de payload permitido por el protolo está basado en el MTU establecido en el estándar Ethernet, es decir, 1500 bytes. Teniendo en cuenta que esto debería ser lo máximo que transporte un paquete de IP, se toman estos 1500 bytes como base, se le resta el tamaño de un header máximo de IP (60 bytes), lo mismo con el header de UDP (8 bytes) y se le resta el tamaño de header del protocolo (6 bytes). Quedando así un payload máximo de 1426 bytes.
+El tamaño máximo de payload permitido por el protocolo está basado en el MTU establecido en el estándar Ethernet, es decir, 1500 bytes. Teniendo en cuenta que esto debería ser lo máximo que transporte un paquete de IP, se toman estos 1500 bytes como base, se le resta el tamaño de un header máximo de IP (60 bytes), lo mismo con el header de UDP (8 bytes) y se le resta el tamaño de header del protocolo (6 bytes). Quedando así un payload máximo de 1426 bytes.
 
 
 *** Handshake
@@ -234,7 +234,7 @@ _Continuación de mensajes para caso Upload_:
 
 *** Cierre
 
-El flag FIN va piggybacked con la última data para que sea más eficiente. El receptor confirma con un ACK + FIN para que el emisor sepa que le llego la informacion, y por si este se pierde está el último ACK para confirmar el cierre de parte del emisor. \\
+El flag FIN va piggybacked con la última data para que sea más eficiente. El receptor confirma con un ACK + FIN para que el emisor sepa que le llegó la información, y por si este se pierde está el último ACK para confirmar el cierre de parte del emisor. \\
 
 **** Mensajes para caso Download
 
@@ -305,7 +305,7 @@ scale 2.0
 participant Client
 participant Server
 
-group ‎  [Handshake]
+group [Handshake]
 
 Client ->(10) Server : [SYN]\nseq=0
 Server ->(10) Client : [SYN], [ACK]\nseq=0
@@ -386,7 +386,7 @@ scale 2.0
 participant Client
 participant Server
 
-group ‎  [Handshake]
+group [Handshake]
 
 Client ->(10) Server : [SYN]\nseq=0
 Server ->(10) Client : [SYN], [ACK]\nseq=0
@@ -505,7 +505,7 @@ scale 2.0
 participant Client
 participant Server
 
-group ‎  [Handshake]
+group [Handshake]
 
 Client ->(10) Server : [SYN]\nseq=0, ack=0
 Server ->(10) Client : [SYN], [ACK]\nseq=0, ack=0
@@ -549,7 +549,7 @@ caption \nGo-Back-N protocol with window of\n 2 packets. Client uploads file \n(
 #+RESULTS:
 [[file:docs/imgs/gbn_upload.png]]
 
-*** Analisis del Ciclo de Vida de Upload de una transferencia con Go-Back-N
+*** Análisis del Ciclo de Vida de Upload de una transferencia con Go-Back-N
 
 Se observa el comportamiento de una transferencia de archivos con una ventana de tamaño 2. En este caso, el cliente sube un archivo (report.pdf) de 3000 bytes al servidor.
 
@@ -648,7 +648,7 @@ este caso, el cliente descarga un archivo (`report.pdf`) de 3000 bytes desde el 
 **** Establecimiento de la conexión (Handshake):
 - El cliente inicia la conexión enviando un paquete con el flag ~SYN~, con ~seq=0~ y ~ack=0~.
 - El servidor responde con un paquete con flags ~SYN~ y ~ACK~ manteniendo los mismos valores de ~seq~ y ~ack~.
-- El cliente confirma la recepción enviando un paquete ~ACK~ con ~seq=1~ y ~ack=1~, incluyendo en datos la configuración del codigo de operacion (en este caso de descarga) ~data=1 (op_code)~.
+- El cliente confirma la recepción enviando un paquete ~ACK~ con ~seq=1~ y ~ack=1~, incluyendo en datos la configuración del código de operación (en este caso de descarga) ~data=1 (op_code)~.
 - El servidor responde con un ~ACK~ para confirmar la recepción del mensaje de configuración.
 
 **** Configuración:
@@ -757,7 +757,7 @@ Para mostrar el funcionamiento de Go Back N, mostraremos las capturas de las ope
 
 ** Pruebas automatizadas
 
-Si bien se detallaron ejemplos manuales donde se probaron las características del protocolo de aplicación desarrollado, también de desarrollaron pruebas automatizadas con /pytest/, siendo ventajoso el hecho de que Mininet está desarrollo en Python y ofrece una API.
+Si bien se detallaron ejemplos manuales donde se probaron las características del protocolo de aplicación desarrollado, también se desarrollaron pruebas automatizadas con /pytest/, siendo ventajoso el hecho de que Mininet está desarrollo en Python y ofrece una API.
 
 Se desarrollaron pruebas de integración que testean:
 
@@ -765,7 +765,7 @@ Se desarrollaron pruebas de integración que testean:
 - Caso download cuando la ubicación de guardado del archivo a descargar ya existe.
 - Caso download cuando el archivo a descargar no existe en el servidor.
 - Caso upload cuando la ubicación del archivo a subir no existe.
-- Caso download cuando el archivo a subir ya existe con el nombre proveido en el servidor.
+- Caso download cuando el archivo a subir ya existe en el servidor con el nombre proveído.
 - Caso de comunicación fallida por protocol mismatch entre servidor y clientes.
 - Caso de descargas y subida múltiples y simultáneas.
 
@@ -788,7 +788,7 @@ Un ejemplo de esta arquitectura es una aplicacion Web donde hay un /Web server/ 
 
 *** Caracteristicas
  - Los clientes son agentes activos que inician la comunicación.
- - Los clientes no se comunican entre si.
+ - Los clientes no se comunican entre sí.
  - Los clientes no necesitan estar encendidos todo el tiempo ni tener una IP fija.
  - Los servidores son pasivos y siempre están encendidos.
  - Los servidores *deben* tener una IP fija bien conocida (/well-known IP address/) que se puede resolver con un nombre de dominio DNS (/domain name/).
@@ -796,16 +796,16 @@ Un ejemplo de esta arquitectura es una aplicacion Web donde hay un /Web server/ 
 
 *** Ventajas
  - Diseño simple usando protocolos sin estado como HTTP donde el servidor no
-   necesita mantener informacion sobre clientes ya que se puede guardar
-   informacion del cliente en /cookies/ del cliente y estos se transmitidos en
+   necesita mantener información sobre clientes ya que se puede guardar
+   información del cliente en /cookies/ del cliente y estos se transmitidos en
    /headers/ HTTP.
- - Puede soportar un gran numero de clientes.
+ - Puede soportar un gran número de clientes.
 
 *** Desventajas
  - Un solo punto de falla. Si el servidor se cae, el servicio se cae.
  - El servidor debe estar encendido todo el tiempo.
- - Gran costo para escalar, ya que a medida de que el servicio tiene mas
-   usuarios, el servidor debe tambien aumentar su capacidad de procesar mas
+ - Gran costo para escalar, ya que a medida de que el servicio tiene más
+   usuarios, el servidor debe también aumentar su capacidad de procesar más
    clientes.
 
 ** ¿Cuál es la función de un protocolo de capa de aplicación?
@@ -841,9 +841,9 @@ UDP no realiza ninguna otra función extra. Por lo tanto, su servicio es:
 
 Por su parte, TCP ofrece las siguientes funcionalidades adicionales:
 - *Orientado a la conexión*: antes de que un proceso de aplicación pueda comenzar a enviar datos a otro, ambos procesos deben comunicarse entre sí; es decir, deben enviarse algunos segmentos preliminares para establecer los parámetros de la transferencia de datos subsiguiente. Se trata de una conexión lógica con un estado en común que reside en TCP de los hosts.
-- *Transferencia de datos confiable*: garantiza la entrega, el orden y la no corrupción de los datos. Esto lo logra mediante timers, numeros de secuencia y ACKs (flags que indican que un paquete fue entregado correctamente).
+- *Transferencia de datos confiable*: garantiza la entrega, el orden y la no corrupción de los datos. Esto lo logra mediante timers, números de secuencia y ACKs (flags que indican que un paquete fue entregado correctamente).
 - *Control de congestión*: gestiona que no se saturen los enlaces. Es más bien un servicio para la red.
-- *Control de flujo*: para eliminar la posibilidad de que el remitente desborde el búfer del receptor. Hace coincidir la velocidad a la que el remitente envía con la velocidad a la que la aplicación receptora lee.
+- *Control de flujo*: para eliminar la posibilidad de que el remitente desborde el buffer del receptor. Hace coincidir la velocidad a la que el remitente envía con la velocidad a la que la aplicación receptora lee.
 
 *** ¿Cuáles son sus características?
 
@@ -858,7 +858,7 @@ Por su parte, TCP posee las siguientes características:
 - *Conexión point-to-point*: la conexión de TCP únicamente se puede establecer entre un único remitente y un único receptor, no admite multicasting.
 - *Three-Way Handshake*: para establecer la conexión mencionada anteriormente se realiza un procedimiento donde se envían tres segmentos.
 
-*** ¿Cuando es apropiado utilizar cada uno?
+*** ¿Cuándo es apropiado utilizar cada uno?
 
 Ninguno de estos protocolos es mejor que el otro. Para decidir cuál de ellos utilizar, se deben tener en cuenta las necesidades de la aplicación.
 Debido a las características mencionadas anteriormente, UDP resulta más apropiado para aplicaciones que requieran mayor velocidad sin que sea tan sensible a algunas pérdidas de paquetes, por ejemplo plataformas de streaming, y si se tiene un servidor dedicado a una aplicación específica que necesita poder admitir muchos más clientes activos.
@@ -882,7 +882,7 @@ Este cambio de enfoque permitió destrabar progresivamente los problemas de debu
 
 ** Protocolo GBN
 
-En términos de avance del proyecto, primero desarrollamos el procolo SAW, por lo que para el comienzo del desarrollo de el protocolo GBN ya teníamos el conocimiento de ejecución y el código ya armado para el SAW.
+En términos de avance del proyecto, primero desarrollamos el procolo SAW, por lo que para el comienzo del desarrollo del protocolo GBN ya teníamos el conocimiento de ejecución y el código ya armado para el SAW.
 
 De esta manera, analizamos y tomamos la decisión de mantener las etapas de handshake, configuración y closing handshake de SAW, ya que esto no tenía sentido hacerlo de manera GBN, teniendo en cuenta los pocos paquetes que son, en comparación a un envío de archivo de miles de paquetes.
 
@@ -910,7 +910,7 @@ proceso de fragmentación en IPv4. Para lograr este objetivo, se deberá crear
 una red virtual que contenga la topología propuesta y se deberá generar tráfico
 para poder analizar el comportamiento del protocolo IPv4:
 
- - Utilizando mininet. se pide armar una topología lineal formada por dos hosts conectados a traves de 3 switches.
+ - Utilizando mininet. se pide armar una topología lineal formada por dos hosts conectados a través de 3 switches.
  - Reducir el MTU de alguna interfaz del switch central. Configurar un packet loss en una interfaz del switch conectada
  - al segundo host.
  - Generar tráfico UDP/TCP utilizando iperf. Configurar el tamaño de los paquetes de manera tal que se produzca el
