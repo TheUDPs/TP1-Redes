@@ -345,6 +345,7 @@ end
 #+RESULTS:
 [[file:docs/imgs/saw_upload.png]]
 
+/newpage
 
 *** Análisis del Ciclo de Vida de Upload de una transferencia con Stop-and-Wait
 
@@ -424,6 +425,8 @@ end
 #+ATTR_LATEX: :width 0.75\textwidth
 #+RESULTS:
 [[file:docs/imgs/saw_download.png]]
+
+\newpage
 
 *** Análisis del Ciclo de Vida de Download de una transferencia con Stop-and-Wait
 
@@ -710,7 +713,7 @@ Para mostrar el funcionamiento de Stop & Wait, mostraremos las capturas de las o
 
 - Upload
 
-\noindent \includegraphics[width=\textwidth]{docs/imgs/saw_upload.png}
+\noindent \includegraphics[width=\textwidth]{docs/imgs/saw_upload_logs.png}
 \captionof{figure}{Captura de los logs de Upload con Stop and Wait.}
 
 
@@ -719,7 +722,7 @@ Para mostrar el funcionamiento de Stop & Wait, mostraremos las capturas de las o
 
 - Download
 
-\noindent \includegraphics[width=\textwidth]{docs/imgs/saw_download.png}
+\noindent \includegraphics[width=\textwidth]{docs/imgs/saw_download_logs.png}
 \captionof{figure}{Captura de los logs de Download con Stop and Wait.}
 
 \noindent \includegraphics[width=\textwidth]{docs/imgs/saw_download_wireshark.png}
